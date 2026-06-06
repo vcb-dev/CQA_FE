@@ -53,8 +53,8 @@ Dùng cho Dark Mode tự động:
 | `--destructive` | Hành động nguy hiểm/Lỗi |
 
 ## 3. Typography
-- **Font Family:** `Geist Variable` (Variable font).
-- **Fallback:** `Inter`, `-apple-system`, `BlinkMacSystemFont`, `"Segoe UI"`, `sans-serif`.
+- **Font Family:** `Roboto` (Variable font).
+- **Fallback:** `-apple-system`, `BlinkMacSystemFont`, `"Segoe UI"`, `sans-serif`.
 - **Cấu hình:** `html { font-size: 14px; }`.
 
 ## 4. Spacing System (4px Grid)
@@ -112,6 +112,6 @@ Dùng cho Dark Mode tự động:
     "sidebar": "210px",
     "header": "52px"
   },
-  "font": "Geist Variable"
+  "font": "Roboto"
 }
 ```
