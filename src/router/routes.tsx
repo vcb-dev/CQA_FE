@@ -1,4 +1,3 @@
-import DashboardPage from "@/pages/Dashboard/DashboardPage";
 import ConversationsPage from "@/pages/Conversations/ConversationsPage";
 import AIInsightPage from "@/pages/AIInsight/AIInsightPage";
 import QualityPage from "@/pages/Quality/QualityPage";
@@ -11,6 +10,7 @@ import RevenuePage from "@/pages/Revenue/RevenuePage";
 import ReportsPage from "@/pages/Reports/ReportsPage";
 import WarrantyPage from "@/pages/Warranty/WarrantyPage";
 import SettingsPage from "@/pages/Settings/SettingsPage";
+import DashboardPage from "@/pages/Dashboard/DashboardPage";
 
 export const routes = [
   { path: "/", element: <DashboardPage /> },
