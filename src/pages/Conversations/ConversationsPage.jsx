@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ConversationList from '../../app/conversations/components/ConversationList';
 import {
   MagnifyingGlass, Sliders, DotsThree, Star, Smiley,
   Paperclip, Image, Microphone, CaretDown, CaretLeft, CaretRight, Plus, FileText,
@@ -679,181 +680,6 @@ const getMessageDisplayParts = (msg, conv) => {
   };
 };
 
-// ─────────────────────────────────────────
-// LEFT: Conversation list with advanced filters
-// ─────────────────────────────────────────
-function ConvList({ activeId, onSelect, conversationsData, search, setSearch, adsOnly, setAdsOnly }) {
-  const [tab, setTab] = useState('all');
-  const filtered = conversationsData.filter(c => {
-    if (adsOnly && !c.isAds) return false;
-    if (tab === 'pending') return c.unread > 0;
-    if (tab === 'waiting') return c.status === 'pending';
-    if (tab === 'done') return c.status === 'reviewed';
-    return true;
-  });
-
-  return (
-    <div className="conv-panel" style={{ height: '100%', width: '100%', minWidth: 0 }}>
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--n-100)', flexShrink: 0 }}>
-        {conversationTabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            flex: 1, padding: '10px 4px', textAlign: 'center', cursor: 'pointer',
-            borderBottom: tab === t.key ? '2.5px solid var(--primary-600)' : '2.5px solid transparent',
-            transition: 'all 150ms ease',
-          }}>
-            <div style={{ fontSize: '11px', color: tab === t.key ? 'var(--n-600)' : 'var(--n-400)', fontWeight: 700, marginBottom: '2px' }}>
-              {t.label}
-            </div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: tab === t.key ? 'var(--primary-600)' : 'var(--n-800)' }}>
-              {formatCompactNumber(t.count)}
-            </div>
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--n-100)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '10px' }}>
-          <MagnifyingGlass size={13} style={{ color: 'var(--n-400)', flexShrink: 0 }} />
-          <input placeholder="Tìm kiếm hội thoại..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, background: 'transparent', fontSize: '12px', color: 'var(--n-700)' }} />
-          <Sliders size={13} style={{ color: 'var(--n-400)', cursor: 'pointer' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={() => setAdsOnly(!adsOnly)} style={{
-            display: 'flex', alignItems: 'center', gap: '4px',
-            padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-            cursor: 'pointer', transition: 'all 150ms',
-            background: adsOnly ? '#a855f7' : 'var(--n-50)',
-            color: adsOnly ? '#fff' : 'var(--n-500)',
-            border: adsOnly ? '1px solid #a855f7' : '1px solid var(--n-200)',
-          }}>
-            <Megaphone size={10} />
-            Ads
-          </button>
-          <span style={{ fontSize: '11px', color: 'var(--n-400)', fontWeight: 600 }}>{filtered.length}/{formatCompactNumber(conversationTabs[0].count)} tin nhắn</span>
-        </div>
-      </div>
-
-      {/* Conversation Items List */}
-      <div className="conv-items" style={{ flex: 1, overflowY: 'auto' }}>
-        {filtered.map(c => {
-          const isActive = activeId === c.id;
-          const isUnread = c.unread > 0;
-          const staffTags = getStaffListTags(c);
-          
-          const itemStyle = {
-            borderLeft: isActive 
-              ? '4px solid var(--primary-600)' 
-              : isUnread
-                ? '4px solid #f97316' 
-                : '4px solid transparent',
-            background: isActive
-              ? '#eff6ff'
-              : isUnread
-                ? '#fff7ed' 
-                : '#ffffff',
-            transition: 'all 150ms ease',
-            cursor: 'pointer',
-            padding: '10px 14px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            borderBottom: '1px solid var(--n-100)'
-          };
-
-          return (
-            <div key={c.id} style={itemStyle} onClick={() => onSelect(c.id)}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div className="conv-item-avatar" style={{ background: c.avatarColor, width: 36, height: 36, fontSize: '13px' }}>
-                  {c.name.charAt(0)}
-                </div>
-                {isUnread && (
-                  <div style={{
-                    position: 'absolute', top: -1, right: -1,
-                    width: '10px', height: '10px', borderRadius: '50%',
-                    background: '#f97316',
-                    border: '2px solid white',
-                    boxShadow: '0 0 4px rgba(249, 115, 22, 0.5)'
-                  }} />
-                )}
-              </div>
-              <div className="conv-item-content" style={{ flex: 1, minWidth: 0 }}>
-                <div className="conv-item-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <span className="conv-item-name" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: 'var(--n-800)' }}>
-                    {c.name} {c.flag}
-                    {c.isAds && (
-                      <span style={{
-                        fontSize: '9px', fontWeight: 700, padding: '1px 4px',
-                        background: '#a855f7', color: '#fff', borderRadius: '3px',
-                        lineHeight: 1.3,
-                      }}>Ads</span>
-                    )}
-                  </span>
-                  <span className="conv-item-time" style={{ fontSize: '10px', color: 'var(--n-400)' }}>{c.time}</span>
-                </div>
-                <div style={{ fontSize: '10.5px', color: 'var(--n-400)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                  {c.channel}
-                  <span style={{ color: 'var(--n-300)' }}>•</span>
-                  <span style={{ color: 'var(--primary-500)', fontWeight: 500 }}>{c.page}</span>
-                </div>
-                <div className="conv-item-preview" style={{ fontSize: '11.5px', color: isUnread ? '#1e293b' : 'var(--n-500)', fontWeight: isUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {c.preview}
-                </div>
-                <div style={{ fontSize: '10.5px', color: 'var(--n-400)', marginTop: '2px' }}>
-                  👤 {c.employee}
-                </div>
-                {staffTags.length > 0 && (
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '5px' }}>
-                    {staffTags.map((tag, i) => {
-                      const tagStyle = getTagStyle(tag);
-                      return (
-                        <span key={i} style={{
-                          maxWidth: '100%',
-                          fontSize: '9.5px',
-                          padding: '2px 6px',
-                          borderRadius: '5px',
-                          background: tagStyle.bg,
-                          color: tagStyle.color,
-                          fontWeight: 800,
-                          lineHeight: 1.25,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {tag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              {isUnread && (
-                <div style={{
-                  background: '#f97316',
-                  color: '#fff',
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  minWidth: '18px',
-                  height: '18px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 4px',
-                  flexShrink: 0,
-                  alignSelf: 'center',
-                  boxShadow: '0 1px 2px rgba(249, 115, 22, 0.2)'
-                }}>
-                  {c.unread}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────
 // MIDDLE: Chat panel (Taller textarea, suggested scripts, translation toggle, quick tags)
@@ -1923,14 +1749,15 @@ export default function ConversationsPage() {
       <div style={{ display: 'flex', gap: '10px', flex: 1, minHeight: 0 }}>
         {/* Fixed Width Sidebar for conversation items list */}
         <div style={{ width: '240px', minWidth: '240px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <ConvList 
+          <ConversationList 
             activeId={activeConv} 
             onSelect={setActiveConv} 
             conversationsData={filteredConversations} 
-            search={search}
-            setSearch={setSearch}
-            adsOnly={adsOnly}
+            search={search} 
+            setSearch={setSearch} 
+            adsOnly={adsOnly} 
             setAdsOnly={setAdsOnly}
+            conversationTabs={conversationTabs}
           />
         </div>
         

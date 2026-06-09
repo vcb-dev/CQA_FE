@@ -36,11 +36,9 @@ import {
   Warning,
   FacebookLogo,
   Sparkle,
-  Phone,
   SmileyMeh,
 } from "@phosphor-icons/react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const kpiIcons = [
   SealCheck,
@@ -324,7 +322,6 @@ const kpiSparkColors = [
   "#3b82f6",
   "#a855f7",
 ];
-const careIcons = ["🔄", "🔧", "⏳", "😡", "👑"];
 
 export default function DashboardPage() {
   const [anim, setAnim] = useState(false);
@@ -343,51 +340,48 @@ export default function DashboardPage() {
       {/* ── KPI Row ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {dashboardKPIs.map((kpi, i) => (
-          <Card key={i} className="flex flex-col gap-0 p-4 rounded-2xl relative">
+          <Card key={i} className="flex flex-col gap-2 p-6 relative">
             {/* Top: icon + label */}
-            <div className="flex items-start gap-2 mb-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: kpi.bg }}
               >
                 {(() => {
                   const IconComp = kpiIcons[i];
                   return (
                     <IconComp
-                      size={18}
+                      size={20}
                       weight="duotone"
                       style={{ color: kpiSparkColors[i] }}
                     />
                   );
                 })()}
               </div>
-              <span className="text-xs text-muted-foreground pt-0.5 leading-tight">
+              <span className="text-xs text-muted-foreground leading-tight">
                 {kpi.label}
               </span>
             </div>
             {/* Value row */}
             <div className="flex items-end justify-between">
               <div>
-                <div className="text-xl font-extrabold text-foreground leading-none mb-1">
+                <div className="text-2xl font-extrabold text-foreground leading-none mb-1">
                   {kpi.value}
                   {kpi.unit && (
-                    <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
                       {kpi.unit}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                       kpi.changeType === "up"
                         ? "bg-emerald-50 text-emerald-600"
                         : "bg-red-50 text-red-600"
                     }`}
                   >
                     {kpi.change}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {kpi.sub}
                   </span>
                 </div>
               </div>
@@ -400,9 +394,9 @@ export default function DashboardPage() {
       {/* ── Row 2: Line Chart + Donut + Ad Efficiency ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Quality Trend Line Chart */}
-        <Card className="lg:col-span-2 p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-semibold text-sm">Xu hướng chất lượng theo ngày</span>
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-sm">Xu hướng chất lượng theo ngày</CardTitle>
             <div className="flex items-center gap-4">
               <div className="flex gap-3">
                 {[
@@ -423,311 +417,315 @@ export default function DashboardPage() {
                 <option>Theo ngày</option>
               </select>
             </div>
-          </div>
-          <QualityLineChart data={qualityTrend} />
+          </CardHeader>
+          <CardContent>
+            <QualityLineChart data={qualityTrend} />
+          </CardContent>
         </Card>
 
         {/* Donut */}
-        <Card className="p-5 rounded-2xl">
-          <div className="font-semibold text-sm mb-4">
-            Nguồn hội thoại & tỷ lệ chốt
-          </div>
-          <div className="flex items-center gap-4">
-            <DonutChart
-              data={conversationSources.sources}
-              total={conversationSources.total}
-            />
-            <div className="flex flex-col gap-3 flex-1">
-              {conversationSources.sources.map((s, i) => (
-                <div key={i}>
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: s.color }}
-                    />
-                    <span className="text-xs font-semibold text-foreground">
-                      {s.label}
-                    </span>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Nguồn hội thoại & tỷ lệ chốt</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <DonutChart
+                data={conversationSources.sources}
+                total={conversationSources.total}
+              />
+              <div className="flex flex-col gap-3 flex-1">
+                {conversationSources.sources.map((s, i) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: s.color }}
+                      />
+                      <span className="text-xs font-semibold text-foreground">
+                        {s.label}
+                      </span>
+                    </div>
+                    <div className="text-sm font-extrabold text-foreground ml-3 leading-tight">
+                      {s.value.toLocaleString()}
+                      <span className="font-normal text-[10px] text-muted-foreground ml-1">
+                        ({s.pct}%)
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-sm font-extrabold text-foreground ml-3 leading-tight">
-                    {s.value.toLocaleString()}
-                    <span className="font-normal text-[10px] text-muted-foreground ml-1">
-                      ({s.pct}%)
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground ml-3">
-                    {s.sub}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
 
         {/* Ad Campaign Efficiency */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Hiệu quả quảng cáo</div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm">Hiệu quả quảng cáo</CardTitle>
             <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-muted-foreground text-left">
-                <th className="font-normal pb-2">Nguồn</th>
-                <th className="font-normal pb-2">Check</th>
-                <th className="font-normal pb-2">Tỷ lệ</th>
-                <th className="font-normal pb-2">Chốt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adCampaignEfficiency.map((c, i) => (
-                <tr key={i} className="border-t">
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <FacebookLogo
-                        size={14}
-                        weight="fill"
-                        className="text-blue-600 flex-shrink-0"
-                      />
-                      <span className="font-medium">{c.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5 font-semibold">
-                    {c.checked.toLocaleString()}
-                  </td>
-                  <td className="py-2.5">{c.checkRate}</td>
-                  <td className="py-2.5 font-bold text-primary">
-                    {c.closeRate}
-                  </td>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground text-left">
+                  <th className="font-normal pb-2">Nguồn</th>
+                  <th className="font-normal pb-2">Check</th>
+                  <th className="font-normal pb-2">Chốt</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {adCampaignEfficiency.map((c, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <FacebookLogo size={14} weight="fill" className="text-blue-600 flex-shrink-0" />
+                        <span className="font-medium">{c.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 font-semibold">{c.checked.toLocaleString()}</td>
+                    <td className="py-2.5 font-bold text-primary">{c.closeRate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
         </Card>
       </div>
 
       {/* ── Row 3: Top Products + Insights + Sentiment ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Products */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Top sản phẩm quan tâm</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <table className="w-full text-xs">
-            <tbody>
-              {topProducts.map((p, i) => (
-                <tr key={i} className="border-b last:border-b-0">
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold ${i < 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {i + 1}
-                      </span>
-                      <span className="font-medium">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5 font-semibold text-right">
-                    {p.visits.toLocaleString()}
-                  </td>
-                  <td className="py-2.5 font-bold text-primary text-right">
-                    {p.closeRate}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Top sản phẩm quan tâm</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-xs">
+              <tbody>
+                {topProducts.map((p, i) => (
+                  <tr key={i} className="border-b last:border-b-0">
+                    <td className="py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold ${i < 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          {i + 1}
+                        </span>
+                        <span className="font-medium">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 font-semibold text-right">
+                      {p.visits.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 font-bold text-primary text-right">
+                      {p.closeRate}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
         </Card>
 
         {/* Customer Insights */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Insight khách hàng</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {customerInsights.map((ins, i) => {
-              const IconComp = insightIcons[i] || Coins;
-              const insightColors = [
-                "#f59e0b", "#6366f1", "#ec4899", "#3b82f6", "#06b6d4",
-                "#10b981", "#ef4444", "#8b5cf6", "#f97316",
-              ];
-              return (
-                <div key={i} className="flex items-center gap-2 p-2.5 bg-muted rounded-xl border">
-                  <IconComp
-                    size={16}
-                    weight="duotone"
-                    className="flex-shrink-0"
-                    style={{ color: insightColors[i] || "var(--primary-600)" }}
-                  />
-                  <div>
-                    <div className="text-[10px] text-muted-foreground">{ins.label}</div>
-                    <div className="text-xs font-extrabold">{ins.value.toLocaleString()}</div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Insight khách hàng</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {customerInsights.map((ins, i) => {
+                const IconComp = insightIcons[i] || Coins;
+                const insightColors = [
+                  "#f59e0b", "#6366f1", "#ec4899", "#3b82f6", "#06b6d4",
+                  "#10b981", "#ef4444", "#8b5cf6", "#f97316",
+                ];
+                return (
+                  <div key={i} className="flex items-center gap-2 p-2.5 bg-muted rounded-xl border">
+                    <IconComp
+                      size={16}
+                      weight="duotone"
+                      className="flex-shrink-0"
+                      style={{ color: insightColors[i] || "var(--primary-600)" }}
+                    />
+                    <div>
+                      <div className="text-[10px] text-muted-foreground">{ins.label}</div>
+                      <div className="text-xs font-extrabold">{ins.value.toLocaleString()}</div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Customer Sentiment */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Cảm xúc khách hàng (AI)</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <div className="flex justify-around items-center pt-2">
-            {[
-              { label: "Tích cực", data: customerSentiment.positive, icon: Smiley, color: "#22c55e" },
-              { label: "Trung tính", data: customerSentiment.neutral, icon: SmileyMeh, color: "#f59e0b" },
-              { label: "Tiêu cực", data: customerSentiment.negative, icon: SmileySad, color: "#ef4444" },
-            ].map((s, i) => {
-              const IconComp = s.icon;
-              return (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <IconComp size={32} weight="duotone" style={{ color: s.color }} />
-                  <div className="text-xl font-extrabold">{s.data.value}%</div>
-                  <div className="text-[10px] text-muted-foreground">{s.label}</div>
-                  <div className={`text-[10px] font-bold ${s.data.change.includes("↑") ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {s.data.change}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cảm xúc khách hàng (AI)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-around items-center pt-2">
+              {[
+                { label: "Tích cực", data: customerSentiment.positive, icon: Smiley, color: "#22c55e" },
+                { label: "Trung tính", data: customerSentiment.neutral, icon: SmileyMeh, color: "#f59e0b" },
+                { label: "Tiêu cực", data: customerSentiment.negative, icon: SmileySad, color: "#ef4444" },
+              ].map((s, i) => {
+                const IconComp = s.icon;
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    <IconComp size={32} weight="duotone" style={{ color: s.color }} />
+                    <div className="text-xl font-extrabold">{s.data.value}%</div>
+                    <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                    <div className={`text-[10px] font-bold ${s.data.change.includes("↑") ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {s.data.change}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* ── Row 4: Funnel + Care + Pages + Ranking ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Funnel */}
-        <Card className="p-5 rounded-2xl">
-          <div className="font-semibold text-sm mb-4">Phễu chăm sóc & chốt đơn</div>
-          <div className="flex flex-col gap-2">
-            {funnelData.map((f, i) => {
-              const w = 100 - i * 14;
-              const colors = ["#4f46e5", "#6366f1", "#818cf8", "#a78bfa", "#22c55e"];
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-20 text-right leading-tight">
-                    {f.label}
-                  </span>
-                  <div className="flex-1 bg-muted rounded-md h-6 overflow-hidden">
-                    <div
-                      className="h-full rounded-md flex items-center px-2 text-[10px] font-bold text-white transition-all duration-700"
-                      style={{ 
-                        width: anim ? `${w}%` : "0%",
-                        background: colors[i] 
-                      }}
-                    >
-                      {f.value.toLocaleString()}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Phễu chăm sóc & chốt đơn</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              {funnelData.map((f, i) => {
+                const w = 100 - i * 14;
+                const colors = ["#4f46e5", "#6366f1", "#818cf8", "#a78bfa", "#22c55e"];
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-20 text-right leading-tight">
+                      {f.label}
+                    </span>
+                    <div className="flex-1 bg-muted rounded-md h-6 overflow-hidden">
+                      <div
+                        className="h-full rounded-md flex items-center px-2 text-[10px] font-bold text-white transition-all duration-700"
+                        style={{ 
+                          width: anim ? `${w}%` : "0%",
+                          background: colors[i] 
+                        }}
+                      >
+                        {f.value.toLocaleString()}
+                      </div>
                     </div>
+                    <span className="text-[10px] font-semibold text-muted-foreground w-8">
+                      {f.pct || ""}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-semibold text-muted-foreground w-8">
-                    {f.pct || ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Customers Need Care */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Khách cần chăm sóc</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {customersNeedCare.map((c, i) => {
-              const IconComp = careIconsComp[i] || Crown;
-              return (
-                <div key={i} className="flex items-center gap-2 p-2 bg-muted rounded-xl">
-                  <IconComp size={16} weight="duotone" style={{ color: c.color }} />
-                  <span className="flex-1 text-[11px] text-foreground leading-tight">{c.label}</span>
-                  <span className="text-sm font-extrabold" style={{ color: c.color }}>{c.value}</span>
-                </div>
-              );
-            })}
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Khách cần chăm sóc</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              {customersNeedCare.map((c, i) => {
+                const IconComp = careIconsComp[i] || Crown;
+                return (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted rounded-xl">
+                    <IconComp size={16} weight="duotone" style={{ color: c.color }} />
+                    <span className="flex-1 text-[11px] text-foreground leading-tight">{c.label}</span>
+                    <span className="text-sm font-extrabold" style={{ color: c.color }}>{c.value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Top Pages */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Top page / kênh</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <table className="w-full text-[11px]">
-            <tbody>
-              {topPages.map((p, i) => (
-                <tr key={i} className="border-b last:border-b-0">
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <FacebookLogo size={14} weight="fill" className="text-blue-600" />
-                      <span className="font-medium">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold ${p.score >= 80 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                      {p.score}
-                    </span>
-                  </td>
-                  <td className="py-2.5 font-bold text-primary">{p.closeRate}</td>
-                  <td className="py-2.5 text-muted-foreground">{p.revenue}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Top page / kênh</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-[11px]">
+              <tbody>
+                {topPages.map((p, i) => (
+                  <tr key={i} className="border-b last:border-b-0">
+                    <td className="py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <FacebookLogo size={14} weight="fill" className="text-blue-600" />
+                        <span className="font-medium">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold ${p.score >= 80 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                        {p.score}
+                      </span>
+                    </td>
+                    <td className="py-2.5 font-bold text-primary">{p.closeRate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
         </Card>
 
         {/* Employee Ranking */}
-        <Card className="p-5 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-sm">Xếp hạng nhân viên</div>
-            <span className="text-xs text-primary font-medium cursor-pointer">Xem tất cả</span>
-          </div>
-          <table className="w-full text-[11px]">
-            <tbody>
-              {employeeRanking.map((e, i) => (
-                <tr key={i} className="border-b last:border-b-0">
-                  <td className="py-2.5 font-bold">{e.rank}</td>
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: `hsl(${i * 67 + 200}, 58%, 55%)` }}>
-                        {e.avatar}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Xếp hạng nhân viên</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-[11px]">
+              <tbody>
+                {employeeRanking.map((e, i) => (
+                  <tr key={i} className="border-b last:border-b-0">
+                    <td className="py-2.5 font-bold">{e.rank}</td>
+                    <td className="py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: `hsl(${i * 67 + 200}, 58%, 55%)` }}>
+                          {e.avatar}
+                        </div>
+                        <span className="font-medium">{e.name}</span>
                       </div>
-                      <span className="font-medium">{e.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5 font-bold" style={{ color: getQAColor(e.score) }}>{e.score}</td>
-                  <td className="py-2.5 text-muted-foreground">{e.closeRate}</td>
-                  <td className="py-2.5 text-muted-foreground">{e.conversations}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td className="py-2.5 font-bold" style={{ color: getQAColor(e.score) }}>{e.score}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
         </Card>
       </div>
 
       {/* ── Row 5: Recent Activities ── */}
-      <Card className="p-4 rounded-2xl">
-        <div className="font-semibold text-sm mb-3">Hoạt động gần đây</div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {recentActivities.map((a, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-2 p-2 bg-muted rounded-xl border flex-shrink-0"
-            >
-              {getActivityIcon(a.icon)}
-              <div>
-                <div className="text-xs font-medium text-foreground whitespace-nowrap mb-0.5">
-                  {a.text}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Hoạt động gần đây</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {recentActivities.map((a, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 p-3 bg-muted rounded-xl border flex-shrink-0"
+              >
+                {getActivityIcon(a.icon)}
+                <div>
+                  <div className="text-xs font-medium text-foreground whitespace-nowrap mb-0.5">
+                    {a.text}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">{a.time}</div>
                 </div>
-                <div className="text-[10px] text-muted-foreground">{a.time}</div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </CardContent>
       </Card>
     </div>
   );

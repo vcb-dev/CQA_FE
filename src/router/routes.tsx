@@ -1,4 +1,3 @@
-import ConversationsPage from "@/pages/Conversations/ConversationsPage";
 import AIInsightPage from "@/pages/AIInsight/AIInsightPage";
 import QualityPage from "@/pages/Quality/QualityPage";
 import EmployeesPage from "@/pages/Employees/EmployeesPage";
@@ -10,7 +9,8 @@ import RevenuePage from "@/pages/Revenue/RevenuePage";
 import ReportsPage from "@/pages/Reports/ReportsPage";
 import WarrantyPage from "@/pages/Warranty/WarrantyPage";
 import SettingsPage from "@/pages/Settings/SettingsPage";
-import DashboardPage from "@/pages/Dashboard/DashboardPage";
+import DashboardPage from "@/app/dashboard/components/DashboardPage";
+import ConversationsPage from "@/app/conversations/components/ConversationsPage";
 
 export const routes = [
   { path: "/", element: <DashboardPage /> },
