@@ -175,7 +175,6 @@ ol {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100vh - var(--header-h));
 }
 
 /* ===== SIDEBAR ===== */
