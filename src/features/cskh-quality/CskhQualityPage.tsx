@@ -3472,20 +3472,20 @@ function ProductsTab() {
   )
 }
 export function CskhQualityPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const tab =
     tabParam === 'config'
       ? 'config'
-      : tabParam === 'audit'
-        ? 'audit'
+      : tabParam === 'overview'
+        ? 'overview'
         : tabParam === 'fb-page'
           ? 'fb-page'
           : tabParam === 'products'
             ? 'products'
             : tabParam === 'chat'
               ? 'chat'
-              : 'overview'
+              : 'audit'
   const [auditJobBusy, setAuditJobBusy] = useState(false)
 
   useEffect(() => {
@@ -3531,6 +3531,35 @@ export function CskhQualityPage() {
             : '!h-auto min-h-0 flex-none overflow-visible'
       }
     >
+      {/* Sub-navigation tab bar for switching features easily */}
+      <div className="flex shrink-0 items-center justify-between gap-4 mb-3">
+        <div className="flex gap-1.5 rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            onClick={() => setSearchParams({ tab: 'audit' })}
+            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'audit' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            Chất lượng CSKH (Audit)
+          </button>
+          <button
+            onClick={() => setSearchParams({ tab: 'overview' })}
+            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'overview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            Tổng quan vận hành
+          </button>
+          <button
+            onClick={() => setSearchParams({ tab: 'chat' })}
+            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'chat' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            Hội thoại Realtime
+          </button>
+          <button
+            onClick={() => setSearchParams({ tab: 'config' })}
+            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'config' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            Cấu hình Kênh
+          </button>
+        </div>
+      </div>
       {auditJobBusy && tab === 'audit' ? (
         <p className="mb-2 text-xs font-medium text-indigo-600">Đang quét và chấm điểm…</p>
       ) : null}
