@@ -193,7 +193,9 @@ export interface CskhCustomerIntent {
 export function getCskhOAuthStartUrl(returnUrl?: string): string {
   const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
   const ret = returnUrl || (typeof window !== 'undefined' ? window.location.href : '')
-  return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}`
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null
+  const tokenQuery = token ? `&token=${encodeURIComponent(token)}` : ''
+  return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}${tokenQuery}`
 }
 
 export async function fetchCskhPages(): Promise<CskhPagesResponse> {
