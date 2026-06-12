@@ -566,7 +566,7 @@ export const reportTypes = [
 
 // ==================== SETTINGS ====================
 export const settingsTabs = [
-  'Cài đặt hệ thống', 'AI & Chấm điểm', 'Hội thoại', 'Quảng cáo',
+  'Cài đặt hệ thống', 'AI & Chấm điểm', 'Cài đặt kênh', 'Hội thoại', 'Quảng cáo',
   'Sản phẩm', 'Bảo hành', 'Automation', 'Phân quyền', 'Thông báo', 'Tích hợp',
 ];
 

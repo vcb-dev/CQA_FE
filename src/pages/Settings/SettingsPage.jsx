@@ -1,14 +1,32 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Link2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import {
   MagnifyingGlass, FloppyDisk, Sparkle, CheckCircle, CaretRight, Sliders, Play, GearSix,
   Shield, HardDrive, ArrowsCounterClockwise, Megaphone, Package, Wrench, Brain, Key,
-  Bell, Link, ClipboardText, Lightbulb
+  Bell, Link, ClipboardText, Lightbulb, FacebookLogo
 } from '@phosphor-icons/react';
 import { settingsTabs, qaPrompts, qaCriteria, settingsQuickLinks } from '../../data/mockData';
+import {
+  fetchCskhPages,
+  getCskhOAuthStartUrl,
+  refreshCskhOAuth,
+  setCskhPageEnabled,
+  deleteCskhPage,
+  syncInboxFromGraph
+} from '@/features/cskh-quality/api';
 
 export default function SettingsPage() {
   const [anim, setAnim] = useState(false);
-  const [activeTabIdx, setActiveTabIdx] = useState(1); // Default to AI & Quality settings
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const channelTabIdx = settingsTabs.indexOf('Cài đặt kênh');
+  const defaultTabIdx = searchParams.get('tab') === 'channel' && channelTabIdx !== -1 ? channelTabIdx : 1;
+  const [activeTabIdx, setActiveTabIdx] = useState(defaultTabIdx);
+
   const [criteria, setCriteria] = useState(qaCriteria);
   const [prompts, setPrompts] = useState(qaPrompts);
   const [selectedPromptIdx, setSelectedPromptIdx] = useState(0);
@@ -31,9 +49,101 @@ Các tiêu chí cần đánh giá:
   const [autoAssign, setAutoAssign] = useState(true);
   const [backupFreq, setBackupFreq] = useState('daily');
 
+  // Fetch real channels/pages
+  const { data: pagesData, isLoading: isLoadingPages } = useQuery({
+    queryKey: ['cskh', 'pages'],
+    queryFn: fetchCskhPages,
+  });
+
+  // Toggle active/inactive status
+  const toggleMutation = useMutation({
+    mutationFn: ({ pageId, enabled }) => setCskhPageEnabled(pageId, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+      toast.success('Cập nhật trạng thái trang thành công!');
+    },
+    onError: (err) => {
+      toast.error('Lỗi khi cập nhật trạng thái trang: ' + (err.message || err));
+    }
+  });
+
+  // Delete page
+  const deleteMutation = useMutation({
+    mutationFn: (pageId) => deleteCskhPage(pageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+      toast.success('Đã xóa trang thành công!');
+    },
+    onError: (err) => {
+      toast.error('Lỗi khi xóa trang: ' + (err.message || err));
+    }
+  });
+
+  // Sync messages
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncMutation = useMutation({
+    mutationFn: (pageId) => syncInboxFromGraph(pageId),
+    onMutate: () => {
+      setIsSyncing(true);
+    },
+    onSuccess: (data) => {
+      setIsSyncing(false);
+      toast.success(`Đồng bộ thành công ${data.synced} tin nhắn từ ${data.pageCount} trang!`);
+    },
+    onError: (err) => {
+      setIsSyncing(false);
+      toast.error('Lỗi khi đồng bộ tin nhắn: ' + (err.message || err));
+    }
+  });
+
+  // Refresh OAuth pages list
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshMutation = useMutation({
+    mutationFn: () => refreshCskhOAuth(),
+    onMutate: () => {
+      setIsRefreshing(true);
+    },
+    onSuccess: (data) => {
+      setIsRefreshing(false);
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+      toast.success(`Đã đồng bộ lại danh sách trang! Tìm thấy ${data.pageCount} trang.`);
+    },
+    onError: (err) => {
+      setIsRefreshing(false);
+      toast.error('Lỗi khi đồng bộ lại danh sách trang: ' + (err.message || err));
+    }
+  });
+
   useEffect(() => {
     setTimeout(() => setAnim(true), 200);
   }, []);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'channel') {
+      const idx = settingsTabs.indexOf('Cài đặt kênh');
+      if (idx !== -1) {
+        setActiveTabIdx(idx);
+      }
+    }
+
+    if (searchParams.get('fb_connected') === '1') {
+      toast.success('Kết nối tài khoản Facebook thành công!');
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('fb_connected');
+      newParams.delete('tab');
+      setSearchParams(newParams, { replace: true });
+    }
+
+    const oauthError = searchParams.get('oauth_error');
+    if (oauthError) {
+      toast.error(`Lỗi kết nối Facebook: ${oauthError}`);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('oauth_error');
+      newParams.delete('tab');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleWeightChange = (id, newWeight) => {
     setCriteria(prev => prev.map(c => c.id === id ? { ...c, weight: parseInt(newWeight) || 0 } : c));
@@ -112,7 +222,7 @@ Các tiêu chí cần đánh giá:
         )}
 
         {/* Cài đặt Hệ thống (Tab 0) */}
-        {activeTabIdx === 0 && (
+        {settingsTabs[activeTabIdx] === 'Cài đặt hệ thống' && (
           <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Cài đặt hệ thống chung</h3>
@@ -181,7 +291,7 @@ Các tiêu chí cần đánh giá:
         )}
 
         {/* AI & Chấm điểm (Tab 1) */}
-        {activeTabIdx === 1 && (
+        {settingsTabs[activeTabIdx] === 'AI & Chấm điểm' && (
           <>
             {/* Criteria weights setting */}
             <div className="card anim-up" style={{ padding: '14px', animationDelay: '50ms' }}>
@@ -271,7 +381,6 @@ Các tiêu chí cần đánh giá:
                       key={idx}
                       onClick={() => {
                         setSelectedPromptIdx(idx);
-                        // Just change mock template content slightly to simulate prompt load
                         if (idx === 0) setPromptContent(`Bạn là một chuyên gia đánh giá chất lượng chăm sóc khách hàng của thương hiệu trang sức VIENCHIBAO. Hãy phân tích đoạn hội thoại chat giữa Nhân viên tư vấn (Agent) và Khách hàng (Customer) để chấm điểm và rút ra nhận xét.
 
 Các tiêu chí cần đánh giá:
@@ -343,8 +452,214 @@ Các tiêu chí cần đánh giá:
           </>
         )}
 
-        {/* Phân quyền (Tab 7) */}
-        {activeTabIdx === 7 && (
+        {/* Cài đặt kênh (Real Facebook Integration) */}
+        {settingsTabs[activeTabIdx] === 'Cài đặt kênh' && (
+          <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Cấu hình Kênh Kết nối</h3>
+                <p style={{ fontSize: '11px', color: 'var(--n-500)' }}>Kết nối tài khoản Facebook để quét và chấm điểm tự động các hội thoại chăm sóc khách hàng</p>
+              </div>
+              
+              {pagesData?.oauthConnected && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => refreshMutation.mutate()}
+                    disabled={isRefreshing}
+                    style={{ 
+                      padding: '6px 12px', 
+                      borderRadius: '6px', 
+                      fontSize: '12px', 
+                      fontWeight: 600, 
+                      background: 'var(--n-50)', 
+                      border: '1px solid var(--n-200)', 
+                      color: 'var(--n-700)',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                    Đồng bộ lại Pages
+                  </button>
+                  
+                  <button 
+                    onClick={() => syncMutation.mutate(undefined)}
+                    disabled={isSyncing}
+                    style={{ 
+                      padding: '6px 12px', 
+                      borderRadius: '6px', 
+                      fontSize: '12px', 
+                      fontWeight: 600, 
+                      background: 'var(--primary-600)', 
+                      color: '#fff',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                    Đồng bộ tin nhắn
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ 
+              background: pagesData?.oauthConnected ? 'var(--success-50)' : 'var(--n-50)', 
+              border: pagesData?.oauthConnected ? '1px solid var(--success-100)' : '1px solid var(--n-200)',
+              borderRadius: '8px', 
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '50%', 
+                  background: pagesData?.oauthConnected ? '#1877f2' : 'var(--n-200)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#fff',
+                  flexShrink: 0
+                }}>
+                  <FacebookLogo size={20} weight={pagesData?.oauthConnected ? 'fill' : 'regular'} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--n-800)' }}>
+                    {pagesData?.oauthConnected ? `Tài khoản Facebook: ${pagesData.oauthUser}` : 'Chưa kết nối tài khoản Facebook'}
+                  </h4>
+                  <p style={{ fontSize: '11px', color: 'var(--n-500)', marginTop: '2px' }}>
+                    {pagesData?.oauthConnected 
+                      ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}` 
+                      : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  window.location.href = getCskhOAuthStartUrl(window.location.origin + '/settings?tab=channel');
+                }}
+                style={{ 
+                  padding: '8px 16px', 
+                  borderRadius: '6px', 
+                  fontSize: '12.5px', 
+                  fontWeight: 600, 
+                  background: '#1877f2', 
+                  color: '#fff',
+                  border: 'none',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  cursor: 'pointer' 
+                }}
+              >
+                <Link2 size={14} />
+                {pagesData?.oauthConnected ? 'Cập nhật kết nối Facebook' : 'Kết nối tài khoản Facebook'}
+              </button>
+            </div>
+
+            {pagesData?.oauthConnected && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--n-700)' }}>
+                  Danh sách trang quản lý ({pagesData.pages.length})
+                </div>
+
+                {isLoadingPages ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--n-400)' }}>
+                    <RefreshCw className="animate-spin" size={24} />
+                  </div>
+                ) : pagesData.pages.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', background: 'var(--n-50)', borderRadius: '8px', color: 'var(--n-500)', fontSize: '12px' }}>
+                    Không tìm thấy Fanpage nào. Vui lòng kiểm tra lại quyền truy cập Facebook.
+                  </div>
+                ) : (
+                  <div style={{ overflow: 'auto', border: '1px solid var(--n-200)', borderRadius: '8px' }}>
+                    <table className="data-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Hình ảnh</th>
+                          <th>Tên Trang / Fanpage</th>
+                          <th>Page ID</th>
+                          <th>Trạng thái hoạt động</th>
+                          <th style={{ textAlign: 'right' }}>Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagesData.pages.map((page) => (
+                          <tr key={page.pageId}>
+                            <td>
+                              <img 
+                                src={page.pagePictureUrl || 'https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png'} 
+                                alt={page.pageName || ''} 
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--n-200)' }}
+                                onError={(e) => {
+                                  e.target.src = 'https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png';
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--n-800)' }}>
+                                {page.pageName || 'Tên trang không khả dụng'}
+                              </div>
+                            </td>
+                            <td style={{ fontSize: '11.5px', color: 'var(--n-500)', fontFamily: 'monospace' }}>
+                              {page.pageId}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input 
+                                  type="checkbox"
+                                  id={`toggle-${page.pageId}`}
+                                  checked={page.enabled}
+                                  onChange={(e) => toggleMutation.mutate({ pageId: page.pageId, enabled: e.target.checked })}
+                                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                />
+                                <span style={{ fontSize: '12px', color: page.enabled ? 'var(--success-600)' : 'var(--n-500)', fontWeight: 600 }}>
+                                  {page.enabled ? 'Đang hoạt động' : 'Tạm dừng'}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Bạn có chắc muốn xóa trang ${page.pageName || page.pageId} khỏi hệ thống?`)) {
+                                    deleteMutation.mutate(page.pageId);
+                                  }
+                                }}
+                                style={{ 
+                                  padding: '4px 8px', 
+                                  borderRadius: '4px', 
+                                  border: '1px solid var(--danger-100)', 
+                                  background: 'var(--danger-50)', 
+                                  color: 'var(--danger-600)',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Xóa
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phân quyền (Tab Phân quyền) */}
+        {settingsTabs[activeTabIdx] === 'Phân quyền' && (
           <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Phân quyền & Quản trị viên</h3>
@@ -398,7 +713,7 @@ Các tiêu chí cần đánh giá:
         )}
 
         {/* Mock for other tabs */}
-        {activeTabIdx !== 0 && activeTabIdx !== 1 && activeTabIdx !== 7 && (
+        {settingsTabs[activeTabIdx] !== 'Cài đặt hệ thống' && settingsTabs[activeTabIdx] !== 'AI & Chấm điểm' && settingsTabs[activeTabIdx] !== 'Cài đặt kênh' && settingsTabs[activeTabIdx] !== 'Phân quyền' && (
           <div className="card anim-up" style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', textAlign: 'center' }}>
               <GearSix size={32} weight="duotone" style={{ color: 'var(--primary-600)' }} />
             <div>
