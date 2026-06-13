@@ -6,7 +6,16 @@ import {
   ArrowsCounterClockwise,
 } from "@phosphor-icons/react";
 import { useLocation } from "react-router-dom";
-import { currentUser } from "@/data/mockData";
+import { useQuery } from "@tanstack/react-query";
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
 
 const pageTitles = {
   "/": {
@@ -35,6 +44,10 @@ const pageTitles = {
 export default function Header() {
   const location = useLocation();
   const page = pageTitles[location.pathname] || pageTitles["/"];
+  
+  const { data: user } = useQuery({
+    queryKey: ["currentUserProfile"],
+  });
 
   return (
     <header className="header">
@@ -100,10 +113,34 @@ export default function Header() {
           </span>
         </button>
         <div className="header-user">
-          <div className="header-avatar">{currentUser.avatar}</div>
+          <div
+            className="header-avatar"
+            style={{
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: user?.avatarUrl ? "transparent" : "var(--primary-100)",
+              color: user?.avatarUrl ? "inherit" : "var(--primary-700)",
+              fontWeight: 700,
+              fontSize: "12px",
+            }}
+          >
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName}
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+              />
+            ) : (
+              getInitials(user?.fullName)
+            )}
+          </div>
           <div className="header-user-info">
-            <span className="header-user-name">{currentUser.name}</span>
-            <span className="header-user-role">{currentUser.role}</span>
+            <span className="header-user-name">{user?.fullName || "Chưa đăng nhập"}</span>
+            <span className="header-user-role" style={{ textTransform: "capitalize" }}>
+              {user?.role === "admin" ? "Quản trị viên" : user?.role || "Nhân viên"}
+            </span>
           </div>
         </div>
       </div>
