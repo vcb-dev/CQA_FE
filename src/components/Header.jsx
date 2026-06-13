@@ -1,12 +1,16 @@
+import { useState, useEffect, useRef } from "react";
 import {
   Bell,
   MagnifyingGlass,
   Calendar,
   Funnel,
   ArrowsCounterClockwise,
+  User,
+  SignOut,
 } from "@phosphor-icons/react";
-import { useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const getInitials = (name) => {
   if (!name) return "?";
@@ -43,11 +47,36 @@ const pageTitles = {
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
   const page = pageTitles[location.pathname] || pageTitles["/"];
   
   const { data: user } = useQuery({
     queryKey: ["currentUserProfile"],
   });
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("refreshToken");
+    queryClient.clear();
+    toast.success("Đăng xuất thành công!");
+    navigate("/login");
+  };
 
   return (
     <header className="header">
@@ -112,36 +141,60 @@ export default function Header() {
             3
           </span>
         </button>
-        <div className="header-user">
-          <div
-            className="header-avatar"
-            style={{
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: user?.avatarUrl ? "transparent" : "var(--primary-100)",
-              color: user?.avatarUrl ? "inherit" : "var(--primary-700)",
-              fontWeight: 700,
-              fontSize: "12px",
-            }}
-          >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.fullName}
-                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
-              />
-            ) : (
-              getInitials(user?.fullName)
-            )}
+        <div style={{ position: "relative" }} ref={dropdownRef}>
+          <div className="header-user" onClick={() => setShowDropdown(!showDropdown)}>
+            <div
+              className="header-avatar"
+              style={{
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: user?.avatarUrl ? "transparent" : "var(--primary-100)",
+                color: user?.avatarUrl ? "inherit" : "var(--primary-700)",
+                fontWeight: 700,
+                fontSize: "12px",
+              }}
+            >
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+                />
+              ) : (
+                getInitials(user?.fullName)
+              )}
+            </div>
+            <div className="header-user-info">
+              <span className="header-user-name">{user?.fullName || "Chưa đăng nhập"}</span>
+              <span className="header-user-role" style={{ textTransform: "capitalize" }}>
+                {user?.role === "admin" ? "Quản trị viên" : user?.role || "Nhân viên"}
+              </span>
+            </div>
           </div>
-          <div className="header-user-info">
-            <span className="header-user-name">{user?.fullName || "Chưa đăng nhập"}</span>
-            <span className="header-user-role" style={{ textTransform: "capitalize" }}>
-              {user?.role === "admin" ? "Quản trị viên" : user?.role || "Nhân viên"}
-            </span>
-          </div>
+          {showDropdown && (
+            <div className="avatar-dropdown">
+              <div className="avatar-dropdown-header">
+                <div className="avatar-dropdown-name">{user?.fullName || "Người dùng"}</div>
+                <div className="avatar-dropdown-email">{user?.email || ""}</div>
+              </div>
+              <div
+                className="avatar-dropdown-item"
+                onClick={() => {
+                  setShowDropdown(false);
+                  navigate("/settings");
+                }}
+              >
+                <User weight="bold" />
+                <span>Hồ sơ cá nhân</span>
+              </div>
+              <div className="avatar-dropdown-item danger" onClick={handleLogout}>
+                <SignOut weight="bold" />
+                <span>Đăng xuất</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -13,8 +13,23 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const refreshToken = searchParams.get('refreshToken');
+    // 1. Đọc từ URL Hash Fragment (Khuyến nghị bảo mật)
+    let token = null;
+    let refreshToken = null;
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#')) {
+      const params = new URLSearchParams(hash.substring(1));
+      token = params.get('token');
+      refreshToken = params.get('refreshToken');
+    }
+
+    // 2. Fallback đọc từ Query Parameters (Tương thích ngược)
+    if (!token) {
+      token = searchParams.get('token');
+    }
+    if (!refreshToken) {
+      refreshToken = searchParams.get('refreshToken');
+    }
     const errorParam = searchParams.get('error');
 
     if (token) {
@@ -22,8 +37,12 @@ export default function LoginPage() {
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
+      
+      // Xóa Hash và Query khỏi URL ngay lập tức để tránh rò rỉ bảo mật
+      window.history.replaceState(null, '', window.location.pathname);
+      
       toast.success('Đăng nhập thành công!');
-      navigate('/');
+      navigate('/', { replace: true });
     } else if (errorParam) {
       toast.error(decodeURIComponent(errorParam));
       navigate('/login', { replace: true });
