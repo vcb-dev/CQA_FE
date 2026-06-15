@@ -13,37 +13,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // 1. Đọc từ URL Hash Fragment (Khuyến nghị bảo mật)
-    let token = null;
-    let refreshToken = null;
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#')) {
-      const params = new URLSearchParams(hash.substring(1));
-      token = params.get('token');
-      refreshToken = params.get('refreshToken');
-    }
-
-    // 2. Fallback đọc từ Query Parameters (Tương thích ngược)
-    if (!token) {
-      token = searchParams.get('token');
-    }
-    if (!refreshToken) {
-      refreshToken = searchParams.get('refreshToken');
-    }
     const errorParam = searchParams.get('error');
-
-    if (token) {
-      localStorage.setItem('authToken', token);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
-      
-      // Xóa Hash và Query khỏi URL ngay lập tức để tránh rò rỉ bảo mật
-      window.history.replaceState(null, '', window.location.pathname);
-      
-      toast.success('Đăng nhập thành công!');
-      navigate('/', { replace: true });
-    } else if (errorParam) {
+    if (errorParam) {
       toast.error(decodeURIComponent(errorParam));
       navigate('/login', { replace: true });
     }
@@ -58,9 +29,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
-      const { accessToken } = response.data.data;
-      localStorage.setItem('authToken', accessToken);
+      await apiClient.post('/auth/login', { email, password });
       toast.success('Đăng nhập thành công!');
       navigate('/');
     } catch (error) {
