@@ -114,7 +114,7 @@ export function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto overflow-hidden p-0 rounded-[2.5rem] border-none shadow-2xl animate-in zoom-in-95 duration-200"
+        className="w-auto overflow-hidden p-0 rounded-[2.5rem] border-none bg-white dark:bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200"
         align="start"
         sideOffset={12}
         onOpenAutoFocus={(e) => e.preventDefault()}

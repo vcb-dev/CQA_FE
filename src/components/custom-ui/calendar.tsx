@@ -15,7 +15,7 @@ export function Calendar({
       data-slot="daypicker"
       showOutsideDays={showOutsideDays}
       className={cn(
-        'rounded-[2rem] bg-card p-4 shadow-2xl border border-slate-100 dark:border-slate-800 animate-calendar-pop',
+        'rounded-[2rem] bg-white dark:bg-slate-900 p-4 shadow-2xl border border-slate-100 dark:border-slate-800 animate-calendar-pop',
         className
       )}
       classNames={{
