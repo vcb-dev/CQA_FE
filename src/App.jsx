@@ -1,14 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { routes } from "@/router/routes";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/Login/LoginPage";
-import { useQuery, useIsFetching } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
 
 function ProtectedLayout() {
   const token = localStorage.getItem('authToken');
   const hasToken = !!token && token !== 'undefined' && token !== 'null';
-  const location = useLocation();
 
   const { isLoading, isError } = useQuery({
     queryKey: ['currentUserProfile'],
@@ -21,25 +20,19 @@ function ProtectedLayout() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const isAtDashboard = location.pathname === '/';
-  const isFetchingProfile = useIsFetching({ queryKey: ['currentUserProfile'] }) > 0;
-  const isFetchingDashboard = useIsFetching({ queryKey: ['dashboardStats'] }) > 0;
-
-  const showLoader = isLoading || isFetchingProfile || (isAtDashboard && isFetchingDashboard);
-
   if (!hasToken) {
     return <Navigate to="/login" replace />;
   }
 
-  if (showLoader) {
-    let loadingMessage = "Đang xác thực thông tin...";
-    if (!isLoading && !isFetchingProfile && isAtDashboard && isFetchingDashboard) {
-      loadingMessage = "Đang tải dữ liệu hệ thống...";
-    }
-
+  if (isLoading) {
     return (
       <div style={{
-        minHeight: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -57,7 +50,7 @@ function ProtectedLayout() {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px'
           }} />
-          <p style={{ color: '#94a3b8', fontSize: '14px' }}>{loadingMessage}</p>
+          <p style={{ color: '#94a3b8', fontSize: '14px' }}>Đang xác thực thông tin...</p>
           <style>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
