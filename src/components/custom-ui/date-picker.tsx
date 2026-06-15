@@ -3,7 +3,7 @@ import { CalendarIcon } from 'lucide-react'
 import { endOfMonth, format, isValid, parseISO, startOfDay, startOfMonth } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
+import { Calendar } from '@/components/custom-ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 

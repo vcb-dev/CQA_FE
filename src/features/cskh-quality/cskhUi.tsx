@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Loader2, X, AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DatePicker } from '@/components/ui/date-picker'
+import { DatePicker } from '@/components/custom-ui/date-picker'
 import { formatAuditDateLabel } from './auditHelpers'
 import { cskhCustomerAvatarSrc, cskhPageAvatarSrc } from './messageMedia'
 
@@ -423,7 +423,7 @@ export function CskhGlassPanel({
 
 export function CskhToolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="cskh-toolbar-container shrink-0 border-b border-indigo-100/80 bg-gradient-to-r from-indigo-50/80 via-white/50 to-violet-50/80">
+    <div className="cskh-toolbar-container shrink-0 border-b border-indigo-100/80 bg-gradient-to-r from-indigo-50/80 via-white/50 to-violet-50/80 p-3 sm:p-4">
       {children}
     </div>
   )

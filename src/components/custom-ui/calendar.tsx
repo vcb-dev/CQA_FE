@@ -22,7 +22,7 @@ export function Calendar({
         months: 'flex flex-col sm:flex-row gap-4',
         month: 'space-y-6 relative',
         month_caption:
-          'flex justify-center pt-2 relative items-center pb-4 px-4 border-b border-slate-50 dark:border-slate-800',
+          'flex justify-center pt-4 relative items-center pb-4 px-4 border-b border-slate-50 dark:border-slate-800',
         dropdowns:
           'flex w-full items-center justify-center gap-3 text-sm font-bold uppercase tracking-wider',
         dropdown_root:
@@ -31,11 +31,11 @@ export function Calendar({
         caption_label:
           'inline-flex items-center gap-2 text-sm font-black uppercase tracking-widest text-primary dark:text-foreground',
         chevron: 'size-4 shrink-0 text-primary opacity-90',
-        nav: 'flex items-center justify-between absolute w-full top-3 left-0 px-4 z-10 pointer-events-none',
+        nav: 'flex items-center justify-between absolute w-full top-3.5 left-0 px-3 z-10 pointer-events-none',
         button_previous:
-          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
+          'h-8 w-8 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
         button_next:
-          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
+          'h-8 w-8 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
         month_grid: 'w-full border-collapse',
         week: 'flex w-full mt-2',
         weekdays: 'flex',

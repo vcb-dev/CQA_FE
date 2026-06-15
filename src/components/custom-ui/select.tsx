@@ -16,14 +16,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between rounded-lg border-2 border-primary/45 bg-primary/[0.10] px-3 py-2 text-sm text-foreground shadow-sm ring-offset-background placeholder:text-muted-foreground transition-[border-color,background-color,box-shadow] focus:outline-none focus:ring-2 focus:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary/50 dark:bg-primary/15',
+      'flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm ring-offset-white placeholder:text-slate-400 transition-all hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900',
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 shrink-0 text-primary opacity-90 dark:opacity-100" />
+      <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))
@@ -108,14 +108,13 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'group relative flex w-full cursor-default select-none items-center rounded-lg border-2 border-transparent py-2 pl-9 pr-3 text-sm outline-none transition-[color,background-color,border-color,box-shadow] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      'data-[highlighted]:border-[hsl(var(--primary-foreground)/0.42)] data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground data-[highlighted]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]',
-      'dark:data-[highlighted]:border-[hsl(var(--primary-foreground)/0.35)] dark:data-[highlighted]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]',
+      'group relative flex w-full cursor-default select-none items-center rounded-lg py-2.5 pl-10 pr-3 text-sm font-medium outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'focus:bg-indigo-50 focus:text-indigo-900 dark:focus:bg-indigo-900/30 dark:focus:text-indigo-100',
       className
     )}
     {...props}
   >
-    <span className="absolute left-2.5 flex h-3.5 w-3.5 items-center justify-center text-primary group-data-[highlighted]:text-primary-foreground">
+    <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center text-indigo-600 dark:text-indigo-400">
       <SelectPrimitive.ItemIndicator>
         <Check className="h-4 w-4 text-inherit" />
       </SelectPrimitive.ItemIndicator>

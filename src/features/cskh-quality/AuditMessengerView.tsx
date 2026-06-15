@@ -81,7 +81,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/custom-ui/select'
 import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
 
@@ -1355,7 +1355,7 @@ export function AuditMessengerView({
                     })
                   }
                 }}
-                className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-violet-200/40 hover:shadow-lg disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:border disabled:border-slate-200 disabled:shadow-none disabled:cursor-not-allowed"
+                className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-md hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:border disabled:border-slate-200 disabled:shadow-none disabled:cursor-not-allowed"
               >
                 {isRunning || runMut.isPending ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin" />

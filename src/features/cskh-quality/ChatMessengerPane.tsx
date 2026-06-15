@@ -12,7 +12,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/custom-ui/select'
 
 type ChatMessengerPaneProps = {
   pageId?: string
