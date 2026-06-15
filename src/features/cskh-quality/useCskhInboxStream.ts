@@ -40,7 +40,11 @@ export function useCskhInboxStream({
     if (!enabled || typeof window === 'undefined') return
 
     const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
-    const es = new EventSource(`${base}/cskh/inbox/stream`, { withCredentials: true })
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null
+    const url = token
+      ? `${base}/cskh/inbox/stream?token=${encodeURIComponent(token)}`
+      : `${base}/cskh/inbox/stream`
+    const es = new EventSource(url, { withCredentials: true })
     let disconnectTimer: ReturnType<typeof setTimeout> | null = null
     const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
