@@ -675,6 +675,7 @@ export function AuditMessengerView({
       storeJobId(null)
       void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
       void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
       return
     }
 
@@ -692,6 +693,7 @@ export function AuditMessengerView({
       storeJobId(null)
       void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
       void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
     }
   }, [progress, qc, selectedPageFilter, selectedPageId, setJobId])
 
@@ -1106,7 +1108,9 @@ export function AuditMessengerView({
     [selected, auditDateFrom, auditDateTo]
   )
   const selectedAuditScopeLabel = selectedAuditScope?.label ?? null
-  const selectedIntentCache = selected?.id ? (intentByAuditId[selected.id] ?? null) : null
+  const selectedIntentCache = selected?.id
+    ? (intentByAuditId[selected.id] ?? (selected.metadata as any)?.customerIntent ?? null)
+    : null
 
   const inboxLive = useCskhInboxStream({
     enabled: true,
