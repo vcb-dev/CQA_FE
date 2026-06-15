@@ -13,6 +13,7 @@ import {
   Send,
   ArrowLeft,
   HelpCircle,
+  X,
 } from 'lucide-react'
 import {
   cancelAuditJob,
@@ -491,6 +492,8 @@ export function AuditMessengerView({
     })()
   }, [jobId])
 
+
+
   const runMut = useMutation({
     mutationFn: (opts: {
       auditDateFrom: string
@@ -767,6 +770,72 @@ export function AuditMessengerView({
       progress?.status !== 'done' &&
       (progress?.status === 'running' || progress === undefined))
   const isRunning = isAuditActive
+
+  useEffect(() => {
+    if (backgroundJobId && !jobId && !isRunning) {
+      toast.custom(
+        (t) => (
+          <div className="flex w-full max-w-sm flex-col gap-2.5 rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold text-slate-800 dark:text-white">
+                  Tiến trình đang chạy nền
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Hệ thống đang quét và chấm điểm trong nền.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(t)
+                  setBackgroundJobId(null)
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(t)
+                  setJobId(backgroundJobId)
+                  storeJobId(backgroundJobId)
+                  setBackgroundJobId(null)
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-md hover:bg-indigo-700 active:scale-95 transition-all"
+              >
+                <Play className="h-3 w-3" />
+                Theo dõi
+              </button>
+              <button
+                type="button"
+                disabled={cancelMut.isPending}
+                onClick={() => {
+                  toast.dismiss(t)
+                  setBackgroundJobId(null)
+                  cancelMut.mutate()
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 active:scale-95 transition-all disabled:opacity-60 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400"
+              >
+                <Pause className="h-3 w-3" />
+                Huỷ tiến trình
+              </button>
+            </div>
+          </div>
+        ),
+        { id: 'background-job-toast', duration: Infinity }
+      )
+    } else {
+      toast.dismiss('background-job-toast')
+    }
+    return () => {
+      toast.dismiss('background-job-toast')
+    }
+  }, [backgroundJobId, jobId, isRunning, cancelMut])
 
   const {
     data: dayStats,
@@ -1474,27 +1543,7 @@ export function AuditMessengerView({
         />
       )}
 
-      {backgroundJobId && !jobId && !isRunning && (
-        <CskhNoticeBanner
-          tone="info"
-          title="Có tiến trình chấm điểm đang chạy"
-          message="Hệ thống đang chấm điểm từ lần trước. Bấm theo dõi để xem tiến độ — không tự chạy batch mới."
-          action={
-            <button
-              type="button"
-              onClick={() => {
-                setJobId(backgroundJobId)
-                storeJobId(backgroundJobId)
-                setBackgroundJobId(null)
-              }}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
-            >
-              Theo dõi tiến độ
-            </button>
-          }
-          onDismiss={() => setBackgroundJobId(null)}
-        />
-      )}
+
 
       {showDayLoading ? (
         <CskhLoading

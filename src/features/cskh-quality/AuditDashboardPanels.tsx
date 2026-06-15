@@ -913,7 +913,10 @@ export function AuditAnalysisPanel({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
       <div className="shrink-0 border-b border-violet-500/20 bg-gradient-to-r from-violet-600 via-violet-600 to-indigo-600 px-4 py-3.5 shadow-sm">
-        <p className="text-sm font-bold tracking-tight text-white">Phân tích AI</p>
+        <div className="flex items-center gap-2">
+          <img src="/star-emblem.png" alt="VCB" className="h-6 w-6 shrink-0 brightness-0 invert" draggable={false} />
+          <p className="text-sm font-bold tracking-tight text-white">Phân tích AI</p>
+        </div>
         <p className="mt-0.5 text-[11px] text-violet-100/90">Bấm từng mục để mở / đóng chi tiết</p>
       </div>
 
