@@ -20,7 +20,7 @@ export function Calendar({
       )}
       classNames={{
         months: 'flex flex-col sm:flex-row gap-4',
-        month: 'space-y-6',
+        month: 'space-y-6 relative',
         month_caption:
           'flex justify-center pt-2 relative items-center pb-4 px-4 border-b border-slate-50 dark:border-slate-800',
         dropdowns:
@@ -31,11 +31,11 @@ export function Calendar({
         caption_label:
           'inline-flex items-center gap-2 text-sm font-black uppercase tracking-widest text-primary dark:text-foreground',
         chevron: 'size-4 shrink-0 text-primary opacity-90',
-        nav: 'space-x-2 flex items-center',
+        nav: 'flex items-center justify-between absolute w-full top-3 left-0 px-4 z-10 pointer-events-none',
         button_previous:
-          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl absolute left-2 transition-all duration-300',
+          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
         button_next:
-          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl absolute right-2 transition-all duration-300',
+          'h-9 w-9 bg-slate-50 dark:bg-slate-900/50 p-0 opacity-70 hover:bg-primary hover:text-white hover:opacity-100 inline-flex items-center justify-center rounded-xl transition-all duration-300 pointer-events-auto shadow-sm',
         month_grid: 'w-full border-collapse',
         week: 'flex w-full mt-2',
         weekdays: 'flex',
