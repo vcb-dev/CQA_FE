@@ -26,7 +26,7 @@ export function Calendar({
         dropdowns:
           'flex w-full items-center justify-center gap-3 text-sm font-bold uppercase tracking-wider',
         dropdown_root:
-          'calendar-caption-dropdown relative flex h-11 min-h-11 w-full min-w-0 items-center justify-center rounded-2xl border-2 px-3 transition-all duration-300 hover:shadow-lg',
+          'calendar-caption-dropdown relative flex h-9 min-h-9 w-auto min-w-[95px] items-center justify-center rounded-xl border px-3 transition-all duration-300 hover:shadow-md',
         dropdown: 'absolute inset-0 z-[1] h-full w-full cursor-pointer opacity-0',
         caption_label:
           'inline-flex items-center gap-2 text-sm font-black uppercase tracking-widest text-primary dark:text-foreground',

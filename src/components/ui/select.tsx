@@ -65,7 +65,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md',
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-slate-200 bg-white text-popover-foreground shadow-xl dark:border-slate-800 dark:bg-slate-900',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className
@@ -108,7 +108,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'group relative flex w-full cursor-default select-none items-center rounded-lg border-2 border-transparent px-3 py-2.5 pl-9 pr-2 text-sm outline-none transition-[color,background-color,border-color,box-shadow] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'group relative flex w-full cursor-default select-none items-center rounded-lg border-2 border-transparent py-2 pl-9 pr-3 text-sm outline-none transition-[color,background-color,border-color,box-shadow] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       'data-[highlighted]:border-[hsl(var(--primary-foreground)/0.42)] data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground data-[highlighted]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]',
       'dark:data-[highlighted]:border-[hsl(var(--primary-foreground)/0.35)] dark:data-[highlighted]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]',
       className
