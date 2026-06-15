@@ -11,7 +11,7 @@ export default function MainLayout() {
       <Sidebar />
       <div className="app-main">
         {!hideHeader && <Header />}
-        <div className="app-content">
+        <div className={`app-content ${hideHeader ? '!p-0 !bg-white' : ''}`}>
           <Outlet />
         </div>
       </div>
