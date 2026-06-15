@@ -756,6 +756,7 @@ export function AuditMessengerView({
         return null
       })
       runMut.reset()
+      setDismissedErrorKey(null)
       void fetchRunningCskhJob('audit').then((running) => {
         setBackgroundJobId(running?.status === 'running' ? running.id : null)
       })
@@ -973,8 +974,8 @@ export function AuditMessengerView({
     dismissedErrorKey !== errorKey &&
     !showTransientLoading &&
     (runMut.isError ||
-      (isFailed && sortedAudits.length === 0) ||
-      (progressError && sortedAudits.length === 0 && !recentLoading && !progressFetching))
+      (!!jobId && isFailed && sortedAudits.length === 0) ||
+      (!!jobId && progressError && sortedAudits.length === 0 && !recentLoading && !progressFetching))
 
   useEffect(() => {
     if (!sortedAudits.length) {
@@ -1442,21 +1443,19 @@ export function AuditMessengerView({
               </button>
               {isRunning && (
                 <>
-                  {isFetchPhase && (
-                    <button
-                      type="button"
-                      disabled={pauseMut.isPending || isPausing || cancelMut.isPending}
-                      onClick={() => pauseMut.mutate()}
-                      className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
-                    >
-                      {isPausing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Pause className="h-4 w-4" />
-                      )}
-                      {isPausing ? 'Dừng…' : 'Tạm dừng'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={pauseMut.isPending || isPausing || cancelMut.isPending}
+                    onClick={() => pauseMut.mutate()}
+                    className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    {isPausing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Pause className="h-4 w-4" />
+                    )}
+                    {isPausing ? 'Dừng…' : 'Tạm dừng'}
+                  </button>
                   <button
                     type="button"
                     disabled={cancelMut.isPending}
