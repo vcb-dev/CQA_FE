@@ -3551,47 +3551,7 @@ export function CskhQualityPage() {
             : '!h-auto min-h-0 flex-none overflow-visible'
       }
     >
-      {/* Sub-navigation tab bar for switching features easily */}
-      <div className="flex shrink-0 items-center justify-between gap-4 mb-3">
-        <div className="flex gap-1.5 rounded-xl bg-n-100 dark:bg-n-900 p-1 border border-border">
-          <button
-            onClick={() => setSearchParams({ tab: 'audit' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'audit' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Chất lượng CSKH (Audit)
-          </button>
-          <button
-            onClick={() => setSearchParams({ tab: 'overview' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'overview' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Tổng quan vận hành
-          </button>
-          <button
-            onClick={() => setSearchParams({ tab: 'chat' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'chat' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Hội thoại Realtime
-          </button>
-          <button
-            onClick={() => setSearchParams({ tab: 'fb-page' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'fb-page' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Page Facebook
-          </button>
-          <button
-            onClick={() => setSearchParams({ tab: 'products' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'products' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Sản phẩm
-          </button>
-          <button
-            onClick={() => setSearchParams({ tab: 'config' })}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition ${tab === 'config' ? 'bg-card text-primary shadow-sm border border-border/40' : 'text-n-500 dark:text-n-400 hover:text-n-800 dark:hover:text-n-200'}`}
-          >
-            Cấu hình Kênh
-          </button>
-        </div>
-      </div>
+
       {auditJobBusy && tab === 'audit' ? (
         <p className="mb-2 text-xs font-medium text-indigo-600">Đang quét và chấm điểm…</p>
       ) : null}
