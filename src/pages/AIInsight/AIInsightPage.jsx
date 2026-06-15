@@ -15,9 +15,9 @@ const kpiIconMap = [
 
 const kpiColors = [
   'var(--primary-500)',
-  'var(--danger-500)',
-  'var(--success-500)',
-  'var(--warning-500)'
+  '#ef4444',
+  '#22c55e',
+  '#f59e0b'
 ];
 
 const videoContentInsights = [
@@ -100,7 +100,7 @@ function ConcernDonut({ data, total }) {
     <div className="concern-donut">
       <div className="concern-chart" style={{ width: 140, height: 140 }}>
         <svg width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx="70" cy="70" r={r} fill="none" stroke="var(--n-100)" strokeWidth="18" />
+          <circle cx="70" cy="70" r={r} fill="none" stroke="#f3f4f6" strokeWidth="18" />
           {data.map((d, i) => {
             const dash = (d.pct / 132) * c; // normalize so total doesn't exceed circle
             const o = offset;
@@ -117,7 +117,7 @@ function ConcernDonut({ data, total }) {
         {data.map((d, i) => (
           <div key={i} className="concern-legend-item">
             <div className="concern-legend-dot" style={{ background: d.color }} />
-            <span style={{ flex: 1, fontSize: '12px', color: 'var(--n-700)' }}>{d.label}</span>
+            <span style={{ flex: 1, fontSize: '12px', color: '#374151' }}>{d.label}</span>
             <span className="concern-legend-pct">{d.pct}%</span>
           </div>
         ))}
@@ -142,10 +142,10 @@ function AIChat() {
   return (
     <div className="ai-chat-panel">
       <div className="ai-chat-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Brain size={20} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+        <Brain size={20} weight="duotone" style={{ color: '#4f46e5' }} />
         <div>
           <strong>AI Assistant</strong>
-          <div style={{ fontSize: '11px', color: 'var(--n-400)', fontWeight: 400, marginTop: '2px' }}>Hỏi gì cũng biết về dữ liệu hội thoại</div>
+          <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400, marginTop: '2px' }}>Hỏi gì cũng biết về dữ liệu hội thoại</div>
         </div>
       </div>
       <div className="ai-chat-messages">
@@ -176,10 +176,10 @@ export default function AIInsightPage() {
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', minWidth: 0 }}>
         {/* Intro */}
-        <div className="card anim-up" style={{ padding: '12px 16px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--n-500)' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkle size={14} weight="duotone" style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+              <Sparkle size={14} weight="duotone" style={{ color: '#4f46e5', flexShrink: 0 }} />
               <span><strong>Tổng quan AI Insight</strong> — AI đã phân tích <strong>52.362</strong> hội thoại trong khoảng thời gian 01/05/2026 - 31/05/2026</span>
             </div>
           </div>
@@ -206,39 +206,39 @@ export default function AIInsightPage() {
 
         {/* Row: Concern Donut + Close Rate Factors */}
         <div style={{ display: 'flex', gap: '14px' }}>
-          <div className="card anim-up" style={{ flex: 1, animationDelay: '300ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '300ms' }}>
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span>Khách hàng quan tâm điều gì nhất?</span>
-              <MagnifyingGlass size={13} weight="bold" style={{ color: 'var(--primary-600)' }} />
+              <MagnifyingGlass size={13} weight="bold" style={{ color: '#4f46e5' }} />
               <span className="card-link" style={{ marginLeft: 'auto' }}>Xem chi tiết</span>
             </div>
             <ConcernDonut data={customerConcerns.items} total={customerConcerns.total} />
           </div>
 
-          <div className="card anim-up" style={{ flex: 1.2, animationDelay: '350ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1.2, animationDelay: '350ms' }}>
             <div className="card-title">Vì sao tỷ lệ chốt thay đổi? <span className="card-link">Xem chi tiết</span></div>
             <div className="factors-grid">
               <div className="factor-col">
-                <h4 style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <h4 style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <CheckCircle size={14} weight="fill" />
                   <span>Các yếu tố giúp chốt cao</span>
                 </h4>
                 {closeRateFactors.highClose.map((f, i) => (
                   <div key={i} className="factor-item">
                     <span className="name">{f.label}</span>
-                    <span className="pct" style={{ color: 'var(--success-600)' }}>↑ {f.pct}%</span>
+                    <span className="pct" style={{ color: '#16a34a' }}>↑ {f.pct}%</span>
                   </div>
                 ))}
               </div>
               <div className="factor-col">
-                <h4 style={{ color: 'var(--danger-600)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <h4 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Warning size={14} weight="fill" />
                   <span>Các lý do mất đơn hàng</span>
                 </h4>
                 {closeRateFactors.lostOrders.map((f, i) => (
                   <div key={i} className="factor-item">
                     <span className="name">{f.label}</span>
-                    <span className="pct" style={{ color: 'var(--danger-600)' }}>{f.pct}%</span>
+                    <span className="pct" style={{ color: '#dc2626' }}>{f.pct}%</span>
                   </div>
                 ))}
               </div>
@@ -247,10 +247,10 @@ export default function AIInsightPage() {
         </div>
 
         {/* Row: Turn customer questions into video content */}
-        <div className="card anim-up" style={{ animationDelay: '380ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '380ms' }}>
           <div className="card-title" style={{ alignItems: 'center' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkle size={14} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+              <Sparkle size={14} weight="duotone" style={{ color: '#4f46e5' }} />
               Biến insight khách hàng thành content video
             </span>
             <span className="card-link">Xuất lịch nội dung</span>
@@ -259,19 +259,19 @@ export default function AIInsightPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {videoContentInsights.map((item, i) => (
                 <div key={i} style={{
-                  border: '1px solid var(--n-200)',
+                  border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                   padding: '10px',
-                  background: i === 0 ? 'var(--primary-50)' : '#fff'
+                  background: i === 0 ? '#eef2ff' : '#fff'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '5px' }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--n-900)', lineHeight: 1.35 }}>{item.question}</div>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary-600)', whiteSpace: 'nowrap' }}>{item.mentions.toLocaleString()} hỏi</span>
+                    <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#111827', lineHeight: 1.35 }}>{item.question}</div>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', whiteSpace: 'nowrap' }}>{item.mentions.toLocaleString()} hỏi</span>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--n-500)', lineHeight: 1.45 }}>
+                  <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.45 }}>
                     Nhóm khách: <strong>{item.audience}</strong>
                   </div>
-                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--warning-600)', background: 'var(--warning-50)', borderRadius: '6px', padding: '5px 7px', fontWeight: 700 }}>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#d97706', background: '#fffbeb', borderRadius: '6px', padding: '5px 7px', fontWeight: 700 }}>
                     Góc video: {item.angle}
                   </div>
                 </div>
@@ -285,13 +285,13 @@ export default function AIInsightPage() {
                   <div style={{ fontSize: '14px', color: '#1e3a8a', fontWeight: 900, lineHeight: 1.35, marginBottom: '8px' }}>{item.hook}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {item.script.map((step, stepIndex) => (
-                      <div key={stepIndex} style={{ display: 'flex', gap: '6px', fontSize: '12.2px', color: 'var(--n-700)', lineHeight: 1.4 }}>
+                      <div key={stepIndex} style={{ display: 'flex', gap: '6px', fontSize: '12.2px', color: '#374151', lineHeight: 1.4 }}>
                         <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, flexShrink: 0 }}>{stepIndex + 1}</span>
                         <span>{step}</span>
                       </div>
                     ))}
                   </div>
-                  <div style={{ marginTop: 'auto', paddingTop: '8px', fontSize: '12px', color: 'var(--success-600)', fontWeight: 800 }}>
+                  <div style={{ marginTop: 'auto', paddingTop: '8px', fontSize: '12px', color: '#16a34a', fontWeight: 800 }}>
                     CTA: {item.cta}
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export default function AIInsightPage() {
 
         {/* Row: Products + Country Insights */}
         <div style={{ display: 'flex', gap: '14px' }}>
-          <div className="card anim-up" style={{ flex: 1, animationDelay: '400ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '400ms' }}>
             <div className="card-title">Sản phẩm được quan tâm <span className="card-link">Xem chi tiết</span></div>
             <table className="data-table">
               <thead><tr><th>Sản phẩm</th><th>Lượt hỏi</th><th>Tỷ lệ chốt</th><th>Doanh thu</th></tr></thead>
@@ -311,7 +311,7 @@ export default function AIInsightPage() {
                   <tr key={i}>
                     <td>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <Diamond size={13} weight="duotone" style={{ color: 'var(--warning-500)' }} />
+                        <Diamond size={13} weight="duotone" style={{ color: '#f59e0b' }} />
                         <span>{p.name}</span>
                       </div>
                     </td>
@@ -325,7 +325,7 @@ export default function AIInsightPage() {
             <div style={{ textAlign: 'center', marginTop: '8px' }}><span className="card-link">Xem tất cả sản phẩm</span></div>
           </div>
 
-          <div className="card anim-up" style={{ flex: 1, animationDelay: '450ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '450ms' }}>
             <div className="card-title">Insight theo quốc gia</div>
             <div>
               {insightByCountry.map((c, i) => (
@@ -345,24 +345,24 @@ export default function AIInsightPage() {
 
         {/* Row: Sentiment + Ad Efficiency */}
         <div style={{ display: 'flex', gap: '14px' }}>
-          <div className="card anim-up" style={{ flex: 1, animationDelay: '500ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '500ms' }}>
             <div className="card-title">Cảm xúc khách hàng (AI) <span className="card-link">Xem chi tiết</span></div>
             <div style={{ display: 'flex', gap: '20px' }}>
               <div className="sentiment-row" style={{ gap: '20px' }}>
                 <div className="sentiment-item" style={{ gap: '3px' }}>
-                  <Smiley size={24} weight="duotone" style={{ color: 'var(--success-500)' }} />
+                  <Smiley size={24} weight="duotone" style={{ color: '#22c55e' }} />
                   <div className="sentiment-pct">68%</div>
                   <div className="sentiment-label">Tích cực</div>
                   <div className="sentiment-change up">↑ 6%</div>
                 </div>
                 <div className="sentiment-item" style={{ gap: '3px' }}>
-                  <SmileyMeh size={24} weight="duotone" style={{ color: 'var(--warning-500)' }} />
+                  <SmileyMeh size={24} weight="duotone" style={{ color: '#f59e0b' }} />
                   <div className="sentiment-pct">24%</div>
                   <div className="sentiment-label">Trung tính</div>
                   <div className="sentiment-change">↑ 2%</div>
                 </div>
                 <div className="sentiment-item" style={{ gap: '3px' }}>
-                  <SmileySad size={24} weight="duotone" style={{ color: 'var(--danger-500)' }} />
+                  <SmileySad size={24} weight="duotone" style={{ color: '#ef4444' }} />
                   <div className="sentiment-pct">8%</div>
                   <div className="sentiment-label">Tiêu cực</div>
                   <div className="sentiment-change down">↑ 2%</div>
@@ -370,7 +370,7 @@ export default function AIInsightPage() {
               </div>
               {/* Mini trend chart */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: '11px', color: 'var(--n-500)', marginBottom: '4px', textAlign: 'center' }}>Biến động cảm xúc theo ngày</div>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', textAlign: 'center' }}>Biến động cảm xúc theo ngày</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '80px' }}>
                   {[85, 78, 82, 90, 88, 92, 85, 80].map((v, i) => (
                     <div key={i} style={{ flex: 1, height: anim ? `${v * 0.8}px` : 0, background: 'linear-gradient(180deg,#22c55e,#16a34a)', borderRadius: '2px 2px 0 0', transition: 'height .6s ease', transitionDelay: `${i*50}ms` }} />
@@ -380,7 +380,7 @@ export default function AIInsightPage() {
             </div>
           </div>
 
-          <div className="card anim-up" style={{ flex: 1, animationDelay: '550ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '550ms' }}>
             <div className="card-title">Hiệu quả quảng cáo (AI) <span className="card-link">Xem chi tiết</span></div>
             <table className="data-table">
               <thead><tr><th>Nguồn quảng cáo</th><th>Chất lượng khách</th><th>Tỷ lệ chốt</th><th>ROAS ước tính</th></tr></thead>
@@ -392,14 +392,14 @@ export default function AIInsightPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <div style={{ display: 'flex', gap: '1px' }}>
                           {Array.from({ length: 5 }).map((_, j) => (
-                            <Star key={j} size={10} weight={j < a.stars ? "fill" : "regular"} style={{ color: j < a.stars ? '#fbbf24' : 'var(--n-200)' }} />
+                            <Star key={j} size={10} weight={j < a.stars ? "fill" : "regular"} style={{ color: j < a.stars ? '#fbbf24' : '#e5e7eb' }} />
                           ))}
                         </div>
                         <span style={{ fontSize: '11px' }}>{a.quality}</span>
                       </div>
                     </td>
                     <td style={{ fontWeight: 600 }}>{a.closeRate}</td>
-                    <td style={{ fontWeight: 700, color: parseFloat(a.roas) >= 4 ? 'var(--success-600)' : 'var(--warning-600)' }}>{a.roas}</td>
+                    <td style={{ fontWeight: 700, color: parseFloat(a.roas) >= 4 ? '#16a34a' : '#d97706' }}>{a.roas}</td>
                   </tr>
                 ))}
               </tbody>

@@ -15,10 +15,10 @@ const kpiIconMap = [
 function getInsightIcon(icon) {
   switch (icon) {
     case '🔴': return <Warning size={14} weight="duotone" style={{ color: '#ef4444' }} />;
-    case '💡': return <Lightbulb size={14} weight="duotone" style={{ color: 'var(--warning-500)' }} />;
+    case '💡': return <Lightbulb size={14} weight="duotone" style={{ color: '#f59e0b' }} />;
     case '⏰': return <Clock size={14} weight="duotone" style={{ color: 'var(--primary-500)' }} />;
-    case '⚠️': return <Warning size={14} weight="duotone" style={{ color: 'var(--danger-500)' }} />;
-    default: return <Sparkle size={14} weight="duotone" style={{ color: 'var(--primary-600)' }} />;
+    case '⚠️': return <Warning size={14} weight="duotone" style={{ color: '#ef4444' }} />;
+    default: return <Sparkle size={14} weight="duotone" style={{ color: '#4f46e5' }} />;
   }
 }
 
@@ -96,8 +96,8 @@ export default function WarrantyPage() {
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: 'var(--n-500)', marginBottom: '4px', lineHeight: 1.3 }}>{kpi.label}</div>
-                <div style={{ fontSize: '21px', fontWeight: 800, color: 'var(--n-900)', lineHeight: 1.1 }}>{kpi.value}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', lineHeight: 1.3 }}>{kpi.label}</div>
+                <div style={{ fontSize: '21px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>{kpi.value}</div>
               </div>
             </div>
           );
@@ -108,10 +108,10 @@ export default function WarrantyPage() {
       <div style={{ display: 'flex', gap: '16px', minHeight: 0 }}>
 
         {/* Warranty List */}
-        <div className="card" style={{ flex: 1.6, borderRadius: '18px', padding: '20px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1.6, borderRadius: '18px', padding: '20px' }}>
           <div className="card-title" style={{ marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield size={16} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+              <Shield size={16} weight="duotone" style={{ color: '#4f46e5' }} />
               <span>Danh sách yêu cầu bảo hành</span>
             </div>
             <span className="card-link">Xem tất cả →</span>
@@ -122,8 +122,8 @@ export default function WarrantyPage() {
             {tabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)} style={{
                 padding: '5px 12px', borderRadius: 999, fontSize: '12px', fontWeight: 600,
-                background: tab === t.key ? 'var(--primary-600)' : 'var(--n-100)',
-                color: tab === t.key ? '#fff' : 'var(--n-600)',
+                background: tab === t.key ? '#4f46e5' : '#f3f4f6',
+                color: tab === t.key ? '#fff' : '#4b5563',
                 transition: 'all 150ms ease',
               }}>
                 {t.label}
@@ -134,14 +134,14 @@ export default function WarrantyPage() {
 
           {/* Search + Filters */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 12px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '10px', flex: 1 }}>
-              <MagnifyingGlass size={14} style={{ color: 'var(--n-400)', flexShrink: 0 }} />
-              <input placeholder="Tìm theo tên khách, SĐT, mã đơn..." style={{ flex: 1, background: 'transparent', fontSize: '13px', color: 'var(--n-700)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', flex: 1 }}>
+              <MagnifyingGlass size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
+              <input placeholder="Tìm theo tên khách, SĐT, mã đơn..." style={{ flex: 1, background: 'transparent', fontSize: '13px', color: '#374151' }} />
             </div>
-            <select style={{ padding: '7px 10px', border: '1px solid var(--n-200)', borderRadius: '10px', fontSize: '12px', color: 'var(--n-600)', background: 'var(--white)', cursor: 'pointer' }}>
+            <select style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '12px', color: '#4b5563', background: '#fff', cursor: 'pointer' }}>
               <option>Tất cả lý do</option>
             </select>
-            <select style={{ padding: '7px 10px', border: '1px solid var(--n-200)', borderRadius: '10px', fontSize: '12px', color: 'var(--n-600)', background: 'var(--white)', cursor: 'pointer' }}>
+            <select style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '12px', color: '#4b5563', background: '#fff', cursor: 'pointer' }}>
               <option>Tất cả nhân viên</option>
             </select>
           </div>
@@ -158,20 +158,20 @@ export default function WarrantyPage() {
             <tbody>
               {warrantyList.map((w, i) => (
                 <tr key={i} style={{ cursor: 'pointer' }}>
-                  <td style={{ color: 'var(--n-400)', fontWeight: 600, fontSize: '12px' }}>{i + 1}</td>
+                  <td style={{ color: '#9ca3af', fontWeight: 600, fontSize: '12px' }}>{i + 1}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 67 + 200}, 58%, 55%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                         {w.customer.charAt(0)}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--n-900)' }}>{w.customer}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--n-400)' }}>{w.phone}</div>
+                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#111827' }}>{w.customer}</div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>{w.phone}</div>
                       </div>
                     </div>
                   </td>
                   <td style={{ fontSize: '12.5px', maxWidth: '110px' }}>{w.product}</td>
-                  <td style={{ fontSize: '12px', color: 'var(--primary-600)', fontWeight: 600 }}>{w.orderCode || '—'}</td>
+                  <td style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 600 }}>{w.orderCode || '—'}</td>
                   <td><span className="tag tag-gray">{w.reason}</span></td>
                   <td>
                     <span className={`tag ${
@@ -180,8 +180,8 @@ export default function WarrantyPage() {
                       w.status === 'Hoàn thành' ? 'tag-green' : 'tag-blue'
                     }`}>{w.status}</span>
                   </td>
-                  <td style={{ fontSize: '12px', color: 'var(--n-500)' }}>{w.time || '—'}</td>
-                  <td style={{ fontSize: '12px', color: 'var(--n-700)' }}>{w.employee || '—'}</td>
+                  <td style={{ fontSize: '12px', color: '#6b7280' }}>{w.time || '—'}</td>
+                  <td style={{ fontSize: '12px', color: '#374151' }}>{w.employee || '—'}</td>
                   <td>
                     {w.sentiment && (
                       <span className={`tag ${
@@ -208,10 +208,10 @@ export default function WarrantyPage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
 
           {/* Process Flow */}
-          <div className="card" style={{ borderRadius: '18px', padding: '20px' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ borderRadius: '18px', padding: '20px' }}>
             <div className="card-title" style={{ marginBottom: '16px' }}>
               <span>Quy trình xử lý bảo hành</span>
-              <span style={{ fontSize: '11px', color: 'var(--n-400)', fontWeight: 400 }}>Tháng này</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>Tháng này</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {warrantyProcess.map((p, i) => {
@@ -223,10 +223,10 @@ export default function WarrantyPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '12.5px', color: 'var(--n-700)', fontWeight: 500 }}>{p.label}</span>
+                        <span style={{ fontSize: '12.5px', color: '#374151', fontWeight: 500 }}>{p.label}</span>
                         <span style={{ fontSize: '13px', fontWeight: 700, color: processColors[i] }}>{p.value.toLocaleString()}</span>
                       </div>
-                      <div style={{ height: 5, background: 'var(--n-100)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ height: 5, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: processColors[i], borderRadius: 99 }} />
                       </div>
                     </div>
@@ -234,22 +234,22 @@ export default function WarrantyPage() {
                 );
               })}
             </div>
-            <div style={{ marginTop: '14px', padding: '9px 12px', background: 'var(--warning-50)', borderRadius: '10px', border: '1px solid var(--warning-100)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Warning size={14} weight="duotone" style={{ color: 'var(--warning-600)', flexShrink: 0 }} />
-              <span style={{ fontSize: '12px', color: 'var(--n-700)', flex: 1 }}>26 yêu cầu chậm tiến độ SLA {'>'} 24h</span>
+            <div style={{ marginTop: '14px', padding: '9px 12px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Warning size={14} weight="duotone" style={{ color: '#d97706', flexShrink: 0 }} />
+              <span style={{ fontSize: '12px', color: '#374151', flex: 1 }}>26 yêu cầu chậm tiến độ SLA {'>'} 24h</span>
               <span className="card-link" style={{ fontSize: '12px' }}>Xem →</span>
             </div>
           </div>
 
           {/* AI Insight */}
-          <div className="card" style={{
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{
             borderRadius: '18px', padding: '20px',
             background: 'linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%)',
             border: '1px solid #c7d2fe',
           }}>
-            <div className="card-title" style={{ marginBottom: '14px', color: 'var(--primary-700)' }}>
+            <div className="card-title" style={{ marginBottom: '14px', color: '#3730a3' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <Sparkle size={16} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+                <Sparkle size={16} weight="duotone" style={{ color: '#4f46e5' }} />
                 <span>AI Insight bảo hành</span>
               </div>
               <span className="card-link">Xem tất cả →</span>
@@ -258,7 +258,7 @@ export default function WarrantyPage() {
               {aiInsights.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '10px', padding: '10px 12px', background: 'rgba(255,255,255,0.72)', borderRadius: '10px', border: '1px solid rgba(199,210,254,0.6)', alignItems: 'flex-start' }}>
                   <span style={{ display: 'inline-flex', flexShrink: 0, marginTop: '2px' }}>{getInsightIcon(item.icon)}</span>
-                  <span style={{ fontSize: '12.5px', color: 'var(--n-700)', lineHeight: 1.55 }}>{item.text}</span>
+                  <span style={{ fontSize: '12.5px', color: '#374151', lineHeight: 1.55 }}>{item.text}</span>
                 </div>
               ))}
             </div>
@@ -270,7 +270,7 @@ export default function WarrantyPage() {
       <div style={{ display: 'flex', gap: '16px' }}>
 
         {/* Sentiment Donut */}
-        <div className="card" style={{ flex: 1, borderRadius: '18px', padding: '20px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, borderRadius: '18px', padding: '20px' }}>
           <div className="card-title" style={{ marginBottom: '14px' }}>
             <span>Cảm xúc khách hàng</span>
             <span className="card-link">Chi tiết →</span>
@@ -278,7 +278,7 @@ export default function WarrantyPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
               <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="50" cy="50" r="38" fill="none" stroke="var(--n-100)" strokeWidth="11" />
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#f3f4f6" strokeWidth="11" />
                 {(() => {
                   let off = 0;
                   const c = 2 * Math.PI * 38;
@@ -291,17 +291,17 @@ export default function WarrantyPage() {
                 })()}
               </svg>
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-                <div style={{ fontSize: '19px', fontWeight: 800, color: 'var(--n-900)' }}>356</div>
-                <div style={{ fontSize: '9px', color: 'var(--n-500)' }}>tổng</div>
+                <div style={{ fontSize: '19px', fontWeight: 800, color: '#111827' }}>356</div>
+                <div style={{ fontSize: '9px', color: '#6b7280' }}>tổng</div>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
               {warrantySentiment.map((d, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                  <span style={{ color: 'var(--n-600)', flex: 1 }}>{d.label}</span>
-                  <span style={{ fontWeight: 700, color: 'var(--n-800)', minWidth: 28, textAlign: 'right' }}>{d.value}</span>
-                  <span style={{ color: 'var(--n-400)', fontSize: '11px', minWidth: 38, textAlign: 'right' }}>{d.pct}</span>
+                  <span style={{ color: '#4b5563', flex: 1 }}>{d.label}</span>
+                  <span style={{ fontWeight: 700, color: '#1f2937', minWidth: 28, textAlign: 'right' }}>{d.value}</span>
+                  <span style={{ color: '#9ca3af', fontSize: '11px', minWidth: 38, textAlign: 'right' }}>{d.pct}</span>
                 </div>
               ))}
             </div>
@@ -309,7 +309,7 @@ export default function WarrantyPage() {
         </div>
 
         {/* By Product */}
-        <div className="card" style={{ flex: 1.2, borderRadius: '18px', padding: '20px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1.2, borderRadius: '18px', padding: '20px' }}>
           <div className="card-title" style={{ marginBottom: '14px' }}>
             <span>Bảo hành theo sản phẩm</span>
             <span className="card-link">Xem tất cả →</span>
@@ -325,8 +325,8 @@ export default function WarrantyPage() {
                       <span style={{ fontWeight: 500, fontSize: '12.5px' }}>{p.name}</span>
                     </div>
                   </td>
-                  <td style={{ fontWeight: 700, color: 'var(--n-800)' }}>{p.count}</td>
-                  <td><span style={{ fontWeight: 700, color: 'var(--danger-600)', fontSize: '12.5px' }}>{p.pct}</span></td>
+                  <td style={{ fontWeight: 700, color: '#1f2937' }}>{p.count}</td>
+                  <td><span style={{ fontWeight: 700, color: '#dc2626', fontSize: '12.5px' }}>{p.pct}</span></td>
                   <td><span className="tag tag-gray">{p.reason}</span></td>
                 </tr>
               ))}
@@ -335,7 +335,7 @@ export default function WarrantyPage() {
         </div>
 
         {/* Employee Performance */}
-        <div className="card" style={{ flex: 1.2, borderRadius: '18px', padding: '20px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1.2, borderRadius: '18px', padding: '20px' }}>
           <div className="card-title" style={{ marginBottom: '14px' }}>
             <span>Hiệu suất nhân viên</span>
             <span className="card-link">Xem tất cả →</span>
@@ -353,13 +353,13 @@ export default function WarrantyPage() {
                       <span style={{ fontSize: '12.5px', fontWeight: 500 }}>{e.name}</span>
                     </div>
                   </td>
-                  <td style={{ fontWeight: 700, color: 'var(--n-800)' }}>{e.handled}</td>
+                  <td style={{ fontWeight: 700, color: '#1f2937' }}>{e.handled}</td>
                   <td>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: parseInt(e.onTime) >= 90 ? 'var(--success-600)' : 'var(--warning-600)' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: parseInt(e.onTime) >= 90 ? '#16a34a' : '#d97706' }}>
                       {e.onTime}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 600, color: 'var(--n-700)', fontSize: '12.5px' }}>
+                  <td style={{ fontWeight: 600, color: '#374151', fontSize: '12.5px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                       <Star size={11} weight="fill" style={{ color: '#eab308' }} />
                       {e.csat}
@@ -372,7 +372,7 @@ export default function WarrantyPage() {
         </div>
 
         {/* Workshop */}
-        <div className="card" style={{ flex: 1, borderRadius: '18px', padding: '20px' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, borderRadius: '18px', padding: '20px' }}>
           <div className="card-title" style={{ marginBottom: '14px' }}>
             <span>Theo dõi xưởng</span>
             <span className="card-link">Chi tiết →</span>
@@ -384,9 +384,9 @@ export default function WarrantyPage() {
                 <tr key={i}>
                   <td style={{ fontWeight: 600, fontSize: '12.5px' }}>{w.name}</td>
                   <td style={{ fontWeight: 700 }}>{w.received}</td>
-                  <td style={{ fontWeight: 700, color: w.late > 3 ? 'var(--danger-600)' : 'var(--n-500)' }}>{w.late}</td>
+                  <td style={{ fontWeight: 700, color: w.late > 3 ? '#dc2626' : '#6b7280' }}>{w.late}</td>
                   <td>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: parseInt(w.rate) >= 90 ? 'var(--success-600)' : 'var(--warning-600)' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: parseInt(w.rate) >= 90 ? '#16a34a' : '#d97706' }}>
                       {w.rate}
                     </span>
                   </td>
@@ -399,42 +399,42 @@ export default function WarrantyPage() {
 
       {/* ── Alert Bar ── */}
       <div style={{ display: 'flex', gap: '16px' }}>
-        <div className="card" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: 'var(--danger-50)', border: '1px solid var(--danger-100)' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: '#fef2f2', border: '1px solid #fee2e2' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: 36, height: 36, borderRadius: '10px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Warning size={18} weight="duotone" style={{ color: 'var(--danger-600)' }} />
+              <Warning size={18} weight="duotone" style={{ color: '#dc2626' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger-600)', marginBottom: '1px' }}>Cảnh báo rủi ro</div>
-              <div style={{ fontSize: '12px', color: 'var(--n-600)' }}>3 khách hàng VIP đang rất không hài lòng, nguy cơ phốt cao</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626', marginBottom: '1px' }}>Cảnh báo rủi ro</div>
+              <div style={{ fontSize: '12px', color: '#4b5563' }}>3 khách hàng VIP đang rất không hài lòng, nguy cơ phốt cao</div>
             </div>
-            <span className="card-link" style={{ fontSize: '13px', color: 'var(--danger-600)', flexShrink: 0 }}>Xem ngay →</span>
+            <span className="card-link" style={{ fontSize: '13px', color: '#dc2626', flexShrink: 0 }}>Xem ngay →</span>
           </div>
         </div>
 
-        <div className="card" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: 'var(--warning-50)', border: '1px solid var(--warning-100)' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: '#fffbeb', border: '1px solid #fef3c7' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: 36, height: 36, borderRadius: '10px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Clock size={18} weight="duotone" style={{ color: 'var(--warning-600)' }} />
+              <Clock size={18} weight="duotone" style={{ color: '#d97706' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--warning-600)', marginBottom: '1px' }}>Khách cần ưu tiên</div>
-              <div style={{ fontSize: '12px', color: 'var(--n-600)' }}>10 khách đang chờ xử lý {'>'} 48 giờ, cần phản hồi ngay</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#d97706', marginBottom: '1px' }}>Khách cần ưu tiên</div>
+              <div style={{ fontSize: '12px', color: '#4b5563' }}>10 khách đang chờ xử lý {'>'} 48 giờ, cần phản hồi ngay</div>
             </div>
-            <span className="card-link" style={{ fontSize: '13px', color: 'var(--warning-600)', flexShrink: 0 }}>Xem danh sách →</span>
+            <span className="card-link" style={{ fontSize: '13px', color: '#d97706', flexShrink: 0 }}>Xem danh sách →</span>
           </div>
         </div>
 
-        <div className="card" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: 'var(--success-50)', border: '1px solid var(--success-100)' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, borderRadius: '14px', padding: '14px 18px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: 36, height: 36, borderRadius: '10px', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <CheckCircle size={18} weight="duotone" style={{ color: 'var(--success-600)' }} />
+              <CheckCircle size={18} weight="duotone" style={{ color: '#16a34a' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success-600)', marginBottom: '1px' }}>Khách quay lại sau bảo hành</div>
-              <div style={{ fontSize: '12px', color: 'var(--n-600)' }}>127 khách đã quay lại mua hàng sau khi bảo hành thành công</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a', marginBottom: '1px' }}>Khách quay lại sau bảo hành</div>
+              <div style={{ fontSize: '12px', color: '#4b5563' }}>127 khách đã quay lại mua hàng sau khi bảo hành thành công</div>
             </div>
-            <span className="card-link" style={{ fontSize: '13px', color: 'var(--success-600)', flexShrink: 0 }}>Xem danh sách →</span>
+            <span className="card-link" style={{ fontSize: '13px', color: '#16a34a', flexShrink: 0 }}>Xem danh sách →</span>
           </div>
         </div>
       </div>

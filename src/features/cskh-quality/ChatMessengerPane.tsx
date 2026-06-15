@@ -61,7 +61,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             onValueChange={(val: string) => setSelectedPageId(val === 'all' ? undefined : val)}
           >
             <SelectTrigger
-              className="w-full !h-9 !min-h-9 border-slate-200 !bg-white pl-2.5 pr-8 !border hover:!bg-white focus:ring-1 focus:ring-blue-200 [&>span]:line-clamp-1 [&>span]:truncate text-xs font-semibold text-slate-700"
+              className="w-full [&>span]:line-clamp-1 [&>span]:truncate"
               aria-label="Chọn kênh Facebook"
             >
               <SelectValue placeholder="Chọn kênh Facebook" />

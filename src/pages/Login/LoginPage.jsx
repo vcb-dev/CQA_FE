@@ -81,7 +81,7 @@ export default function LoginPage() {
       padding: '20px',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
-      <div className="card anim-up" style={{
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{
         width: '100%',
         maxWidth: '400px',
         padding: '32px',
@@ -96,7 +96,7 @@ export default function LoginPage() {
             width: '48px',
             height: '48px',
             borderRadius: '12px',
-            background: 'var(--primary-600)',
+            background: '#4f46e5',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -199,7 +199,7 @@ export default function LoginPage() {
               marginTop: '8px',
               padding: '11px',
               borderRadius: '8px',
-              background: 'var(--primary-600)',
+              background: '#4f46e5',
               color: '#fff',
               fontSize: '14px',
               fontWeight: 600,
@@ -212,8 +212,8 @@ export default function LoginPage() {
               boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
               transition: 'all 0.2s'
             }}
-            onMouseEnter={(e) => e.target.style.background = 'var(--primary-700)'}
-            onMouseLeave={(e) => e.target.style.background = 'var(--primary-600)'}
+            onMouseEnter={(e) => e.target.style.background = '#3730a3'}
+            onMouseLeave={(e) => e.target.style.background = '#4f46e5'}
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Đăng nhập'}
           </button>

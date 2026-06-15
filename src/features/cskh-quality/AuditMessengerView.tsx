@@ -1249,12 +1249,7 @@ export function AuditMessengerView({
               >
                 <SelectTrigger
                   id="audit-page-filter"
-                  className={cn(
-                    cskhAuditToolbarControlClass,
-                    '!h-9 !min-h-9 border-slate-200 !bg-white py-0 pl-2.5 pr-8',
-                    '!border hover:!bg-white focus:ring-1 focus:ring-indigo-200',
-                    '[&>span]:line-clamp-1 [&>span]:truncate'
-                  )}
+                  className="[&>span]:line-clamp-1 [&>span]:truncate"
                   aria-label="Chọn kênh"
                 >
                   <SelectValue placeholder="Chọn kênh" />
@@ -1288,7 +1283,7 @@ export function AuditMessengerView({
                 onChange={(e) => setBatchLimitInput(e.target.value)}
                 disabled={isRunning}
                 title="Để trống = chấm hết cuộc chưa chấm. Nhập số = chỉ chấm thêm N cuộc (bỏ qua đã chấm)."
-                className={cn(cskhAuditToolbarControlClass, 'px-2.5 placeholder:text-slate-400')}
+                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all hover:bg-slate-50"
               />
             </div>
 

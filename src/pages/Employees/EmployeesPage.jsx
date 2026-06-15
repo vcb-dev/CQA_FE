@@ -23,21 +23,21 @@ import { employees } from '../../data/mockData';
 const PAGE_SIZE = 10;
 
 const scoreColor = (score) => {
-  if (score >= 80) return 'var(--success-600)';
-  if (score >= 70) return 'var(--warning-600)';
-  return 'var(--danger-600)';
+  if (score >= 80) return '#16a34a';
+  if (score >= 70) return '#d97706';
+  return '#dc2626';
 };
 
 const improvementColor = (score) => {
-  if (score >= 32) return 'var(--danger-600)';
-  if (score >= 20) return 'var(--warning-600)';
-  return 'var(--success-600)';
+  if (score >= 32) return '#dc2626';
+  if (score >= 20) return '#d97706';
+  return '#16a34a';
 };
 
 const achievementColor = (value) => {
-  if (value >= 95) return 'var(--success-600)';
-  if (value >= 82) return 'var(--warning-600)';
-  return 'var(--danger-600)';
+  if (value >= 95) return '#16a34a';
+  if (value >= 82) return '#d97706';
+  return '#dc2626';
 };
 
 const statusClass = (status) => {
@@ -68,17 +68,17 @@ const initials = (name) => name
 
 const controlStyle = {
   height: '34px',
-  border: '1px solid var(--n-200)',
+  border: '1px solid #e5e7eb',
   borderRadius: '7px',
-  background: 'var(--white)',
-  color: 'var(--n-700)',
+  background: '#fff',
+  color: '#374151',
   fontSize: '13px',
   padding: '0 10px',
 };
 
 function MetricBar({ value, color, max = 100, width = 92 }) {
   return (
-    <div style={{ height: '5px', width, background: 'var(--n-100)', borderRadius: '999px', overflow: 'hidden', marginTop: '5px' }}>
+    <div style={{ height: '5px', width, background: '#f3f4f6', borderRadius: '999px', overflow: 'hidden', marginTop: '5px' }}>
       <div style={{ height: '100%', width: `${Math.min((value / max) * 100, 100)}%`, background: color, borderRadius: '999px' }} />
     </div>
   );
@@ -91,14 +91,14 @@ function KpiProgress({ label, actual, target, suffix = '', precision = 0 }) {
   const displayTarget = typeof target === 'number' ? target.toLocaleString('vi-VN', { maximumFractionDigits: precision }) : target;
 
   return (
-    <div style={{ border: '1px solid var(--n-100)', borderRadius: '8px', padding: '10px', background: 'var(--white)' }}>
+    <div style={{ border: '1px solid #f3f4f6', borderRadius: '8px', padding: '10px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--n-500)', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>{label}</span>
         <span style={{ fontSize: '12px', color, fontWeight: 800 }}>{ratio}%</span>
       </div>
-      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--n-900)' }}>
+      <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827' }}>
         {displayActual}{suffix}
-        <span style={{ color: 'var(--n-400)', fontWeight: 600 }}> / {displayTarget}{suffix}</span>
+        <span style={{ color: '#9ca3af', fontWeight: 600 }}> / {displayTarget}{suffix}</span>
       </div>
       <MetricBar value={ratio} color={color} width="100%" />
     </div>
@@ -109,17 +109,17 @@ function QualityChart({ employee }) {
   const maxTrend = Math.max(...employee.qualityTrend.map((item) => item.score), 100);
 
   return (
-    <div style={{ border: '1px solid var(--n-100)', borderRadius: '10px', background: 'var(--white)', padding: '12px' }}>
+    <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '10px' }}>
-        <ChartBar size={17} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+        <ChartBar size={17} weight="duotone" style={{ color: '#4f46e5' }} />
         Biểu đồ chất lượng
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '9px', height: '96px', padding: '6px 4px 0', borderBottom: '1px solid var(--n-100)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '9px', height: '96px', padding: '6px 4px 0', borderBottom: '1px solid #f3f4f6' }}>
         {employee.qualityTrend.map((item) => (
           <div key={item.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', height: '100%' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: scoreColor(item.score) }}>{item.score}</div>
             <div style={{ width: '100%', maxWidth: '28px', height: `${Math.max(22, (item.score / maxTrend) * 68)}px`, borderRadius: '6px 6px 0 0', background: `linear-gradient(180deg, ${scoreColor(item.score)}, #c7d2fe)` }} />
-            <div style={{ fontSize: '10.5px', color: 'var(--n-500)' }}>{item.label}</div>
+            <div style={{ fontSize: '10.5px', color: '#6b7280' }}>{item.label}</div>
           </div>
         ))}
       </div>
@@ -130,7 +130,7 @@ function QualityChart({ employee }) {
           return (
             <div key={item.label}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px' }}>
-                <span style={{ color: 'var(--n-600)', fontWeight: 600 }}>{item.label}</span>
+                <span style={{ color: '#4b5563', fontWeight: 600 }}>{item.label}</span>
                 <span style={{ color, fontWeight: 800 }}>{item.score}</span>
               </div>
               <MetricBar value={item.score} color={color} width="100%" />
@@ -145,23 +145,23 @@ function QualityChart({ employee }) {
 function ExpandedEmployeeDetail({ employee }) {
   return (
     <tr>
-      <td colSpan={11} style={{ padding: 0, background: 'var(--n-50)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.05fr', gap: '12px', padding: '14px 16px 16px 58px', borderBottom: '1px solid var(--n-100)' }}>
+      <td colSpan={11} style={{ padding: 0, background: '#f9fafb' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.05fr', gap: '12px', padding: '14px 16px 16px 58px', borderBottom: '1px solid #f3f4f6' }}>
           <QualityChart employee={employee} />
 
-          <div style={{ border: '1px solid var(--n-100)', borderRadius: '10px', background: 'var(--white)', padding: '12px' }}>
+          <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '10px' }}>
               <Storefront size={17} weight="duotone" style={{ color: '#2563eb' }} />
               Page được giao check
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {employee.assignedPages.map((page) => (
-                <div key={`${employee.id}-${page.name}`} style={{ border: '1px solid var(--n-100)', borderRadius: '8px', padding: '9px', background: 'var(--n-50)' }}>
+                <div key={`${employee.id}-${page.name}`} style={{ border: '1px solid #f3f4f6', borderRadius: '8px', padding: '9px', background: '#f9fafb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                    <div style={{ fontWeight: 800, color: 'var(--n-900)' }}>{page.name}</div>
+                    <div style={{ fontWeight: 800, color: '#111827' }}>{page.name}</div>
                     <span className="tag tag-blue">{page.channel}</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', fontSize: '12px', color: 'var(--n-600)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', fontSize: '12px', color: '#4b5563' }}>
                     <span>Đã check: <b>{page.checked}</b></span>
                     <span>Đang chờ: <b>{page.pending}</b></span>
                     <span>QA: <b style={{ color: scoreColor(page.quality) }}>{page.quality}</b></span>
@@ -171,10 +171,10 @@ function ExpandedEmployeeDetail({ employee }) {
             </div>
           </div>
 
-          <div style={{ border: '1px solid var(--n-100)', borderRadius: '10px', background: 'var(--white)', padding: '12px' }}>
+          <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800 }}>
-                <Target size={17} weight="duotone" style={{ color: 'var(--success-600)' }} />
+                <Target size={17} weight="duotone" style={{ color: '#16a34a' }} />
                 KPI được giao
               </div>
               <span className={`tag ${employee.achievementRate >= 95 ? 'tag-green' : employee.achievementRate >= 82 ? 'tag-orange' : 'tag-red'}`}>
@@ -240,8 +240,8 @@ export default function EmployeesPage() {
       value: employees.length,
       sub: `${employees.filter((employee) => employee.online).length} đang online`,
       Icon: UsersThree,
-      color: 'var(--primary-600)',
-      bg: 'var(--primary-50)',
+      color: '#4f46e5',
+      bg: '#eef2ff',
     },
     {
       label: 'QA Score TB',
@@ -264,7 +264,7 @@ export default function EmployeesPage() {
       value: `${average(employees, (employee) => employee.csatValue).toFixed(1)}/5`,
       sub: 'điểm hài lòng',
       Icon: Smiley,
-      color: 'var(--success-600)',
+      color: '#16a34a',
       bg: '#f0fdf4',
     },
     {
@@ -280,7 +280,7 @@ export default function EmployeesPage() {
       value: needImproveCount,
       sub: `${totalConversations.toLocaleString('vi-VN')} hội thoại`,
       Icon: Warning,
-      color: 'var(--danger-600)',
+      color: '#dc2626',
       bg: '#fef2f2',
     },
   ];
@@ -306,31 +306,31 @@ export default function EmployeesPage() {
               <div className="kpi-content">
                 <div className="kpi-label">{stat.label}</div>
                 <div className="kpi-value" style={{ fontSize: '22px' }}>{stat.value}</div>
-                <div style={{ fontSize: '11.5px', color: 'var(--n-500)', marginTop: '2px' }}>{stat.sub}</div>
+                <div style={{ fontSize: '11.5px', color: '#6b7280', marginTop: '2px' }}>{stat.sub}</div>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="card anim-up" style={{ animationDelay: '220ms' }}>
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '220ms' }}>
         <div className="card-title" style={{ marginBottom: '12px', alignItems: 'flex-start', gap: '12px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '7px' }}>
-            <UsersThree size={18} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+            <UsersThree size={18} weight="duotone" style={{ color: '#4f46e5' }} />
             Danh sách nhân viên
-            <span style={{ fontSize: '12px', color: 'var(--n-500)', fontWeight: 500 }}>
+            <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
               {rangeStart}-{rangeEnd}/{filtered.length} nhân viên
             </span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--n-50)', padding: '0 10px', borderRadius: '7px', border: '1px solid var(--n-200)', height: '34px' }}>
-              <MagnifyingGlass size={15} style={{ color: 'var(--n-400)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f9fafb', padding: '0 10px', borderRadius: '7px', border: '1px solid #e5e7eb', height: '34px' }}>
+              <MagnifyingGlass size={15} style={{ color: '#9ca3af' }} />
               <input
                 type="text"
                 placeholder="Tìm nhân viên, team, điểm cần cải thiện..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                style={{ background: 'transparent', fontSize: '13px', color: 'var(--n-700)', width: '245px' }}
+                style={{ background: 'transparent', fontSize: '13px', color: '#374151', width: '245px' }}
               />
             </div>
             <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)} style={{ ...controlStyle, width: '170px' }}>
@@ -383,7 +383,7 @@ export default function EmployeesPage() {
 
                 return (
                   <Fragment key={employee.id}>
-                    <tr style={{ cursor: 'default', background: isExpanded ? 'var(--primary-50)' : undefined }}>
+                    <tr style={{ cursor: 'default', background: isExpanded ? '#eef2ff' : undefined }}>
                       <td>
                         <span className={`rank-badge ${employee.rank <= 3 ? `rank-${employee.rank}` : 'rank-n'}`}>
                           {employee.rank}
@@ -399,14 +399,14 @@ export default function EmployeesPage() {
                             <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: `hsl(${employee.id * 41}, 58%, 54%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
                               {initials(employee.name)}
                             </div>
-                            <span style={{ position: 'absolute', right: '-1px', bottom: '-1px', width: '9px', height: '9px', borderRadius: '50%', background: employee.online ? 'var(--success-500)' : 'var(--n-300)', border: '2px solid var(--white)' }} />
+                            <span style={{ position: 'absolute', right: '-1px', bottom: '-1px', width: '9px', height: '9px', borderRadius: '50%', background: employee.online ? '#22c55e' : '#d1d5db', border: '2px solid #fff' }} />
                           </div>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, color: 'var(--n-900)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, color: '#111827' }}>
                               {employee.name}
-                              <CaretDown size={13} weight="bold" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .16s ease', color: 'var(--n-500)' }} />
+                              <CaretDown size={13} weight="bold" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .16s ease', color: '#6b7280' }} />
                             </div>
-                            <div style={{ fontSize: '11.5px', color: 'var(--n-500)' }}>{employee.team} • phản hồi TB {employee.avgResponse}</div>
+                            <div style={{ fontSize: '11.5px', color: '#6b7280' }}>{employee.team} • phản hồi TB {employee.avgResponse}</div>
                           </div>
                         </button>
                       </td>
@@ -419,14 +419,14 @@ export default function EmployeesPage() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 700 }}>{employee.closeRate}</div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--n-500)' }}>{employee.orders} đơn / {employee.conversations} hội thoại</div>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>{employee.orders} đơn / {employee.conversations} hội thoại</div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-                          <Smiley size={16} weight="duotone" style={{ color: employee.csatValue >= 4 ? 'var(--success-600)' : 'var(--warning-600)' }} />
+                          <Smiley size={16} weight="duotone" style={{ color: employee.csatValue >= 4 ? '#16a34a' : '#d97706' }} />
                           {employee.csat}
                         </div>
-                        <MetricBar value={employee.csatValue} max={5} color={employee.csatValue >= 4 ? 'var(--success-600)' : 'var(--warning-600)'} />
+                        <MetricBar value={employee.csatValue} max={5} color={employee.csatValue >= 4 ? '#16a34a' : '#d97706'} />
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--success-700)' }}>
@@ -436,21 +436,21 @@ export default function EmployeesPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
-                          <ChatCircleText size={15} style={{ color: 'var(--n-400)' }} />
+                          <ChatCircleText size={15} style={{ color: '#9ca3af' }} />
                           {employee.conversations.toLocaleString('vi-VN')}
                         </div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--n-500)' }}>KPI {employee.kpiTargets.conversations.toLocaleString('vi-VN')}</div>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>KPI {employee.kpiTargets.conversations.toLocaleString('vi-VN')}</div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
                           <Package size={15} weight="duotone" style={{ color: '#2563eb' }} />
                           {employee.orders.toLocaleString('vi-VN')}
                         </div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--n-500)' }}>KPI {employee.kpiTargets.orders.toLocaleString('vi-VN')}</div>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>KPI {employee.kpiTargets.orders.toLocaleString('vi-VN')}</div>
                       </td>
                       <td>
                         <div style={{ fontWeight: 800 }}>{employee.assignedPages.length} page</div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--n-500)' }}>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>
                           {employee.assignedPages.reduce((sum, page) => sum + page.checked, 0).toLocaleString('vi-VN')} đã check
                         </div>
                       </td>
@@ -473,8 +473,8 @@ export default function EmployeesPage() {
           </table>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--n-100)' }}>
-          <div style={{ fontSize: '12.5px', color: 'var(--n-500)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
+          <div style={{ fontSize: '12.5px', color: '#6b7280' }}>
             Hiển thị {rangeStart}-{rangeEnd} trong {filtered.length} nhân viên, mỗi trang {PAGE_SIZE} bạn
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -487,7 +487,7 @@ export default function EmployeesPage() {
               <CaretLeft size={14} weight="bold" />
               Trước
             </button>
-            <span style={{ minWidth: '76px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: 'var(--n-700)' }}>
+            <span style={{ minWidth: '76px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#374151' }}>
               {currentPage}/{totalPages}
             </span>
             <button

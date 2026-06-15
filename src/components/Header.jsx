@@ -79,42 +79,42 @@ export default function Header() {
   };
 
   return (
-    <header className="header">
-      <div className="header-left">
-        <div className="header-title">
-          <h1 style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+    <header className="flex h-[52px] items-center justify-between border-b border-slate-200 bg-white px-5 z-40 shrink-0">
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col">
+          <h1 className="flex items-center gap-1.5 text-sm font-bold text-slate-800 leading-tight">
             {page.title}
-            {page.badge && <span className="tag tag-purple">{page.badge}</span>}
+            {page.badge && <span className="flex items-center justify-center rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-700">{page.badge}</span>}
           </h1>
-          <p>{page.sub}</p>
+          <p className="text-[11px] text-slate-500">{page.sub}</p>
         </div>
       </div>
-      <div className="header-center">
-        <div className="header-date">
+      <div className="hidden flex-1 items-center justify-center gap-3 md:flex">
+        <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
           <Calendar size={16} weight="duotone" />
           <span>01/05/2026 - 31/05/2026</span>
         </div>
-        <button className="header-btn" title="Cập nhật">
+        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800" title="Cập nhật">
           <ArrowsCounterClockwise size={16} weight="bold" />
         </button>
         <span style={{ fontSize: "11px", color: "var(--n-400)" }}>
           Cập nhật lúc 10:30
         </span>
       </div>
-      <div className="header-right">
-        <div className="header-search">
+      <div className="flex items-center gap-2">
+        <div className="hidden h-8 items-center gap-2 rounded-lg bg-slate-100 px-3 text-slate-400 lg:flex w-64 transition-colors hover:bg-slate-200">
           <MagnifyingGlass size={14} weight="bold" />
-          <span>Tìm kiếm hội thoại, khách hàng...</span>
+          <span className="text-xs font-medium">Tìm kiếm hội thoại, khách hàng...</span>
         </div>
         <button
-          className="header-btn"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
           style={{ position: "relative" }}
           title="Bộ lọc"
         >
           <Funnel size={16} weight="duotone" />
         </button>
         <button
-          className="header-btn"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
           style={{ position: "relative" }}
           title="Thông báo"
         >
@@ -142,9 +142,9 @@ export default function Header() {
           </span>
         </button>
         <div style={{ position: "relative" }} ref={dropdownRef}>
-          <div className="header-user" onClick={() => setShowDropdown(!showDropdown)}>
+          <div className="flex cursor-pointer items-center gap-2 rounded-xl p-1 pr-3 transition-colors hover:bg-slate-50" onClick={() => setShowDropdown(!showDropdown)}>
             <div
-              className="header-avatar"
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-xs"
               style={{
                 overflow: "hidden",
                 display: "flex",
@@ -166,21 +166,21 @@ export default function Header() {
                 getInitials(user?.fullName)
               )}
             </div>
-            <div className="header-user-info">
-              <span className="header-user-name">{user?.fullName || "Chưa đăng nhập"}</span>
-              <span className="header-user-role" style={{ textTransform: "capitalize" }}>
+            <div className="hidden flex-col md:flex">
+              <span className="text-xs font-bold leading-tight text-slate-800">{user?.fullName || "Chưa đăng nhập"}</span>
+              <span className="text-[10px] text-slate-500" style={{ textTransform: "capitalize" }}>
                 {user?.role === "admin" ? "Quản trị viên" : user?.role || "Nhân viên"}
               </span>
             </div>
           </div>
           {showDropdown && (
-            <div className="avatar-dropdown">
-              <div className="avatar-dropdown-header">
-                <div className="avatar-dropdown-name">{user?.fullName || "Người dùng"}</div>
-                <div className="avatar-dropdown-email">{user?.email || ""}</div>
+            <div className="absolute right-0 top-[calc(100%+8px)] z-[1000] flex w-[220px] origin-top-right flex-col rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg animate-in fade-in zoom-in-95">
+              <div className="mb-1.5 border-b border-slate-100 px-3 py-2.5">
+                <div className="text-[13.5px] font-bold leading-tight text-slate-900">{user?.fullName || "Người dùng"}</div>
+                <div className="mt-0.5 break-all text-[11px] text-slate-500">{user?.email || ""}</div>
               </div>
               <div
-                className="avatar-dropdown-item"
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-indigo-700"
                 onClick={() => {
                   setShowDropdown(false);
                   navigate("/settings");
@@ -189,7 +189,7 @@ export default function Header() {
                 <User weight="bold" />
                 <span>Hồ sơ cá nhân</span>
               </div>
-              <div className="avatar-dropdown-item danger" onClick={handleLogout}>
+              <div className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700" onClick={handleLogout}>
                 <SignOut weight="bold" />
                 <span>Đăng xuất</span>
               </div>

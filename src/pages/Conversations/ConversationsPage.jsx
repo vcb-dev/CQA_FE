@@ -490,8 +490,8 @@ const getSentimentInsight = (sentiment = {}) => {
   if (negative >= 45) {
     return {
       label: 'Khách đang khó chịu',
-      color: 'var(--danger-600)',
-      bg: 'var(--danger-50)',
+      color: '#dc2626',
+      bg: '#fef2f2',
       explanation: 'Ưu tiên xin lỗi, hướng dẫn cụ thể và tránh trả lời ngắn. Nên xử lý vấn đề trước khi chốt đơn.'
     };
   }
@@ -499,16 +499,16 @@ const getSentimentInsight = (sentiment = {}) => {
   if (positive >= 75) {
     return {
       label: 'Tín hiệu mua cao',
-      color: 'var(--success-600)',
-      bg: 'var(--success-50)',
+      color: '#16a34a',
+      bg: '#f0fdf4',
       explanation: 'Khách phản hồi tích cực, có thể báo giá rõ ràng, nhắc ưu đãi và xin thông tin chốt đơn.'
     };
   }
 
   return {
     label: 'Cần nuôi dưỡng thêm',
-    color: 'var(--warning-600)',
-    bg: 'var(--warning-50)',
+    color: '#d97706',
+    bg: '#fffbeb',
     explanation: 'Khách còn đang cân nhắc. Nên hỏi thêm nhu cầu, size, mục đích mua và đưa 1-2 lựa chọn phù hợp.'
   };
 };
@@ -695,41 +695,41 @@ function ConvList({ activeId, onSelect, conversationsData, search, setSearch, ad
   return (
     <div className="conv-panel" style={{ height: '100%', width: '100%', minWidth: 0 }}>
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--n-100)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
         {conversationTabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             flex: 1, padding: '10px 4px', textAlign: 'center', cursor: 'pointer',
-            borderBottom: tab === t.key ? '2.5px solid var(--primary-600)' : '2.5px solid transparent',
+            borderBottom: tab === t.key ? '2.5px solid #4f46e5' : '2.5px solid transparent',
             transition: 'all 150ms ease',
           }}>
-            <div style={{ fontSize: '11px', color: tab === t.key ? 'var(--n-600)' : 'var(--n-400)', fontWeight: 700, marginBottom: '2px' }}>
+            <div style={{ fontSize: '11px', color: tab === t.key ? '#4b5563' : '#9ca3af', fontWeight: 700, marginBottom: '2px' }}>
               {t.label}
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: tab === t.key ? 'var(--primary-600)' : 'var(--n-800)' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: tab === t.key ? '#4f46e5' : '#1f2937' }}>
               {formatCompactNumber(t.count)}
             </div>
           </button>
         ))}
       </div>
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--n-100)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '10px' }}>
-          <MagnifyingGlass size={13} style={{ color: 'var(--n-400)', flexShrink: 0 }} />
-          <input placeholder="Tìm kiếm hội thoại..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, background: 'transparent', fontSize: '12px', color: 'var(--n-700)' }} />
-          <Sliders size={13} style={{ color: 'var(--n-400)', cursor: 'pointer' }} />
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px' }}>
+          <MagnifyingGlass size={13} style={{ color: '#9ca3af', flexShrink: 0 }} />
+          <input placeholder="Tìm kiếm hội thoại..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, background: 'transparent', fontSize: '12px', color: '#374151' }} />
+          <Sliders size={13} style={{ color: '#9ca3af', cursor: 'pointer' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={() => setAdsOnly(!adsOnly)} style={{
             display: 'flex', alignItems: 'center', gap: '4px',
             padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
             cursor: 'pointer', transition: 'all 150ms',
-            background: adsOnly ? '#a855f7' : 'var(--n-50)',
-            color: adsOnly ? '#fff' : 'var(--n-500)',
-            border: adsOnly ? '1px solid #a855f7' : '1px solid var(--n-200)',
+            background: adsOnly ? '#a855f7' : '#f9fafb',
+            color: adsOnly ? '#fff' : '#6b7280',
+            border: adsOnly ? '1px solid #a855f7' : '1px solid #e5e7eb',
           }}>
             <Megaphone size={10} />
             Ads
           </button>
-          <span style={{ fontSize: '11px', color: 'var(--n-400)', fontWeight: 600 }}>{filtered.length}/{formatCompactNumber(conversationTabs[0].count)} tin nhắn</span>
+          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>{filtered.length}/{formatCompactNumber(conversationTabs[0].count)} tin nhắn</span>
         </div>
       </div>
 
@@ -742,7 +742,7 @@ function ConvList({ activeId, onSelect, conversationsData, search, setSearch, ad
           
           const itemStyle = {
             borderLeft: isActive 
-              ? '4px solid var(--primary-600)' 
+              ? '4px solid #4f46e5' 
               : isUnread
                 ? '4px solid #f97316' 
                 : '4px solid transparent',
@@ -757,7 +757,7 @@ function ConvList({ activeId, onSelect, conversationsData, search, setSearch, ad
             display: 'flex',
             alignItems: 'flex-start',
             gap: '8px',
-            borderBottom: '1px solid var(--n-100)'
+            borderBottom: '1px solid #f3f4f6'
           };
 
           return (
@@ -778,7 +778,7 @@ function ConvList({ activeId, onSelect, conversationsData, search, setSearch, ad
               </div>
               <div className="conv-item-content" style={{ flex: 1, minWidth: 0 }}>
                 <div className="conv-item-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <span className="conv-item-name" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: 'var(--n-800)' }}>
+                  <span className="conv-item-name" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: '#1f2937' }}>
                     {c.name} {c.flag}
                     {c.isAds && (
                       <span style={{
@@ -788,18 +788,18 @@ function ConvList({ activeId, onSelect, conversationsData, search, setSearch, ad
                       }}>Ads</span>
                     )}
                   </span>
-                  <span className="conv-item-time" style={{ fontSize: '10px', color: 'var(--n-400)' }}>{c.time}</span>
+                  <span className="conv-item-time" style={{ fontSize: '10px', color: '#9ca3af' }}>{c.time}</span>
                 </div>
-                <div style={{ fontSize: '10.5px', color: 'var(--n-400)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                <div style={{ fontSize: '10.5px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
                   {c.channel}
-                  <span style={{ color: 'var(--n-300)' }}>•</span>
+                  <span style={{ color: '#d1d5db' }}>•</span>
                   <span style={{ color: 'var(--primary-500)', fontWeight: 500 }}>{c.page}</span>
                 </div>
-                <div className="conv-item-preview" style={{ fontSize: '11.5px', color: isUnread ? '#1e293b' : 'var(--n-500)', fontWeight: isUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="conv-item-preview" style={{ fontSize: '11.5px', color: isUnread ? '#1e293b' : '#6b7280', fontWeight: isUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {c.preview}
                 </div>
-                <div style={{ fontSize: '10.5px', color: 'var(--n-400)', marginTop: '2px' }}>
+                <div style={{ fontSize: '10.5px', color: '#9ca3af', marginTop: '2px' }}>
                   👤 {c.employee}
                 </div>
                 {staffTags.length > 0 && (
@@ -893,20 +893,20 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
   return (
     <div className="chat-panel" style={{ height: '100%' }}>
       {/* Header */}
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--n-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: conv.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '16px', flexShrink: 0 }}>
             {conv.name.charAt(0)}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--n-900)' }}>{conv.name} {conv.flag}</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{conv.name} {conv.flag}</span>
               {conv.isAds && <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '1px 5px', background: '#a855f7', color: '#fff', borderRadius: '3px' }}>Ads</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px' }}>
               <span style={{ width: 6, height: 6, background: '#22c55e', borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />
               <span style={{ color: '#22c55e', fontWeight: 500 }}>{conv.channel}</span>
-              <span style={{ color: 'var(--n-300)' }}>•</span>
+              <span style={{ color: '#d1d5db' }}>•</span>
               <span style={{ color: 'var(--primary-500)', fontWeight: 500, fontSize: '10.5px' }}>{conv.page}</span>
             </div>
           </div>
@@ -921,11 +921,11 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
                 display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px',
                 border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                 background: showTranslation ? '#eff6ff' : '#fff',
-                color: showTranslation ? '#2563eb' : 'var(--n-600)',
+                color: showTranslation ? '#2563eb' : '#4b5563',
                 cursor: 'pointer', transition: 'all 150ms'
               }}
             >
-              <Translate size={14} style={{ color: showTranslation ? '#2563eb' : 'var(--n-500)' }} />
+              <Translate size={14} style={{ color: showTranslation ? '#2563eb' : '#6b7280' }} />
               {showTranslation ? 'Tắt dịch hội thoại' : 'Dịch hội thoại'}
             </button>
           )}
@@ -936,7 +936,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
       </div>
 
       {/* Customer Info Bar */}
-      <div style={{ padding: '6px 16px', background: 'var(--n-50)', borderBottom: '1px solid var(--n-100)', display: 'flex', gap: '12px', fontSize: '11.5px', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div style={{ padding: '6px 16px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '12px', fontSize: '11.5px', flexShrink: 0, flexWrap: 'wrap' }}>
         {[
           ['Giới tính', conv.gender],
           ['SĐT', conv.phone],
@@ -944,8 +944,8 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
           ['Nguồn', conv.source],
         ].map(([k, v]) => (
           <span key={k}>
-            <span style={{ color: 'var(--n-400)' }}>{k}: </span>
-            <span style={{ color: 'var(--n-800)', fontWeight: 600 }}>{v}</span>
+            <span style={{ color: '#9ca3af' }}>{k}: </span>
+            <span style={{ color: '#1f2937', fontWeight: 600 }}>{v}</span>
           </span>
         ))}
       </div>
@@ -969,7 +969,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
           if (isAgent) {
             bubbleStyle = {
               ...bubbleStyle,
-              background: 'linear-gradient(135deg, var(--primary-600), var(--primary-500))',
+              background: 'linear-gradient(135deg, #4f46e5, var(--primary-500))',
               color: '#fff',
               borderBottomRightRadius: '2px'
             };
@@ -977,8 +977,8 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
             bubbleStyle = {
               ...bubbleStyle,
               background: '#ffffff',
-              border: '1px solid var(--n-200)',
-              color: 'var(--n-800)',
+              border: '1px solid #e5e7eb',
+              color: '#1f2937',
               borderBottomLeftRadius: '2px'
             };
           }
@@ -991,7 +991,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
                 {/* Visual Translation Toggle Display under foreign customer messages */}
                 {!isAgent && showTranslation && msg.translation && (
                   <div style={{
-                    marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed var(--n-200)',
+                    marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #e5e7eb',
                     fontSize: '11.5px', color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
                   }}>
                     <Translate size={11} />
@@ -1009,7 +1009,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: isAgent ? 'flex-end' : 'flex-start', gap: '6px', padding: '0 2px' }}>
-                <span className="chat-time" style={{ fontSize: '10px', color: 'var(--n-400)', marginTop: 0 }}>{msg.time}</span>
+                <span className="chat-time" style={{ fontSize: '10px', color: '#9ca3af', marginTop: 0 }}>{msg.time}</span>
               </div>
             </div>
           );
@@ -1017,11 +1017,11 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
       </div>
 
       {/* Bottom Area (taller text area rows=3, translate toggles, quick tags) */}
-      <div style={{ borderTop: '1px solid var(--n-100)', flexShrink: 0, padding: '8px 14px', background: '#fff' }}>
+      <div style={{ borderTop: '1px solid #f3f4f6', flexShrink: 0, padding: '8px 14px', background: '#fff' }}>
         
         {/* Row 1: Quick tags gán nhãn as requested! */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--n-500)', display: 'flex', alignItems: 'center' }}>Gán nhãn nhanh:</span>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', display: 'flex', alignItems: 'center' }}>Gán nhãn nhanh:</span>
           {['Hỏi giá', 'Báo giá', 'Tạo đơn', 'Chờ chuyển'].map((quickTag, idx) => {
             const isTagAdded = conv.customTags.includes(quickTag) || conv.tags.includes(quickTag);
             const tagStyle = getTagStyle(quickTag);
@@ -1038,8 +1038,8 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
                 style={{
                   padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: 700,
                   background: isTagAdded ? tagStyle.bg : '#f1f5f9',
-                  color: isTagAdded ? tagStyle.color : 'var(--n-500)',
-                  border: isTagAdded ? `1px solid ${tagStyle.color}` : '1px solid var(--n-200)',
+                  color: isTagAdded ? tagStyle.color : '#6b7280',
+                  border: isTagAdded ? `1px solid ${tagStyle.color}` : '1px solid #e5e7eb',
                   cursor: 'pointer', transition: 'all 150ms'
                 }}
               >
@@ -1076,7 +1076,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
             }
             style={{
               width: '100%', fontSize: '12.5px', color: '#1e293b', padding: '8px 10px',
-              background: '#f8fafc', border: '1px solid var(--n-200)', borderRadius: '10px',
+              background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '10px',
               resize: 'none', minHeight: '65px', maxHeight: '100px', outline: 'none'
             }}
           />
@@ -1118,7 +1118,7 @@ function ChatPanel({ conv, onSendMessage, onUpdateTags, draftReply }) {
             )}
           </div>
           
-          <button onClick={submitMessage} className="send-btn" style={{ background: 'var(--primary-600)', color: '#fff', padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button onClick={submitMessage} className="send-btn" style={{ background: '#4f46e5', color: '#fff', padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>Gửi</span>
             <PaperPlaneRight size={12} weight="fill" />
           </button>
@@ -1182,7 +1182,7 @@ function InternalAIAssistant({ conv, collapsed, onToggle }) {
         >
           <Brain size={18} weight="fill" />
         </button>
-        <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success-500)' }} />
+        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e' }} />
         <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', color: '#4c1d95', fontWeight: 800, letterSpacing: 0, whiteSpace: 'nowrap' }}>
           AI nội bộ
         </div>
@@ -1210,7 +1210,7 @@ function InternalAIAssistant({ conv, collapsed, onToggle }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          <span style={{ fontSize: '10px', color: 'var(--success-600)', background: 'var(--success-50)', border: '1px solid var(--success-100)', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>Online</span>
+          <span style={{ fontSize: '10px', color: '#16a34a', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>Online</span>
           <button
             onClick={onToggle}
             title="Thu gọn AI Assistant"
@@ -1337,10 +1337,10 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
   };
 
   const actionItems = [
-    { id: 'create_order', label: 'Tạo đơn', icon: Package, color: 'var(--success-600)', bg: 'var(--success-50)' },
+    { id: 'create_order', label: 'Tạo đơn', icon: Package, color: '#16a34a', bg: '#f0fdf4' },
     { id: 'place_order', label: 'Đặt hàng', icon: ClipboardText, color: '#0f766e', bg: '#ecfdf5' },
-    { id: 'ask_price', label: 'Hỏi giá', icon: Diamond, color: 'var(--warning-600)', bg: 'var(--warning-50)' },
-    { id: 'quote_price', label: 'Báo giá', icon: Lightbulb, color: 'var(--primary-600)', bg: 'var(--primary-50)' },
+    { id: 'ask_price', label: 'Hỏi giá', icon: Diamond, color: '#d97706', bg: '#fffbeb' },
+    { id: 'quote_price', label: 'Báo giá', icon: Lightbulb, color: '#4f46e5', bg: '#eef2ff' },
     { id: 'transfer_agent', label: 'Chuyển NV', icon: ArrowsCounterClockwise, color: '#7c3aed', bg: '#f5f3ff' }
   ];
 
@@ -1354,11 +1354,11 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
             {conv.name.charAt(0)}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13.5px', fontWeight: 800, color: 'var(--n-900)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13.5px', fontWeight: 800, color: '#111827' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.name}</span>
               <span>{conv.flag}</span>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--n-500)', marginTop: '1px' }}>{conv.channel} · {conv.page}</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '1px' }}>{conv.channel} · {conv.page}</div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1373,13 +1373,13 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
             ['Tin đầu tiên', conv.firstMessage],
           ].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', gap: '6px', fontSize: '11.5px' }}>
-              <span style={{ color: 'var(--n-400)', minWidth: '88px', flexShrink: 0 }}>{k}</span>
-              <span style={{ color: 'var(--n-800)', fontWeight: 600, wordBreak: 'break-word' }}>{v}</span>
+              <span style={{ color: '#9ca3af', minWidth: '88px', flexShrink: 0 }}>{k}</span>
+              <span style={{ color: '#1f2937', fontWeight: 600, wordBreak: 'break-word' }}>{v}</span>
             </div>
           ))}
           <div style={{ display: 'flex', gap: '6px', fontSize: '11.5px' }}>
-            <span style={{ color: 'var(--n-400)', minWidth: '88px', flexShrink: 0 }}>Nhân viên phụ trách</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--n-800)', fontWeight: 600 }}>
+            <span style={{ color: '#9ca3af', minWidth: '88px', flexShrink: 0 }}>Nhân viên phụ trách</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1f2937', fontWeight: 600 }}>
               <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', fontWeight: 700, flexShrink: 0 }}>
                 {conv.employee.charAt(0)}
               </div>
@@ -1387,8 +1387,8 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
             </span>
           </div>
           <div style={{ display: 'flex', gap: '6px', fontSize: '11.5px', alignItems: 'center' }}>
-            <span style={{ color: 'var(--n-400)', minWidth: '88px', flexShrink: 0 }}>Trạng thái</span>
-            <select style={{ fontSize: '11px', color: 'var(--warning-600)', fontWeight: 700, border: '1px solid var(--warning-200)', borderRadius: '7px', padding: '2px 6px', background: 'var(--warning-50)', cursor: 'pointer' }}>
+            <span style={{ color: '#9ca3af', minWidth: '88px', flexShrink: 0 }}>Trạng thái</span>
+            <select style={{ fontSize: '11px', color: '#d97706', fontWeight: 700, border: '1px solid var(--warning-200)', borderRadius: '7px', padding: '2px 6px', background: '#fffbeb', cursor: 'pointer' }}>
               <option>{conv.status === 'reviewed' ? 'Đã hoàn thành' : 'Đang chờ'}</option>
             </select>
           </div>
@@ -1413,73 +1413,73 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
                   justifyContent: 'center',
                   gap: '4px',
                   padding: '7px 4px',
-                  border: '1px solid var(--n-200)',
+                  border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                   background: '#fff',
                   transition: 'all 150ms ease'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = a.bg; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--n-200)'; e.currentTarget.style.background = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#fff'; }}
               >
                 <div style={{ width: 24, height: 24, borderRadius: '8px', background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <IconComp size={13} style={{ color: a.color }} weight="duotone" />
                 </div>
-                <span style={{ fontSize: '9.8px', color: 'var(--n-700)', fontWeight: 800, lineHeight: 1.2, textAlign: 'center' }}>{a.label}</span>
+                <span style={{ fontSize: '9.8px', color: '#374151', fontWeight: 800, lineHeight: 1.2, textAlign: 'center' }}>{a.label}</span>
               </button>
             );
           })}
         </div>
 
         {showOrderForm && (
-          <div style={{ marginTop: '10px', border: '1px solid var(--success-100)', background: 'var(--success-50)', borderRadius: '10px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ marginTop: '10px', border: '1px solid #dcfce7', background: '#f0fdf4', borderRadius: '10px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ fontSize: '12.5px', fontWeight: 900, color: 'var(--success-600)' }}>Lên đơn cho khách</div>
-              <button onClick={() => setShowOrderForm(false)} style={{ fontSize: '11px', color: 'var(--n-500)', fontWeight: 800 }}>Đóng</button>
+              <div style={{ fontSize: '12.5px', fontWeight: 900, color: '#16a34a' }}>Lên đơn cho khách</div>
+              <button onClick={() => setShowOrderForm(false)} style={{ fontSize: '11px', color: '#6b7280', fontWeight: 800 }}>Đóng</button>
             </div>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
               Sản phẩm
-              <input value={orderDraft.product} onChange={e => updateOrderDraft('product', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+              <input value={orderDraft.product} onChange={e => updateOrderDraft('product', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: '7px' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 SL
-                <input type="number" min="1" value={orderDraft.quantity} onChange={e => updateOrderDraft('quantity', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+                <input type="number" min="1" value={orderDraft.quantity} onChange={e => updateOrderDraft('quantity', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
               </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 Giá bán
-                <input value={orderDraft.price} onChange={e => updateOrderDraft('price', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+                <input value={orderDraft.price} onChange={e => updateOrderDraft('price', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
               </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 Người nhận
-                <input value={orderDraft.receiver} onChange={e => updateOrderDraft('receiver', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+                <input value={orderDraft.receiver} onChange={e => updateOrderDraft('receiver', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
               </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 SĐT
-                <input value={orderDraft.phone} onChange={e => updateOrderDraft('phone', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+                <input value={orderDraft.phone} onChange={e => updateOrderDraft('phone', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
               </label>
             </div>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
               Địa chỉ giao hàng
-              <textarea rows={2} value={orderDraft.address} onChange={e => updateOrderDraft('address', e.target.value)} placeholder="Nhập địa chỉ khách xác nhận..." style={{ resize: 'none', padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+              <textarea rows={2} value={orderDraft.address} onChange={e => updateOrderDraft('address', e.target.value)} placeholder="Nhập địa chỉ khách xác nhận..." style={{ resize: 'none', padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 Thanh toán
-                <select value={orderDraft.payment} onChange={e => updateOrderDraft('payment', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }}>
+                <select value={orderDraft.payment} onChange={e => updateOrderDraft('payment', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }}>
                   <option>COD</option>
                   <option>Chuyển khoản</option>
                   <option>Link thanh toán</option>
                   <option>Thẻ quốc tế</option>
                 </select>
               </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: 'var(--n-500)', fontWeight: 700 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px', color: '#6b7280', fontWeight: 700 }}>
                 Ghi chú
-                <input value={orderDraft.note} onChange={e => updateOrderDraft('note', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--success-100)', color: 'var(--n-800)', background: '#fff' }} />
+                <input value={orderDraft.note} onChange={e => updateOrderDraft('note', e.target.value)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid #dcfce7', color: '#1f2937', background: '#fff' }} />
               </label>
             </div>
-            <button onClick={submitOrder} style={{ marginTop: '2px', width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'var(--success-600)', color: '#fff', fontSize: '12px', fontWeight: 900 }}>
+            <button onClick={submitOrder} style={{ marginTop: '2px', width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#16a34a', color: '#fff', fontSize: '12px', fontWeight: 900 }}>
               Xác nhận lên đơn
             </button>
           </div>
@@ -1494,19 +1494,19 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
           </span>
         </div>
         {[
-          ['Tích cực', conv.sentiment.positive, 'var(--success-500)'],
-          ['Trung lập', conv.sentiment.neutral, 'var(--warning-500)'],
-          ['Tiêu cực', conv.sentiment.negative, 'var(--danger-500)']
+          ['Tích cực', conv.sentiment.positive, '#22c55e'],
+          ['Trung lập', conv.sentiment.neutral, '#f59e0b'],
+          ['Tiêu cực', conv.sentiment.negative, '#ef4444']
         ].map(([label, value, color]) => (
           <div key={label} style={{ display: 'grid', gridTemplateColumns: '58px 1fr 34px', alignItems: 'center', gap: '8px', marginBottom: '6px', fontSize: '11.5px' }}>
-            <span style={{ color: 'var(--n-500)', fontWeight: 600 }}>{label}</span>
-            <div style={{ height: '7px', background: 'var(--n-100)', borderRadius: 999, overflow: 'hidden' }}>
+            <span style={{ color: '#6b7280', fontWeight: 600 }}>{label}</span>
+            <div style={{ height: '7px', background: '#f3f4f6', borderRadius: 999, overflow: 'hidden' }}>
               <div style={{ width: `${value}%`, height: '100%', background: color, borderRadius: 999 }} />
             </div>
-            <span style={{ textAlign: 'right', color: 'var(--n-800)', fontWeight: 800 }}>{value}%</span>
+            <span style={{ textAlign: 'right', color: '#1f2937', fontWeight: 800 }}>{value}%</span>
           </div>
         ))}
-        <div style={{ marginTop: '8px', padding: '8px 10px', borderRadius: '8px', background: sales.sentiment.bg, color: 'var(--n-700)', fontSize: '11.5px', lineHeight: 1.55 }}>
+        <div style={{ marginTop: '8px', padding: '8px 10px', borderRadius: '8px', background: sales.sentiment.bg, color: '#374151', fontSize: '11.5px', lineHeight: 1.55 }}>
           {sales.sentiment.explanation}
         </div>
       </div>
@@ -1514,7 +1514,7 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
       <div className="rp-card">
         <div className="rp-title">
           <span>AI gợi ý trả lời</span>
-          <Brain size={14} weight="fill" style={{ color: 'var(--primary-600)' }} />
+          <Brain size={14} weight="fill" style={{ color: '#4f46e5' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {sales.replies.map((reply, i) => (
@@ -1534,26 +1534,26 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
       <div className="rp-card">
         <div className="rp-title">
           <span>Gợi ý giá bán báo khách</span>
-          <ClipboardText size={14} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+          <ClipboardText size={14} weight="duotone" style={{ color: '#4f46e5' }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-          <div style={{ background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '8px', padding: '8px' }}>
-            <div style={{ fontSize: '10.5px', color: 'var(--n-400)', fontWeight: 700 }}>Sản phẩm</div>
-            <div style={{ fontSize: '12px', color: 'var(--n-900)', fontWeight: 800, lineHeight: 1.35 }}>{sales.quote.product}</div>
+          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px' }}>
+            <div style={{ fontSize: '10.5px', color: '#9ca3af', fontWeight: 700 }}>Sản phẩm</div>
+            <div style={{ fontSize: '12px', color: '#111827', fontWeight: 800, lineHeight: 1.35 }}>{sales.quote.product}</div>
           </div>
-          <div style={{ background: 'var(--success-50)', border: '1px solid var(--success-100)', borderRadius: '8px', padding: '8px' }}>
-            <div style={{ fontSize: '10.5px', color: 'var(--success-600)', fontWeight: 700 }}>Giá nên báo</div>
-            <div style={{ fontSize: '14px', color: 'var(--success-600)', fontWeight: 900 }}>{sales.quote.price}</div>
-            <div style={{ fontSize: '10px', color: 'var(--n-500)', marginTop: '1px' }}>{sales.quote.localPrice}</div>
+          <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: '8px', padding: '8px' }}>
+            <div style={{ fontSize: '10.5px', color: '#16a34a', fontWeight: 700 }}>Giá nên báo</div>
+            <div style={{ fontSize: '14px', color: '#16a34a', fontWeight: 900 }}>{sales.quote.price}</div>
+            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>{sales.quote.localPrice}</div>
           </div>
         </div>
-        <div style={{ fontSize: '11.5px', color: 'var(--n-700)', lineHeight: 1.55, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '8px 10px', whiteSpace: 'pre-line' }}>
+        <div style={{ fontSize: '11.5px', color: '#374151', lineHeight: 1.55, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '8px 10px', whiteSpace: 'pre-line' }}>
           {sales.quote.script}
         </div>
-        <div style={{ marginTop: '7px', fontSize: '11px', color: 'var(--n-500)', lineHeight: 1.45 }}>
+        <div style={{ marginTop: '7px', fontSize: '11px', color: '#6b7280', lineHeight: 1.45 }}>
           <strong>Giải thích:</strong> {sales.quote.explanation}
         </div>
-        <button onClick={() => onUseSuggestion?.(sales.quote.script)} style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 9px', borderRadius: '7px', background: 'var(--warning-500)', color: '#fff', fontSize: '11px', fontWeight: 800 }}>
+        <button onClick={() => onUseSuggestion?.(sales.quote.script)} style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 9px', borderRadius: '7px', background: '#f59e0b', color: '#fff', fontSize: '11px', fontWeight: 800 }}>
           <ClipboardText size={11} weight="fill" /> Đưa vào ô trả lời
         </button>
       </div>
@@ -1561,14 +1561,14 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
       <div className="rp-card">
         <div className="rp-title">
           <span>Sản phẩm khách có thể chốt</span>
-          <Package size={14} weight="duotone" style={{ color: 'var(--success-600)' }} />
+          <Package size={14} weight="duotone" style={{ color: '#16a34a' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {sales.products.map((product, i) => (
-            <div key={i} style={{ border: '1px solid var(--n-200)', borderRadius: '8px', padding: '8px 10px', background: i === 0 ? 'var(--success-50)' : '#fff' }}>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--n-900)' }}>{product.name}</div>
-              <div style={{ fontSize: '11px', color: 'var(--n-500)', marginTop: '3px', lineHeight: 1.45 }}>{product.signal}</div>
-              <div style={{ fontSize: '11px', color: 'var(--success-600)', marginTop: '4px', lineHeight: 1.45, fontWeight: 700 }}>{product.pitch}</div>
+            <div key={i} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 10px', background: i === 0 ? '#f0fdf4' : '#fff' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#111827' }}>{product.name}</div>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px', lineHeight: 1.45 }}>{product.signal}</div>
+              <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', lineHeight: 1.45, fontWeight: 700 }}>{product.pitch}</div>
             </div>
           ))}
         </div>
@@ -1606,7 +1606,7 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
               </button>
             </div>
           ) : (
-            <button onClick={() => setAddingTag(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 9px', border: '1px dashed var(--n-300)', borderRadius: 999, fontSize: '12px', color: 'var(--n-400)', cursor: 'pointer', background: 'transparent' }}>
+            <button onClick={() => setAddingTag(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 9px', border: '1px dashed #d1d5db', borderRadius: 999, fontSize: '12px', color: '#9ca3af', cursor: 'pointer', background: 'transparent' }}>
               <Plus size={10} /> Thêm nhãn
             </button>
           )}
@@ -1761,15 +1761,15 @@ export default function ConversationsPage() {
 
       {/* HEADER: Omni-channel multi-select filter selector row as requested! */}
       <div style={{
-        background: '#fff', border: '1px solid var(--n-200)', borderRadius: '16px',
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px',
         padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center',
         justifyContent: 'space-between', flexShrink: 0, boxShadow: 'var(--shadow-card)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Brain size={20} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+          <Brain size={20} weight="duotone" style={{ color: '#4f46e5' }} />
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--n-900)' }}>Hộp thư đa kênh thông minh</div>
-            <div style={{ fontSize: '11px', color: 'var(--n-400)' }}>AI-Powered Smart Omni-channel Inbox</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>Hộp thư đa kênh thông minh</div>
+            <div style={{ fontSize: '11px', color: '#9ca3af' }}>AI-Powered Smart Omni-channel Inbox</div>
           </div>
         </div>
         
@@ -1777,12 +1777,12 @@ export default function ConversationsPage() {
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {/* Page Filter Selector (Premium Multi-Select Dropdown) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', position: 'relative' }} ref={pageDropdownRef}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-500)' }}>Trang:</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>Trang:</span>
             <button 
               onClick={() => setShowPageDropdown(!showPageDropdown)}
               style={{
                 fontSize: '12px', fontWeight: 600, color: '#1e293b', background: '#f8fafc',
-                border: '1px solid var(--n-200)', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer',
+                border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', justifyContent: 'space-between',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}
@@ -1791,7 +1791,7 @@ export default function ConversationsPage() {
                 {selectedPages.length === ALL_PAGES.length ? (
                   <span>✨ Tất cả các Page ({selectedPages.length})</span>
                 ) : selectedPages.length === 0 ? (
-                  <span style={{ color: 'var(--n-400)' }}>Chưa chọn Page nào</span>
+                  <span style={{ color: '#9ca3af' }}>Chưa chọn Page nào</span>
                 ) : selectedPages.length === 1 ? (
                   <span>
                     {ALL_PAGES.find(p => p.name === selectedPages[0])?.flag} {selectedPages[0]}
@@ -1800,18 +1800,18 @@ export default function ConversationsPage() {
                   <span>Đã chọn {selectedPages.length} Page</span>
                 )}
               </span>
-              <CaretDown size={12} style={{ color: 'var(--n-500)', transform: showPageDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+              <CaretDown size={12} style={{ color: '#6b7280', transform: showPageDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
             </button>
 
             {showPageDropdown && (
               <div style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: '4px',
-                width: '240px', background: '#ffffff', border: '1px solid var(--n-200)',
+                width: '240px', background: '#ffffff', border: '1px solid #e5e7eb',
                 borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                 zIndex: 999, padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px'
               }}>
                 {/* Quick actions for dropdown */}
-                <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--n-100)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
                   <button 
                     onClick={() => setSelectedPages(ALL_PAGES.map(p => p.name))}
                     style={{
@@ -1828,10 +1828,10 @@ export default function ConversationsPage() {
                     onClick={() => setSelectedPages([])}
                     style={{
                       flex: 1, padding: '4px 6px', fontSize: '11px', fontWeight: 700,
-                      background: '#f8fafc', color: 'var(--n-600)', border: '1px solid var(--n-200)',
+                      background: '#f8fafc', color: '#4b5563', border: '1px solid #e5e7eb',
                       borderRadius: '6px', cursor: 'pointer', transition: 'all 150ms'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--n-50)'}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                     onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
                   >
                     Bỏ chọn
@@ -1848,11 +1848,11 @@ export default function ConversationsPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px',
                           borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                          color: isChecked ? 'var(--n-900)' : 'var(--n-500)',
+                          color: isChecked ? '#111827' : '#6b7280',
                           background: isChecked ? '#f8fafc' : 'transparent',
                           transition: 'all 100ms'
                         }}
-                        onMouseEnter={e => { if(!isChecked) e.currentTarget.style.background = 'var(--n-50)'; }}
+                        onMouseEnter={e => { if(!isChecked) e.currentTarget.style.background = '#f9fafb'; }}
                         onMouseLeave={e => { if(!isChecked) e.currentTarget.style.background = 'transparent'; }}
                       >
                         <input 
@@ -1879,13 +1879,13 @@ export default function ConversationsPage() {
           
           {/* Employee Filter Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-500)' }}>Nhân viên:</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>Nhân viên:</span>
             <select 
               value={employeeFilter} 
               onChange={e => setEmployeeFilter(e.target.value)}
               style={{
                 fontSize: '12px', fontWeight: 600, color: '#1e293b', background: '#f8fafc',
-                border: '1px solid var(--n-200)', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer'
+                border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer'
               }}
             >
               <option value="All">Tất cả nhân viên</option>
@@ -1898,13 +1898,13 @@ export default function ConversationsPage() {
           
           {/* Tag Filter Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-500)' }}>Nhãn tag:</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>Nhãn tag:</span>
             <select 
               value={tagFilter} 
               onChange={e => setTagFilter(e.target.value)}
               style={{
                 fontSize: '12px', fontWeight: 600, color: '#1e293b', background: '#f8fafc',
-                border: '1px solid var(--n-200)', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer'
+                border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer'
               }}
             >
               <option value="All">Tất cả nhãn</option>

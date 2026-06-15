@@ -161,9 +161,9 @@ Các tiêu chí cần đánh giá:
   return (
     <div style={{ display: 'flex', gap: '14px', height: '100%' }}>
       {/* Left - Settings Tabs Navigation */}
-      <div className="card" style={{ width: '220px', minWidth: '220px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
-        <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--n-800)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <GearSix size={16} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ width: '220px', minWidth: '220px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
+        <div style={{ fontWeight: 700, fontSize: '14px', color: '#1f2937', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <GearSix size={16} weight="duotone" style={{ color: '#4f46e5' }} />
           Cấu hình hệ thống
         </div>
         
@@ -179,8 +179,8 @@ Các tiêu chí cần đánh giá:
                 padding: '9px 10px',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                background: activeTabIdx === idx ? 'var(--primary-50)' : 'transparent',
-                color: activeTabIdx === idx ? 'var(--primary-700)' : 'var(--n-700)',
+                background: activeTabIdx === idx ? '#eef2ff' : 'transparent',
+                color: activeTabIdx === idx ? '#3730a3' : '#374151',
                 fontWeight: activeTabIdx === idx ? 600 : 500,
                 fontSize: '13px',
                 transition: 'all var(--tr-fast)'
@@ -200,7 +200,7 @@ Các tiêu chí cần đánh giá:
             borderRadius: '6px', 
             fontSize: '13px', 
             fontWeight: 700, 
-            background: 'var(--primary-600)', 
+            background: '#4f46e5', 
             color: '#fff', 
             display: 'flex', 
             alignItems: 'center', 
@@ -215,7 +215,7 @@ Các tiêu chí cần đánh giá:
       {/* Center - Detailed settings parameters based on tab */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', minWidth: 0 }}>
         {showSavedNotification && (
-          <div style={{ padding: '10px 14px', background: 'var(--success-50)', border: '1px solid var(--success-100)', color: 'var(--success-600)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
+          <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #dcfce7', color: '#16a34a', borderRadius: '8px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
             <CheckCircle size={16} weight="duotone" />
             Đã cập nhật cấu hình hệ thống thành công! Tất cả các mô hình chấm điểm AI đang tự động học lại theo tiêu chí mới.
           </div>
@@ -223,22 +223,22 @@ Các tiêu chí cần đánh giá:
 
         {/* Cài đặt Hệ thống (Tab 0) */}
         {settingsTabs[activeTabIdx] === 'Cài đặt hệ thống' && (
-          <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Cài đặt hệ thống chung</h3>
-              <p style={{ fontSize: '11px', color: 'var(--n-500)' }}>Quản lý hoạt động phân phối, múi giờ và tần suất sao lưu</p>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Cài đặt hệ thống chung</h3>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>Quản lý hoạt động phân phối, múi giờ và tần suất sao lưu</p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-700)' }}>Tên nền tảng (Platform Title)</span>
-                <input style={{ padding: '8px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '6px', fontSize: '12.5px', color: 'var(--n-800)' }} defaultValue="VIENCHIBAO Chat Quality Agent Platform" />
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Tên nền tảng (Platform Title)</span>
+                <input style={{ padding: '8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12.5px', color: '#1f2937' }} defaultValue="VIENCHIBAO Chat Quality Agent Platform" />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-700)' }}>Múi giờ</span>
-                  <select style={{ padding: '8px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '6px', fontSize: '12.5px', color: 'var(--n-800)' }} defaultValue="gmt7">
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Múi giờ</span>
+                  <select style={{ padding: '8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12.5px', color: '#1f2937' }} defaultValue="gmt7">
                     <option value="gmt7">(GMT+07:00) Hà Nội, Bangkok, Jakarta</option>
                     <option value="gmt8">(GMT+08:00) Singapore, Manila, Beijing</option>
                     <option value="gmt0">(GMT+00:00) UTC Greenwich Mean Time</option>
@@ -246,11 +246,11 @@ Các tiêu chí cần đánh giá:
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-700)' }}>Tần suất sao lưu hệ thống</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Tần suất sao lưu hệ thống</span>
                   <select 
                     value={backupFreq} 
                     onChange={(e) => setBackupFreq(e.target.value)}
-                    style={{ padding: '8px', background: 'var(--n-50)', border: '1px solid var(--n-200)', borderRadius: '6px', fontSize: '12.5px', color: 'var(--n-800)' }}
+                    style={{ padding: '8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12.5px', color: '#1f2937' }}
                   >
                     <option value="hourly">Hàng giờ</option>
                     <option value="daily">Hàng ngày (Vào lúc 00:00)</option>
@@ -260,7 +260,7 @@ Các tiêu chí cần đánh giá:
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--n-50)', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: '#f9fafb', borderRadius: '8px' }}>
                 <input 
                   type="checkbox" 
                   id="autoAssign" 
@@ -269,12 +269,12 @@ Các tiêu chí cần đánh giá:
                   style={{ width: 16, height: 16, cursor: 'pointer' }} 
                 />
                 <label htmlFor="autoAssign" style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--n-800)' }}>Tự động phân phối hội thoại (Smart Routing AI)</span>
-                  <span style={{ fontSize: '10.5px', color: 'var(--n-500)' }}>Tự động gán hội thoại mới từ QC cho nhân viên đang rảnh và có tỷ lệ chốt sản phẩm đó cao nhất</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1f2937' }}>Tự động phân phối hội thoại (Smart Routing AI)</span>
+                  <span style={{ fontSize: '10.5px', color: '#6b7280' }}>Tự động gán hội thoại mới từ QC cho nhân viên đang rảnh và có tỷ lệ chốt sản phẩm đó cao nhất</span>
                 </label>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--n-50)', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: '#f9fafb', borderRadius: '8px' }}>
                 <input 
                   type="checkbox" 
                   id="slackAlerts" 
@@ -282,8 +282,8 @@ Các tiêu chí cần đánh giá:
                   style={{ width: 16, height: 16, cursor: 'pointer' }} 
                 />
                 <label htmlFor="slackAlerts" style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--n-800)' }}>Thông báo cảnh báo tiêu cực tức thời</span>
-                  <span style={{ fontSize: '10.5px', color: 'var(--n-500)' }}>Gửi thông báo gấp về kênh Slack quản lý ngay khi AI phát hiện hội thoại có cảm xúc &quot;Rất tiêu cực&quot;</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1f2937' }}>Thông báo cảnh báo tiêu cực tức thời</span>
+                  <span style={{ fontSize: '10.5px', color: '#6b7280' }}>Gửi thông báo gấp về kênh Slack quản lý ngay khi AI phát hiện hội thoại có cảm xúc &quot;Rất tiêu cực&quot;</span>
                 </label>
               </div>
             </div>
@@ -294,16 +294,16 @@ Các tiêu chí cần đánh giá:
         {settingsTabs[activeTabIdx] === 'AI & Chấm điểm' && (
           <>
             {/* Criteria weights setting */}
-            <div className="card anim-up" style={{ padding: '14px', animationDelay: '50ms' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--n-100)', paddingBottom: '6px', marginBottom: '10px' }}>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '14px', animationDelay: '50ms' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '6px', marginBottom: '10px' }}>
                 <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Thiết lập Tiêu chí & Trọng số chấm điểm</h3>
-                  <p style={{ fontSize: '10.5px', color: 'var(--n-500)' }}>Chỉnh sửa hệ thống thang điểm đánh giá cuộc hội thoại của Agent (Tổng trọng số phải bằng 100%)</p>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Thiết lập Tiêu chí & Trọng số chấm điểm</h3>
+                  <p style={{ fontSize: '10.5px', color: '#6b7280' }}>Chỉnh sửa hệ thống thang điểm đánh giá cuộc hội thoại của Agent (Tổng trọng số phải bằng 100%)</p>
                 </div>
                 
                 <span className="tag" style={{ 
-                  background: currentCriteriaTotalWeight === 100 ? 'var(--success-50)' : 'var(--danger-50)',
-                  color: currentCriteriaTotalWeight === 100 ? 'var(--success-600)' : 'var(--danger-600)',
+                  background: currentCriteriaTotalWeight === 100 ? '#f0fdf4' : '#fef2f2',
+                  color: currentCriteriaTotalWeight === 100 ? '#16a34a' : '#dc2626',
                   fontWeight: 700,
                   fontSize: '12px'
                 }}>
@@ -313,7 +313,7 @@ Các tiêu chí cần đánh giá:
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {criteria.map((c, i) => (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '6px 8px', background: 'var(--n-50)', borderRadius: '6px' }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '6px 8px', background: '#f9fafb', borderRadius: '6px' }}>
                     <input 
                       type="checkbox" 
                       checked={c.active} 
@@ -323,8 +323,8 @@ Các tiêu chí cần đánh giá:
                       style={{ width: 14, height: 14, cursor: 'pointer' }}
                     />
                     <div style={{ width: '130px', minWidth: '130px' }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: c.active ? 'var(--n-800)' : 'var(--n-400)' }}>{c.name}</div>
-                      <div style={{ fontSize: '9.5px', color: 'var(--n-400)' }}>{c.desc}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: c.active ? '#1f2937' : '#9ca3af' }}>{c.name}</div>
+                      <div style={{ fontSize: '9.5px', color: '#9ca3af' }}>{c.desc}</div>
                     </div>
 
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -335,9 +335,9 @@ Các tiêu chí cần đánh giá:
                         disabled={!c.active}
                         value={c.weight} 
                         onChange={(e) => handleWeightChange(c.id, e.target.value)}
-                        style={{ flex: 1, height: '4px', cursor: c.active ? 'pointer' : 'default', accentColor: 'var(--primary-600)' }}
+                        style={{ flex: 1, height: '4px', cursor: c.active ? 'pointer' : 'default', accentColor: '#4f46e5' }}
                       />
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: c.active ? 'var(--n-800)' : 'var(--n-400)', minWidth: '30px', textAlign: 'right' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: c.active ? '#1f2937' : '#9ca3af', minWidth: '30px', textAlign: 'right' }}>
                         {c.weight}%
                       </span>
                     </div>
@@ -347,18 +347,18 @@ Các tiêu chí cần đánh giá:
             </div>
 
             {/* AI Model selector & System Prompts templates */}
-            <div className="card anim-up" style={{ padding: '14px', animationDelay: '150ms', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '6px' }}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--n-900)' }}>Cấu hình Mô hình & AI System Prompts</h3>
-                <p style={{ fontSize: '10.5px', color: 'var(--n-500)' }}>Tùy chọn LLM làm nhiệm vụ chấm điểm tự động và chỉnh sửa hướng dẫn Prompt mẫu</p>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '14px', animationDelay: '150ms', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '6px' }}>
+                <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#111827' }}>Cấu hình Mô hình & AI System Prompts</h3>
+                <p style={{ fontSize: '10.5px', color: '#6b7280' }}>Tùy chọn LLM làm nhiệm vụ chấm điểm tự động và chỉnh sửa hướng dẫn Prompt mẫu</p>
               </div>
 
               {/* Model selection */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-50)', padding: '10px', borderRadius: '8px' }}>
-                <Sparkle size={18} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#eef2ff', padding: '10px', borderRadius: '8px' }}>
+                <Sparkle size={18} weight="duotone" style={{ color: '#4f46e5' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--primary-900)' }}>Trí tuệ nhân tạo chấm điểm (LLM Audit Engine)</div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--primary-700)' }}>Lựa chọn model phù hợp nhất cho bài toán đánh giá ngữ cảnh hội thoại phức tạp</div>
+                  <div style={{ fontSize: '10.5px', color: '#3730a3' }}>Lựa chọn model phù hợp nhất cho bài toán đánh giá ngữ cảnh hội thoại phức tạp</div>
                 </div>
                 <select 
                   value={selectedModel} 
@@ -375,7 +375,7 @@ Các tiêu chí cần đánh giá:
               {/* Prompts config */}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ width: '180px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--n-500)', textTransform: 'uppercase' }}>Danh sách Prompt mẫu</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Danh sách Prompt mẫu</span>
                   {prompts.map((p, idx) => (
                     <button 
                       key={idx}
@@ -407,8 +407,8 @@ Các tiêu chí cần đánh giá:
                         textAlign: 'left',
                         fontSize: '12px',
                         fontWeight: selectedPromptIdx === idx ? 600 : 500,
-                        background: selectedPromptIdx === idx ? 'var(--primary-100)' : 'transparent',
-                        color: selectedPromptIdx === idx ? 'var(--primary-700)' : 'var(--n-600)',
+                        background: selectedPromptIdx === idx ? '#e0e7ff' : 'transparent',
+                        color: selectedPromptIdx === idx ? '#3730a3' : '#4b5563',
                         border: selectedPromptIdx === idx ? '1px solid var(--primary-200)' : '1px solid transparent',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -424,27 +424,27 @@ Các tiêu chí cần đánh giá:
                 </div>
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--n-500)', textTransform: 'uppercase' }}>HƯỚNG DẪN PROMPT HỆ THỐNG</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>HƯỚNG DẪN PROMPT HỆ THỐNG</span>
                   <textarea 
                     value={promptContent}
                     onChange={(e) => setPromptContent(e.target.value)}
                     style={{ 
                       flex: 1, 
                       minHeight: '160px', 
-                      background: 'var(--n-50)', 
-                      border: '1px solid var(--n-200)', 
+                      background: '#f9fafb', 
+                      border: '1px solid #e5e7eb', 
                       borderRadius: '6px', 
                       padding: '8px', 
                       fontSize: '12px', 
                       fontFamily: 'monospace',
-                      color: 'var(--n-800)',
+                      color: '#1f2937',
                       lineHeight: 1.45,
                       resize: 'none'
                     }} 
                   />
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                    <button style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '12px', background: 'var(--n-100)', color: 'var(--n-700)', fontWeight: 500 }}>Khôi phục mặc định</button>
-                    <button onClick={handleSaveSettings} style={{ padding: '4px 12px', borderRadius: '4px', fontSize: '12px', background: 'var(--primary-600)', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}><Play size={10} weight="fill" /> Lưu và Thử nghiệm</button>
+                    <button style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '12px', background: '#f3f4f6', color: '#374151', fontWeight: 500 }}>Khôi phục mặc định</button>
+                    <button onClick={handleSaveSettings} style={{ padding: '4px 12px', borderRadius: '4px', fontSize: '12px', background: '#4f46e5', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}><Play size={10} weight="fill" /> Lưu và Thử nghiệm</button>
                   </div>
                 </div>
               </div>
@@ -454,11 +454,11 @@ Các tiêu chí cần đánh giá:
 
         {/* Cài đặt kênh (Real Facebook Integration) */}
         {settingsTabs[activeTabIdx] === 'Cài đặt kênh' && (
-          <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Cấu hình Kênh Kết nối</h3>
-                <p style={{ fontSize: '11px', color: 'var(--n-500)' }}>Kết nối tài khoản Facebook để quét và chấm điểm tự động các hội thoại chăm sóc khách hàng</p>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Cấu hình Kênh Kết nối</h3>
+                <p style={{ fontSize: '11px', color: '#6b7280' }}>Kết nối tài khoản Facebook để quét và chấm điểm tự động các hội thoại chăm sóc khách hàng</p>
               </div>
               
               {pagesData?.oauthConnected && (
@@ -471,9 +471,9 @@ Các tiêu chí cần đánh giá:
                       borderRadius: '6px', 
                       fontSize: '12px', 
                       fontWeight: 600, 
-                      background: 'var(--n-50)', 
-                      border: '1px solid var(--n-200)', 
-                      color: 'var(--n-700)',
+                      background: '#f9fafb', 
+                      border: '1px solid #e5e7eb', 
+                      color: '#374151',
                       display: 'flex', 
                       alignItems: 'center', 
                       gap: '4px',
@@ -492,7 +492,7 @@ Các tiêu chí cần đánh giá:
                       borderRadius: '6px', 
                       fontSize: '12px', 
                       fontWeight: 600, 
-                      background: 'var(--primary-600)', 
+                      background: '#4f46e5', 
                       color: '#fff',
                       display: 'flex', 
                       alignItems: 'center', 
@@ -508,8 +508,8 @@ Các tiêu chí cần đánh giá:
             </div>
 
             <div style={{ 
-              background: pagesData?.oauthConnected ? 'var(--success-50)' : 'var(--n-50)', 
-              border: pagesData?.oauthConnected ? '1px solid var(--success-100)' : '1px solid var(--n-200)',
+              background: pagesData?.oauthConnected ? '#f0fdf4' : '#f9fafb', 
+              border: pagesData?.oauthConnected ? '1px solid #dcfce7' : '1px solid #e5e7eb',
               borderRadius: '8px', 
               padding: '16px',
               display: 'flex',
@@ -521,7 +521,7 @@ Các tiêu chí cần đánh giá:
                   width: '40px', 
                   height: '40px', 
                   borderRadius: '50%', 
-                  background: pagesData?.oauthConnected ? '#1877f2' : 'var(--n-200)', 
+                  background: pagesData?.oauthConnected ? '#1877f2' : '#e5e7eb', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
@@ -531,10 +531,10 @@ Các tiêu chí cần đánh giá:
                   <FacebookLogo size={20} weight={pagesData?.oauthConnected ? 'fill' : 'regular'} />
                 </div>
                 <div>
-                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--n-800)' }}>
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
                     {pagesData?.oauthConnected ? `Tài khoản Facebook: ${pagesData.oauthUser}` : 'Chưa kết nối tài khoản Facebook'}
                   </h4>
-                  <p style={{ fontSize: '11px', color: 'var(--n-500)', marginTop: '2px' }}>
+                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                     {pagesData?.oauthConnected 
                       ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}` 
                       : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
@@ -567,20 +567,20 @@ Các tiêu chí cần đánh giá:
 
             {pagesData?.oauthConnected && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--n-700)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
                   Danh sách trang quản lý ({pagesData.pages.length})
                 </div>
 
                 {isLoadingPages ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--n-400)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: '#9ca3af' }}>
                     <RefreshCw className="animate-spin" size={24} />
                   </div>
                 ) : pagesData.pages.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', background: 'var(--n-50)', borderRadius: '8px', color: 'var(--n-500)', fontSize: '12px' }}>
+                  <div style={{ padding: '24px', textAlign: 'center', background: '#f9fafb', borderRadius: '8px', color: '#6b7280', fontSize: '12px' }}>
                     Không tìm thấy Fanpage nào. Vui lòng kiểm tra lại quyền truy cập Facebook.
                   </div>
                 ) : (
-                  <div style={{ overflow: 'auto', border: '1px solid var(--n-200)', borderRadius: '8px' }}>
+                  <div style={{ overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
                     <table className="data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
@@ -598,18 +598,18 @@ Các tiêu chí cần đánh giá:
                               <img 
                                 src={page.pagePictureUrl || 'https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png'} 
                                 alt={page.pageName || ''} 
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--n-200)' }}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e5e7eb' }}
                                 onError={(e) => {
                                   e.target.src = 'https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png';
                                 }}
                               />
                             </td>
                             <td>
-                              <div style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--n-800)' }}>
+                              <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>
                                 {page.pageName || 'Tên trang không khả dụng'}
                               </div>
                             </td>
-                            <td style={{ fontSize: '11.5px', color: 'var(--n-500)', fontFamily: 'monospace' }}>
+                            <td style={{ fontSize: '11.5px', color: '#6b7280', fontFamily: 'monospace' }}>
                               {page.pageId}
                             </td>
                             <td>
@@ -621,7 +621,7 @@ Các tiêu chí cần đánh giá:
                                   onChange={(e) => toggleMutation.mutate({ pageId: page.pageId, enabled: e.target.checked })}
                                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                 />
-                                <span style={{ fontSize: '12px', color: page.enabled ? 'var(--success-600)' : 'var(--n-500)', fontWeight: 600 }}>
+                                <span style={{ fontSize: '12px', color: page.enabled ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
                                   {page.enabled ? 'Đang hoạt động' : 'Tạm dừng'}
                                 </span>
                               </div>
@@ -636,9 +636,9 @@ Các tiêu chí cần đánh giá:
                                 style={{ 
                                   padding: '4px 8px', 
                                   borderRadius: '4px', 
-                                  border: '1px solid var(--danger-100)', 
-                                  background: 'var(--danger-50)', 
-                                  color: 'var(--danger-600)',
+                                  border: '1px solid #fee2e2', 
+                                  background: '#fef2f2', 
+                                  color: '#dc2626',
                                   fontSize: '11px',
                                   fontWeight: 600,
                                   cursor: 'pointer'
@@ -660,10 +660,10 @@ Các tiêu chí cần đánh giá:
 
         {/* Phân quyền (Tab Phân quyền) */}
         {settingsTabs[activeTabIdx] === 'Phân quyền' && (
-          <div className="card anim-up" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ borderBottom: '1px solid var(--n-100)', paddingBottom: '8px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>Phân quyền & Quản trị viên</h3>
-              <p style={{ fontSize: '11px', color: 'var(--n-500)' }}>Quản lý vai trò truy cập nền tảng và gán quyền cho nhân viên</p>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Phân quyền & Quản trị viên</h3>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>Quản lý vai trò truy cập nền tảng và gán quyền cho nhân viên</p>
             </div>
 
             <div style={{ overflow: 'auto' }}>
@@ -686,27 +686,27 @@ Các tiêu chí cần đánh giá:
                   ].map((user, idx) => (
                     <tr key={idx}>
                       <td>
-                        <div style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--n-800)' }}>{user.name}</div>
+                        <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>{user.name}</div>
                       </td>
-                      <td style={{ fontSize: '12px', color: 'var(--n-500)' }}>{user.email}</td>
+                      <td style={{ fontSize: '12px', color: '#6b7280' }}>{user.email}</td>
                       <td>
                         <span className="tag" style={{ 
-                          background: user.role === 'Admin' ? 'var(--primary-100)' : user.role === 'Manager' ? 'var(--success-50)' : 'var(--n-100)', 
-                          color: user.role === 'Admin' ? 'var(--primary-700)' : user.role === 'Manager' ? 'var(--success-600)' : 'var(--n-600)',
+                          background: user.role === 'Admin' ? '#e0e7ff' : user.role === 'Manager' ? '#f0fdf4' : '#f3f4f6', 
+                          color: user.role === 'Admin' ? '#3730a3' : user.role === 'Manager' ? '#16a34a' : '#4b5563',
                           fontWeight: 700
                         }}>
                           {user.role}
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: 'var(--n-600)' }}>{user.permission}</td>
-                      <td style={{ fontSize: '11px', color: 'var(--n-400)' }}>{user.active}</td>
+                      <td style={{ fontSize: '12px', color: '#4b5563' }}>{user.permission}</td>
+                      <td style={{ fontSize: '11px', color: '#9ca3af' }}>{user.active}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             
-            <button style={{ padding: '6px', fontSize: '12.5px', color: 'var(--primary-600)', fontWeight: 600, border: '1px dashed var(--primary-300)', borderRadius: '6px', marginTop: '6px' }}>
+            <button style={{ padding: '6px', fontSize: '12.5px', color: '#4f46e5', fontWeight: 600, border: '1px dashed var(--primary-300)', borderRadius: '6px', marginTop: '6px' }}>
               + Thêm người dùng mới / Gán vai trò
             </button>
           </div>
@@ -714,23 +714,23 @@ Các tiêu chí cần đánh giá:
 
         {/* Mock for other tabs */}
         {settingsTabs[activeTabIdx] !== 'Cài đặt hệ thống' && settingsTabs[activeTabIdx] !== 'AI & Chấm điểm' && settingsTabs[activeTabIdx] !== 'Cài đặt kênh' && settingsTabs[activeTabIdx] !== 'Phân quyền' && (
-          <div className="card anim-up" style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', textAlign: 'center' }}>
-              <GearSix size={32} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', textAlign: 'center' }}>
+              <GearSix size={32} weight="duotone" style={{ color: '#4f46e5' }} />
             <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--n-900)' }}>{settingsTabs[activeTabIdx]}</h3>
-              <p style={{ fontSize: '12px', color: 'var(--n-400)', marginTop: '4px', maxWidth: '300px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>{settingsTabs[activeTabIdx]}</h3>
+              <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px', maxWidth: '300px' }}>
                 Hệ thống đang cấu hình các thông số mặc định tốt nhất cho thương hiệu Viên Chi Bảo. Bạn có thể sử dụng ngay lập tức hoặc nhấn nút kích hoạt để ghi đè.
               </p>
             </div>
-            <button onClick={handleSaveSettings} style={{ padding: '6px 16px', background: 'var(--primary-600)', color: '#fff', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>Kích hoạt mặc định</button>
+            <button onClick={handleSaveSettings} style={{ padding: '6px 16px', background: '#4f46e5', color: '#fff', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>Kích hoạt mặc định</button>
           </div>
         )}
       </div>
 
       {/* Right - Quick settings links and Backup status */}
       <div style={{ width: '280px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="card anim-up" style={{ padding: '14px', animationDelay: '200ms' }}>
-          <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--n-800)', marginBottom: '8px' }}>Liên kết thiết lập nhanh</div>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '14px', animationDelay: '200ms' }}>
+          <div style={{ fontWeight: 700, fontSize: '13px', color: '#1f2937', marginBottom: '8px' }}>Liên kết thiết lập nhanh</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {settingsQuickLinks.map((link, idx) => (
               <div 
@@ -744,7 +744,7 @@ Các tiêu chí cần đánh giá:
                   cursor: 'pointer',
                   transition: 'background var(--tr-fast)'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--n-50)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 {(() => {
@@ -761,11 +761,11 @@ Các tiêu chí cần đánh giá:
                     '📋': ClipboardText
                   };
                   const IconComp = quickLinkIcons[link.icon] || GearSix;
-                  return <IconComp size={16} weight="duotone" style={{ color: 'var(--primary-600)', flexShrink: 0, marginTop: '2px' }} />;
+                  return <IconComp size={16} weight="duotone" style={{ color: '#4f46e5', flexShrink: 0, marginTop: '2px' }} />;
                 })()}
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--n-800)' }}>{link.title}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--n-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.desc}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#1f2937' }}>{link.title}</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.desc}</div>
                 </div>
               </div>
             ))}
@@ -773,7 +773,7 @@ Các tiêu chí cần đánh giá:
         </div>
 
         {/* Database Health Card */}
-        <div className="card anim-up" style={{ padding: '14px', animationDelay: '250ms', background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '14px', animationDelay: '250ms', background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
           <div style={{ fontWeight: 700, fontSize: '13px', color: 'rgba(255,255,255,0.9)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <HardDrive size={14} weight="duotone" /> Trạng thái dữ liệu
           </div>
@@ -788,11 +788,11 @@ Các tiêu chí cần đánh giá:
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Độ trễ API AI:</span>
-              <strong style={{ color: 'var(--success-500)' }}>Tốt (84ms)</strong>
+              <strong style={{ color: '#22c55e' }}>Tốt (84ms)</strong>
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: '6px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Sao lưu tự động:</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--success-500)' }}><CheckCircle size={10} weight="fill" /> Bật</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#22c55e' }}><CheckCircle size={10} weight="fill" /> Bật</span>
             </div>
           </div>
           <button style={{ width: '100%', padding: '6px', background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: '4px', fontSize: '11px', fontWeight: 600, marginTop: '8px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>

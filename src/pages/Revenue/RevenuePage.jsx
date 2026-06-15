@@ -16,9 +16,9 @@ const kpiIcons = [
 ];
 
 const kpiColors = [
-  'var(--success-500)',
+  '#22c55e',
   'var(--primary-500)',
-  'var(--warning-500)',
+  '#f59e0b',
   '#a855f7',
   '#ef4444',
   '#10b981',
@@ -30,7 +30,7 @@ export default function RevenuePage() {
   const [period, setPeriod] = useState('month');
   useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
 
-  const getColor = (s) => { const v = parseInt(s); return v >= 80 ? 'var(--success-600)' : v >= 70 ? 'var(--warning-600)' : 'var(--orange-500)'; };
+  const getColor = (s) => { const v = parseInt(s); return v >= 80 ? '#16a34a' : v >= 70 ? '#d97706' : 'var(--orange-500)'; };
 
   const revenueByAds = [
     { name: 'Nhẫn bạc Classic - Video 1', spend: '28.600.000đ', msgs: 342, orders: 206, revenue: '203.500.000đ', roas: '7.1x' },
@@ -88,15 +88,15 @@ export default function RevenuePage() {
 
       {/* Revenue Trend + AI Insight */}
       <div style={{ display: 'flex', gap: '14px' }}>
-        <div className="card anim-up" style={{ flex: 2, animationDelay: '200ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 2, animationDelay: '200ms' }}>
           <div className="card-title">
             Doanh thu theo thời gian
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px' }}>
-              <span>● Doanh thu</span><span style={{ color: 'var(--warning-500)' }}>● Số đơn</span><span style={{ color: 'var(--primary-500)' }}>● Tỷ lệ chốt (%)</span>
+              <span>● Doanh thu</span><span style={{ color: '#f59e0b' }}>● Số đơn</span><span style={{ color: 'var(--primary-500)' }}>● Tỷ lệ chốt (%)</span>
               <div style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
                 {['Ngày', 'Tuần', 'Tháng'].map(p => (
                   <button key={p} onClick={() => setPeriod(p)} style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
-                    background: period === p ? 'var(--primary-600)' : 'var(--n-100)', color: period === p ? '#fff' : 'var(--n-600)' }}>{p}</button>
+                    background: period === p ? '#4f46e5' : '#f3f4f6', color: period === p ? '#fff' : '#4b5563' }}>{p}</button>
                 ))}
               </div>
             </div>
@@ -109,13 +109,13 @@ export default function RevenuePage() {
                   <div style={{ flex: 1, height: anim ? `${d.orders * 2}px` : 0, background: 'linear-gradient(180deg, #f59e0b, #d97706)', borderRadius: '3px 3px 0 0', transition: 'height .8s ease', transitionDelay: `${i * 80 + 50}ms` }} />
                   <div style={{ flex: 1, height: anim ? `${d.closeRate * 3.5}px` : 0, background: 'linear-gradient(180deg, #6366f1, #4f46e5)', borderRadius: '3px 3px 0 0', transition: 'height .8s ease', transitionDelay: `${i * 80 + 100}ms` }} />
                 </div>
-                <span style={{ fontSize: '9px', color: 'var(--n-400)' }}>{d.date}</span>
+                <span style={{ fontSize: '9px', color: '#9ca3af' }}>{d.date}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="card anim-up" style={{ flex: 1, animationDelay: '250ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '250ms' }}>
           <div className="card-title">AI Insight Doanh Thu <span className="card-link">Xem tất cả</span></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
             {[
@@ -124,24 +124,24 @@ export default function RevenuePage() {
               'Quảng cáo "Nhẫn bạc Classic - Video 1" mang về ROAS cao nhất (7.8x) với chi phí 28.6 triệu.',
               'Khung giờ 20h – 22h có tỷ lệ chốt cao nhất (35.6%) và doanh thu cao nhất trong ngày.',
             ].map((text, i) => (
-              <div key={i} style={{ display: 'flex', gap: '6px', padding: '6px 0', borderBottom: '1px solid var(--n-100)' }}>
-                <span style={{ color: 'var(--primary-600)' }}>•</span>
-                <span style={{ color: 'var(--n-700)' }}>{text}</span>
+              <div key={i} style={{ display: 'flex', gap: '6px', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ color: '#4f46e5' }}>•</span>
+                <span style={{ color: '#374151' }}>{text}</span>
               </div>
             ))}
           </div>
-          <div style={{ marginTop: '10px', padding: '10px', background: 'var(--primary-50)', borderRadius: '8px', border: '1px solid var(--primary-100)' }}>
-            <div style={{ fontSize: '11px', color: 'var(--n-500)' }}>Dự đoán doanh thu</div>
-            <div style={{ fontSize: '11px', color: 'var(--n-400)' }}>Tháng 06/2026</div>
-            <div style={{ fontSize: '23px', fontWeight: 800, color: 'var(--n-900)', margin: '4px 0' }}>1.620.000.000đ</div>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--success-600)' }}>↑ 17.2% so với tháng 05/2026</div>
+          <div style={{ marginTop: '10px', padding: '10px', background: '#eef2ff', borderRadius: '8px', border: '1px solid #e0e7ff' }}>
+            <div style={{ fontSize: '11px', color: '#6b7280' }}>Dự đoán doanh thu</div>
+            <div style={{ fontSize: '11px', color: '#9ca3af' }}>Tháng 06/2026</div>
+            <div style={{ fontSize: '23px', fontWeight: 800, color: '#111827', margin: '4px 0' }}>1.620.000.000đ</div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>↑ 17.2% so với tháng 05/2026</div>
           </div>
         </div>
       </div>
 
       {/* Revenue by Employee + Page + Ads */}
       <div style={{ display: 'flex', gap: '14px' }}>
-        <div className="card anim-up" style={{ flex: 1, animationDelay: '300ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '300ms' }}>
           <div className="card-title">Doanh thu theo nhân viên <span className="card-link">Xem tất cả</span></div>
           <table className="data-table">
             <thead><tr><th>Nhân viên</th><th>Doanh thu</th><th>Đơn chốt</th><th>Tỷ lệ chốt</th><th>Chất lượng CSKH</th></tr></thead>
@@ -164,7 +164,7 @@ export default function RevenuePage() {
           </table>
         </div>
 
-        <div className="card anim-up" style={{ flex: 1, animationDelay: '350ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '350ms' }}>
           <div className="card-title">Doanh thu theo Page <span className="card-link">Xem tất cả</span></div>
           <table className="data-table">
             <thead><tr><th>Page</th><th>Doanh thu</th><th>Tin nhắn</th><th>Tỷ lệ chốt</th><th>QA Score</th></tr></thead>
@@ -187,20 +187,20 @@ export default function RevenuePage() {
           </table>
           <div style={{ position: 'relative', margin: '12px auto 0', width: '120px', height: '120px' }}>
             <svg width="120" height="120" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--n-100)" strokeWidth="14" />
+              <circle cx="60" cy="60" r="44" fill="none" stroke="#f3f4f6" strokeWidth="14" />
               {(() => { let off = 0; const c = 2*Math.PI*44; const colors = ['#1877f2','#e4405f','#22c55e'];
                 return revenueByPage.map((p, i) => { const rev = parseInt(p.revenue.replace(/\D/g,'')); const pct = rev / 12485; const dash = pct * c; const o = off; off += dash;
                 return <circle key={i} cx="60" cy="60" r="44" fill="none" stroke={colors[i]} strokeWidth="14" strokeDasharray={`${dash} ${c - dash}`} strokeDashoffset={-o} />; });
               })()}
             </svg>
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', color: 'var(--n-500)' }}>Tổng doanh thu</div>
+              <div style={{ fontSize: '9px', color: '#6b7280' }}>Tổng doanh thu</div>
               <div style={{ fontSize: '11px', fontWeight: 800 }}>1.248.500.000đ</div>
             </div>
           </div>
         </div>
 
-        <div className="card anim-up" style={{ flex: 1, animationDelay: '400ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '400ms' }}>
           <div className="card-title">Doanh thu theo Ads <span className="card-link">Xem tất cả</span></div>
           <table className="data-table">
             <thead><tr><th>Campaign</th><th>Chi phí</th><th>Doanh thu</th><th>ROAS</th></tr></thead>
@@ -210,7 +210,7 @@ export default function RevenuePage() {
                   <td style={{ fontWeight: 500, fontSize: '11px' }}>{a.name}</td>
                   <td style={{ fontSize: '11px' }}>{a.spend}</td>
                   <td style={{ fontWeight: 600, fontSize: '11px' }}>{a.revenue}</td>
-                  <td style={{ fontWeight: 700, color: parseFloat(a.roas) >= 5 ? 'var(--success-600)' : 'var(--warning-600)', fontSize: '12px' }}>{a.roas}</td>
+                  <td style={{ fontWeight: 700, color: parseFloat(a.roas) >= 5 ? '#16a34a' : '#d97706', fontSize: '12px' }}>{a.roas}</td>
                 </tr>
               ))}
             </tbody>
@@ -221,7 +221,7 @@ export default function RevenuePage() {
       {/* Bottom Row */}
       <div style={{ display: 'flex', gap: '14px' }}>
         {/* Product Revenue */}
-        <div className="card anim-up" style={{ flex: 1, animationDelay: '450ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 1, animationDelay: '450ms' }}>
           <div className="card-title">Doanh thu theo sản phẩm (Top 6) <span className="card-link">Xem tất cả</span></div>
           <table className="data-table">
             <thead><tr><th>Sản phẩm</th><th>Hội thoại</th><th>Đơn chốt</th><th>Tỷ lệ chốt</th></tr></thead>
@@ -230,7 +230,7 @@ export default function RevenuePage() {
                 <tr key={i}>
                   <td style={{ fontWeight: 500 }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Diamond size={14} weight="duotone" style={{ color: 'var(--warning-500)' }} />
+                      <Diamond size={14} weight="duotone" style={{ color: '#f59e0b' }} />
                       <span>{p.name}</span>
                     </div>
                   </td>
@@ -244,33 +244,33 @@ export default function RevenuePage() {
         </div>
 
         {/* Funnel */}
-        <div className="card anim-up" style={{ flex: 0.8, animationDelay: '500ms' }}>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ flex: 0.8, animationDelay: '500ms' }}>
           <div className="card-title">Phễu Chat → Doanh Thu</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {revenueFunnel.map((f, i) => {
               const w = 100 - i * 14;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--n-600)', width: '65px', whiteSpace: 'nowrap' }}>{f.label}</span>
-                  <div style={{ flex: 1, height: '20px', borderRadius: '4px', overflow: 'hidden', background: 'var(--n-100)' }}>
+                  <span style={{ fontSize: '11px', color: '#4b5563', width: '65px', whiteSpace: 'nowrap' }}>{f.label}</span>
+                  <div style={{ flex: 1, height: '20px', borderRadius: '4px', overflow: 'hidden', background: '#f3f4f6' }}>
                     <div style={{ width: anim ? `${w}%` : '0%', height: '100%', background: funnelColors[i], borderRadius: '4px', transition: 'width .8s ease', transitionDelay: `${i * 100}ms`, display: 'flex', alignItems: 'center', padding: '0 6px', fontSize: '10px', fontWeight: 600, color: '#fff' }}>
                       {f.value.toLocaleString()}
                     </div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--n-700)', width: '35px', textAlign: 'right' }}>{f.pct}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151', width: '35px', textAlign: 'right' }}>{f.pct}</span>
                 </div>
               );
             })}
           </div>
-          <div style={{ marginTop: '8px', padding: '6px 8px', background: 'var(--warning-50)', borderRadius: '6px', fontSize: '11px', color: 'var(--n-600)', display: 'flex', gap: '6px', border: '1px solid var(--warning-100)', alignItems: 'flex-start' }}>
-            <Warning size={14} weight="duotone" style={{ color: 'var(--warning-600)', flexShrink: 0, marginTop: '1px' }} />
+          <div style={{ marginTop: '8px', padding: '6px 8px', background: '#fffbeb', borderRadius: '6px', fontSize: '11px', color: '#4b5563', display: 'flex', gap: '6px', border: '1px solid #fef3c7', alignItems: 'flex-start' }}>
+            <Warning size={14} weight="duotone" style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
             <span>AI gợi ý: Tỷ lệ rớt cao nhất ở bước Quan tâm → Báo giá (48%). Nên cải thiện kịch bản tư vấn và phản hồi nhanh.</span>
           </div>
         </div>
 
         {/* Country + VIP */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 0.8 }}>
-          <div className="card anim-up" style={{ animationDelay: '550ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '550ms' }}>
             <div className="card-title">Doanh thu theo quốc gia <span className="card-link">Xem tất cả</span></div>
             <table className="data-table">
               <thead><tr><th>Quốc gia</th><th>Doanh thu</th><th>Đơn</th><th>Tỷ lệ chốt</th></tr></thead>
@@ -286,14 +286,14 @@ export default function RevenuePage() {
               </tbody>
             </table>
           </div>
-          <div className="card anim-up" style={{ animationDelay: '600ms' }}>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '600ms' }}>
             <div className="card-title">Khách hàng giá trị cao (VIP) <span className="card-link">Xem tất cả</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {vipCustomers.map((c, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', borderBottom: '1px solid var(--n-100)', fontSize: '12px' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', borderBottom: '1px solid #f3f4f6', fontSize: '12px' }}>
                   <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `hsl(${i * 55}, 50%, 50%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 600 }}>{c.name.charAt(0)}</div>
                   <span style={{ flex: 1, fontWeight: 500 }}>{c.name}</span>
-                  <span style={{ color: 'var(--n-400)', fontSize: '11px' }}>{c.orders} đơn</span>
+                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>{c.orders} đơn</span>
                   <span style={{ fontWeight: 700 }}>{c.revenue}</span>
                   <span className="tag tag-gold" style={{ fontSize: '9px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                     <Crown size={9} weight="fill" />

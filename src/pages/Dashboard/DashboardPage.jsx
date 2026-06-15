@@ -28,24 +28,10 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div style={{
-        minHeight: '60vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--n-600)'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid rgba(0,0,0,0.05)',
-            borderTopColor: 'var(--primary-500)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }} />
-          <p style={{ fontSize: '14px', color: 'var(--n-500)' }}>Đang tải số liệu hệ thống...</p>
+      <div className="flex min-h-[60vh] items-center justify-center text-slate-500">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-black/5 border-t-indigo-500" />
+          <p className="text-sm text-slate-500">Đang tải số liệu hệ thống...</p>
           <style>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
@@ -59,10 +45,10 @@ export default function DashboardPage() {
 
   if (isError) {
     return (
-      <div className="card" style={{ padding: '32px', textAlign: 'center', margin: '20px auto', maxWidth: '500px' }}>
-        <Warning size={48} color="var(--danger-500)" style={{ marginBottom: '16px' }} />
-        <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--n-900)', marginBottom: '8px' }}>Không thể tải dữ liệu</h3>
-        <p style={{ color: 'var(--n-500)', fontSize: '14px', marginBottom: '20px' }}>
+      <div className="mx-auto my-5 max-w-[500px] rounded-2xl bg-white p-8 text-center shadow-sm border border-slate-200">
+        <Warning size={48} className="mb-4 text-red-500 mx-auto" />
+        <h3 className="mb-2 text-lg font-bold text-slate-900">Không thể tải dữ liệu</h3>
+        <p className="mb-5 text-sm text-slate-500">
           Vui lòng kiểm tra lại kết nối đến máy chủ Backend và thử lại.
         </p>
       </div>
@@ -124,43 +110,26 @@ export default function DashboardPage() {
   const hasRealData = (stats?.totalConversations ?? 0) > 0 || (stats?.totalAudits ?? 0) > 0;
 
   return (
-    <div className="dash-grid" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="flex flex-col gap-6">
       
       {/* ── KPI Grid ── */}
-      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {kpis.map((kpi, i) => {
           const Icon = kpi.icon;
           return (
             <div
               key={i}
-              className="kpi-card"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '16px 20px',
-                borderRadius: '16px',
-                background: 'var(--card-bg, #fff)',
-                border: '1px solid var(--border, rgba(0,0,0,0.06))',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-              }}
+              className="flex flex-col p-4 rounded-2xl bg-white border border-slate-100 shadow-sm"
+             
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: kpi.bg,
-                  color: kpi.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
+              <div className="mb-3 flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: kpi.bg, color: kpi.color }}>
                   <Icon size={20} weight="duotone" />
                 </div>
-                <span style={{ fontSize: '12.5px', color: 'var(--n-500)', fontWeight: 500 }}>{kpi.label}</span>
+                <span className="text-[12.5px] font-medium text-slate-500">{kpi.label}</span>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--n-900)', lineHeight: 1.1 }}>{kpi.value}</div>
-              <div style={{ fontSize: '11px', color: 'var(--n-400)', marginTop: '4px' }}>{kpi.sub}</div>
+              <div className="text-2xl font-extrabold leading-tight text-slate-900">{kpi.value}</div>
+              <div className="mt-1 text-[11px] text-slate-400">{kpi.sub}</div>
             </div>
           );
         })}
@@ -169,7 +138,7 @@ export default function DashboardPage() {
       {/* ── Empty State / Main Content Row ── */}
       {!hasRealData ? (
         <div
-          className="card anim-up"
+          className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4"
           style={{
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)',
             border: '1px solid rgba(99, 102, 241, 0.15)',
@@ -185,82 +154,23 @@ export default function DashboardPage() {
             boxShadow: '0 10px 30px rgba(99, 102, 241, 0.05)'
           }}
         >
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: 'rgba(99, 102, 241, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--primary-600)',
-            marginBottom: '8px'
-          }}>
+          <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600">
             <Sparkle size={32} weight="duotone" />
           </div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--n-900)', letterSpacing: '-0.02em' }}>
+          <h2 className="text-[22px] font-extrabold tracking-tight text-slate-900">
             Chào mừng bạn đến với CQA CRM
           </h2>
-          <p style={{ fontSize: '14.5px', color: 'var(--n-600)', maxWidth: '500px', lineHeight: 1.5 }}>
+          <p className="max-w-[500px] text-[14.5px] leading-relaxed text-slate-600">
             Hệ thống hiện tại chưa thu thập cuộc hội thoại nào hoặc chưa chạy đánh giá chất lượng (Audit). Vui lòng thực hiện các bước sau để xem phân tích dữ liệu thực tế.
           </p>
 
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '12px',
-            justifyContent: 'center',
-            marginTop: '8px'
-          }}>
-            <button
-              onClick={() => navigate('/settings?tab=channel')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '11px 20px',
-                background: 'var(--primary-600)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '13.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-700)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--primary-600)'}
-            >
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            <button onClick={() => navigate('/settings?tab=channel')} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-[13.5px] font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700">
               <GearSix size={16} weight="bold" />
               Cấu hình & Kết nối Kênh
               <ArrowRight size={14} weight="bold" />
             </button>
-            <button
-              onClick={() => navigate('/quality')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '11px 20px',
-                background: 'transparent',
-                color: 'var(--n-700)',
-                border: '1px solid var(--border)',
-                borderRadius: '10px',
-                fontSize: '13.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--n-50)';
-                e.currentTarget.style.borderColor = 'var(--n-300)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }}
-            >
+            <button onClick={() => navigate('/quality')} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-transparent px-5 py-3 text-[13.5px] font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50">
               Chạy Đánh giá (Audit) AI
             </button>
           </div>
@@ -271,19 +181,19 @@ export default function DashboardPage() {
       <div className="dash-row" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
         
         {/* Recent Audits Card */}
-        <div className="card" style={{ flex: '2 1 450px', borderRadius: '16px', padding: '20px' }}>
+        <div className="flex flex-col flex-[2_1_450px] rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <span>Lượt đánh giá chất lượng gần đây</span>
             <span
               onClick={() => navigate('/quality')}
-              style={{ fontSize: '11.5px', color: 'var(--primary-600)', cursor: 'pointer', fontWeight: 600 }}
+              style={{ fontSize: '11.5px', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
             >
               Xem tất cả
             </span>
           </div>
 
           {!stats?.recentAudits?.length ? (
-            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--n-400)', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '36px 0', color: '#9ca3af', fontSize: '13px' }}>
               Chưa có dữ liệu đánh giá (Audit)
             </div>
           ) : (
@@ -317,7 +227,7 @@ export default function DashboardPage() {
                           {a.score}
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: 'var(--n-400)' }}>
+                      <td style={{ fontSize: '12px', color: '#9ca3af' }}>
                         {new Date(a.createdAt).toLocaleString('vi-VN', {
                           day: '2-digit',
                           month: '2-digit',
@@ -334,14 +244,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Jobs Card */}
-        <div className="card" style={{ flex: '1 1 300px', borderRadius: '16px', padding: '20px' }}>
+        <div className="flex flex-col flex-[1_1_300px] rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="card-title" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <GearSix size={18} weight="bold" />
             <span>Tiến trình đồng bộ / AI Audit</span>
           </div>
 
           {!stats?.latestJobs?.length ? (
-            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--n-400)', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '36px 0', color: '#9ca3af', fontSize: '13px' }}>
               Chưa chạy tiến trình nào
             </div>
           ) : (
@@ -360,10 +270,10 @@ export default function DashboardPage() {
                   }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--n-800)', textTransform: 'capitalize' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', textTransform: 'capitalize' }}>
                       {j.type === 'monitor' ? 'Đồng bộ tin nhắn' : 'Chấm điểm AI'}
                     </span>
-                    <span style={{ fontSize: '11px', color: 'var(--n-400)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Clock size={12} />
                       {new Date(j.startedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>

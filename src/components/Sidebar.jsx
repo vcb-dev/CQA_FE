@@ -51,36 +51,43 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon"><VCBIcon size={26} /></div>
-        <div className="sidebar-logo-text">
-          <span className="sidebar-logo-title">VIENCHIBAO</span>
-          <span className="sidebar-logo-sub">Chat Quality Agent</span>
+    <aside className="flex h-screen w-[210px] min-w-[210px] flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-800 p-3.5 z-50">
+      <div className="mb-5 flex items-center gap-2 px-2 py-1.5">
+        <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-fuchsia-400">
+          <VCBIcon size={26} />
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="whitespace-nowrap text-[15px] font-bold text-white">VIENCHIBAO</span>
+          <span className="whitespace-nowrap text-[10px] font-normal text-white/50">Chat Quality Agent</span>
         </div>
       </div>
-      <nav className="sidebar-nav">
+      <nav className="flex flex-1 flex-col gap-px">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
           return (
-            <NavLink key={item.to} to={item.to} className={`sidebar-nav-item ${isActive ? 'active' : ''}`}>
-              <Icon weight="duotone" /><span>{item.label}</span>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-all duration-150 hover:bg-white/10 hover:text-white ${isActive ? 'bg-indigo-600/60 text-white shadow-sm' : 'text-white/60'}`}
+            >
+              <Icon weight="duotone" className="h-4 w-4" />
+              <span>{item.label}</span>
             </NavLink>
           );
         })}
       </nav>
-      <div className="ai-widget">
-        <div className="ai-widget-header">
-          <div className="ai-widget-avatar" style={{ background: 'var(--primary-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Brain size={18} weight="duotone" style={{ color: 'var(--primary-600)' }} />
+      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-indigo-400/20 bg-indigo-950/40 p-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
+            <Brain size={18} weight="duotone" className="text-indigo-600" />
           </div>
-          <div>
-            <div className="ai-widget-title">AI Assistant</div>
-            <div className="ai-widget-sub">Trợ lý AI luôn sẵn sàng hỗ trợ bạn 24/7</div>
+          <div className="flex flex-col">
+            <div className="text-[11px] font-bold text-indigo-50">AI Assistant</div>
+            <div className="text-[9px] text-indigo-200/70">Trợ lý AI sẵn sàng 24/7</div>
           </div>
         </div>
-        <button className="ai-widget-btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%' }}>
+        <button className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-500/20 px-2 py-1.5 text-[11px] font-semibold text-indigo-100 transition-colors hover:bg-indigo-500/40">
           <ChatCircleText size={14} weight="fill" />
           <span>Trò chuyện ngay</span>
         </button>
