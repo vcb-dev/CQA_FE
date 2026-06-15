@@ -412,7 +412,7 @@ export function CskhGlassPanel({
   return (
     <div
       className={cn(
-        'overflow-hidden bg-white h-full w-full flex flex-col min-h-0',
+        'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50 flex flex-col h-full w-full min-h-0',
         className
       )}
     >
