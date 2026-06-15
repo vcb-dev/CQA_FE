@@ -6,15 +6,23 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
 
 function ProtectedLayout() {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null;
+  const hasToken = !!token && token !== 'undefined' && token !== 'null';
+
   const { data: userProfile, isLoading, isError } = useQuery({
     queryKey: ['currentUserProfile'],
     queryFn: async () => {
       const response = await apiClient.get('/auth/me');
       return response.data.data;
     },
+    enabled: hasToken,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+
+  if (!hasToken) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (isLoading) {
     return (
@@ -28,6 +36,10 @@ function ProtectedLayout() {
   }
 
   if (isError || !userProfile) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+    }
     return <Navigate to="/login" replace />;
   }
 
