@@ -40,7 +40,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   }, [selectedPageId, selectedConversation])
 
   // Enable real-time SSE stream
-  const { typingConversationIds } = useCskhInboxStream({
+  const { connected, typingConversationIds } = useCskhInboxStream({
     enabled: true,
     activeConversationId: selectedConversation?.id ?? null,
   })
@@ -78,7 +78,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         <div className="p-4 border-b flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Hội thoại</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-lg font-semibold text-gray-900">Hội thoại</h2>
+                <span
+                  className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}
+                  title={connected ? 'Đang kết nối Real-time' : 'Mất kết nối Real-time (Đang thử lại...)'}
+                />
+              </div>
               <p className="text-xs text-gray-500 mt-0.5">Facebook Messenger</p>
             </div>
             <Button
