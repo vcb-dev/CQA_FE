@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { fetchCskhPages, syncInboxFromGraph, type CskhInboxConversation } from './api'
+import { fetchCskhPages, syncInboxFromGraph, markInboxConversationAsRead, type CskhInboxConversation } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
 import { useCskhInboxStream } from './useCskhInboxStream'
@@ -67,6 +67,24 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     return pagesData?.pages ?? []
   }, [pagesData])
 
+  const handleSelectConversation = (conv: CskhInboxConversation) => {
+    setSelectedConversation(conv)
+    if (conv.unreadCount > 0) {
+      // Optimistically update the list query cache to clear unread badge immediately
+      qc.setQueryData<CskhInboxConversation[]>(
+        ['cskh', 'inbox', 'conversations', selectedPageId],
+        (prev) => {
+          if (!prev) return prev
+          return prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
+        }
+      )
+      // Call mark-as-read API in background
+      markInboxConversationAsRead(conv.id).catch((err) => {
+        console.error('Failed to mark conversation as read:', err)
+      })
+    }
+  }
+
   return (
     <div className="flex h-full gap-4 bg-white rounded-lg border border-gray-200">
       {/* Conversations List - Left Sidebar */}
@@ -120,7 +138,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         </div>
         <ChatListPanel
           selectedConversationId={selectedConversation?.id}
-          onSelect={setSelectedConversation}
+          onSelect={handleSelectConversation}
           pageId={selectedPageId}
           typingConversationIds={typingConversationIds}
         />
