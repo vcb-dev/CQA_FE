@@ -9,6 +9,7 @@ type ChatListPanelProps = {
   onSelect: (conversation: CskhInboxConversation) => void
   pageId?: string
   typingConversationIds?: Set<string>
+  connected?: boolean
 }
 
 export function ChatListPanel({
@@ -16,11 +17,12 @@ export function ChatListPanel({
   onSelect,
   pageId,
   typingConversationIds = new Set(),
+  connected,
 }: ChatListPanelProps) {
   const { data: conversations, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', pageId],
     queryFn: () => fetchInboxConversations(pageId),
-    refetchInterval: 10000, // Refetch every 10s
+    refetchInterval: connected ? 20000 : 4000, // Fast 4s fallback if SSE is disconnected
   })
 
   const formatTime = (isoString: string | null): string => {

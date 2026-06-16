@@ -51,6 +51,7 @@ export function useCskhInboxStream({
     es.onopen = () => {
       if (disconnectTimer) clearTimeout(disconnectTimer)
       setConnected(true)
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
     }
     es.onerror = () => {
       if (disconnectTimer) clearTimeout(disconnectTimer)

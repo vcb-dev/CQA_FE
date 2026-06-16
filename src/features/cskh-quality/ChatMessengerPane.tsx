@@ -141,6 +141,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
           onSelect={handleSelectConversation}
           pageId={selectedPageId}
           typingConversationIds={typingConversationIds}
+          connected={connected}
         />
       </div>
 
@@ -164,6 +165,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               conversation={selectedConversation}
               isCustomerTyping={typingConversationIds.has(selectedConversation.id)}
               onClose={() => setSelectedConversation(null)}
+              connected={connected}
             />
           </div>
         </div>

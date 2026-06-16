@@ -21,9 +21,10 @@ type ChatPanelProps = {
   conversation: CskhInboxConversation
   isCustomerTyping?: boolean
   onClose?: () => void
+  connected?: boolean
 }
 
-export function ChatPanel({ conversation, isCustomerTyping, onClose }: ChatPanelProps) {
+export function ChatPanel({ conversation, isCustomerTyping, onClose, connected }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string>('')
   const typingTimeoutRef = useRef<any>(null)
@@ -33,7 +34,7 @@ export function ChatPanel({ conversation, isCustomerTyping, onClose }: ChatPanel
   const { data: messagesData, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
     queryFn: () => fetchInboxMessages(conversation.id),
-    refetchInterval: 30000, // Refetch every 30s as fallback
+    refetchInterval: connected ? 25000 : 4000, // Fast 4s fallback if SSE is disconnected
   })
 
   const messages = messagesData?.messages ?? []
