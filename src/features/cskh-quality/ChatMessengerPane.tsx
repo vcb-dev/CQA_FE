@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { fetchCskhPages, syncInboxFromGraph, markInboxConversationAsRead, type CskhInboxConversation } from './api'
+import { fetchCskhPages, syncInboxFromGraph, markInboxAsRead, type CskhInboxConversation } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
 import { useCskhInboxStream } from './useCskhInboxStream'
@@ -79,7 +79,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         }
       )
       // Call mark-as-read API in background
-      markInboxConversationAsRead(conv.id).catch((err) => {
+      markInboxAsRead(conv.id).catch((err: any) => {
         console.error('Failed to mark conversation as read:', err)
       })
     }

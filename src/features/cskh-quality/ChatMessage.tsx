@@ -1,4 +1,4 @@
-import { Check, CheckCheck, Loader2 } from 'lucide-react'
+import { Check, CheckCheck, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CskhInboxMessage } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -16,6 +16,10 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
       <Check className="w-3 h-3" />
     ) : message.status === 'read' ? (
       <CheckCheck className="w-3 h-3 text-blue-100" />
+    ) : message.status === 'failed' ? (
+      <span title="Gửi lỗi">
+        <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+      </span>
     ) : null
 
   const formatTime = (isoString: string) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { markInboxConversationAsRead, type CskhCustomerIntent } from './api'
+import { markInboxAsRead, type CskhCustomerIntent } from './api'
 import {
   appendInboxMessagesToCache,
   patchInboxConversationInCache,
@@ -105,7 +105,7 @@ export function useCskhInboxStream({
             void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
           } else {
             // Active conversation: automatically mark it as read on the backend
-            markInboxConversationAsRead(data.conversationId).catch((err) => {
+            markInboxAsRead(data.conversationId).catch((err: any) => {
               console.error('Failed to auto mark active conversation as read:', err)
             })
           }

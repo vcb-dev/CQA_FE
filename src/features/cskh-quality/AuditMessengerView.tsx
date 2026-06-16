@@ -85,6 +85,7 @@ import {
 } from '@/components/custom-ui/select'
 import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
+import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
 
 const AUDIT_JOB_KEY = 'cskh:audit-job-id'
 const AUDIT_INTENT_CACHE_KEY = 'cskh:audit-intent-cache:v1'
@@ -1239,9 +1240,17 @@ export function AuditMessengerView({
 
   const sendMut = useMutation({
     mutationFn: (text: string) => sendInboxMessage(inboxConv!.id, text),
-    onSuccess: () => {
+    onSuccess: (newMessage) => {
       setDraft('')
-      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+      if (newMessage) {
+        appendInboxMessagesToCache(qc, inboxConv!.id, undefined, [newMessage])
+        patchInboxConversationInCache(qc, {
+          id: inboxConv!.id,
+          lastMessage: newMessage.text,
+          lastMessageAt: newMessage.sentAt,
+          unreadCount: 0,
+        })
+      }
     },
   })
 

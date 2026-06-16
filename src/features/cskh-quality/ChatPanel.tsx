@@ -15,6 +15,7 @@ import { ChatMessage } from './ChatMessage'
 import { ChatMessageInput } from './ChatMessageInput'
 import { TypingIndicator } from './TypingIndicator'
 import { cskhMediaProxySrc } from './messageMedia'
+import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
 
 type ChatPanelProps = {
   conversation: CskhInboxConversation
@@ -40,8 +41,21 @@ export function ChatPanel({ conversation, isCustomerTyping, onClose }: ChatPanel
   // Send message mutation
   const sendMut = useMutation({
     mutationFn: (text: string) => sendInboxMessage(conversation.id, text),
-    onSuccess: () => {
-      // Message will be pushed via SSE
+    onSuccess: (newMessage) => {
+      if (newMessage) {
+        appendInboxMessagesToCache(
+          qc,
+          conversation.id,
+          undefined,
+          [newMessage]
+        )
+        patchInboxConversationInCache(qc, {
+          id: conversation.id,
+          lastMessage: newMessage.text,
+          lastMessageAt: newMessage.sentAt,
+          unreadCount: 0,
+        })
+      }
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error) || 'Gửi tin thất bại')
