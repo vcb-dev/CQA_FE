@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   )
 
   const [selectedPageId, setSelectedPageId] = useState<string | undefined>(pageId)
+
+  // Sync selectedPageId when pageId prop changes
+  useEffect(() => {
+    setSelectedPageId(pageId)
+  }, [pageId])
+
+  // Reset selected conversation if it doesn't belong to the selected page
+  useEffect(() => {
+    if (selectedPageId && selectedConversation && selectedConversation.pageId !== selectedPageId) {
+      setSelectedConversation(null)
+    }
+  }, [selectedPageId, selectedConversation])
 
   // Enable real-time SSE stream
   const { typingConversationIds } = useCskhInboxStream({
