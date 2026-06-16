@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   MagnifyingGlass, Sliders, DotsThree, Star, Smiley,
   Paperclip, Image, Microphone, CaretDown, CaretLeft, CaretRight, Plus, FileText,
@@ -6,6 +6,17 @@ import {
   ArrowsCounterClockwise, Brain, Translate, Lightbulb,
   Megaphone, PaperPlaneRight
 } from '@phosphor-icons/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  fetchCskhPages, 
+  fetchInboxConversations, 
+  fetchInboxMessages, 
+  sendInboxMessage, 
+  markInboxAsRead, 
+  fetchCustomerIntent, 
+  fetchInboxAuditHint 
+} from '@/features/cskh-quality/api';
+import { useCskhInboxStream } from '@/features/cskh-quality/useCskhInboxStream';
 
 // ── Tag style helper ──
 const getTagStyle = (tag) => {
@@ -682,7 +693,7 @@ const getMessageDisplayParts = (msg, conv) => {
 // ─────────────────────────────────────────
 // LEFT: Conversation list with advanced filters
 // ─────────────────────────────────────────
-function ConvList({ activeId, onSelect, conversationsData, search, setSearch, adsOnly, setAdsOnly }) {
+function ConvList({ activeId, onSelect, conversationsData, search, setSearch, adsOnly, setAdsOnly, conversationTabs }) {
   const [tab, setTab] = useState('all');
   const filtered = conversationsData.filter(c => {
     if (adsOnly && !c.isAds) return false;
@@ -1621,19 +1632,18 @@ function RightPanel({ conv, onUpdateTags, onTriggerAction, onUseSuggestion }) {
 // MAIN PAGE
 // ─────────────────────────────────────────
 export default function ConversationsPage() {
-  const [activeConv, setActiveConv] = useState(1);
-  const [convData, setConvData] = useState(conversations);
-  
-  // Header filter states
-  const ALL_PAGES = [
-    { name: 'Vienchibao Jewelry', flag: '🇻🇳' },
-    { name: 'Vienchibao Thailand', flag: '🇹🇭' },
-    { name: 'Vienchibao USA', flag: '🇺🇸' },
-    { name: 'Vienchibao Japan', flag: '🇯🇵' },
-    { name: 'Vienchibao Global', flag: '🇪🇸' },
-    { name: 'Vienchibao Indonesia', flag: '🇮🇩' }
-  ];
-  const [selectedPages, setSelectedPages] = useState(ALL_PAGES.map(p => p.name));
+  const qc = useQueryClient();
+  const [activeConv, setActiveConv] = useState(undefined);
+  const [localTags, setLocalTags] = useState({});
+  const [aiAssistantCollapsed, setAiAssistantCollapsed] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [draftReply, setDraftReply] = useState(null);
+  const [search, setSearch] = useState('');
+  const [adsOnly, setAdsOnly] = useState(false);
+  const [employeeFilter, setEmployeeFilter] = useState('All');
+  const [tagFilter, setTagFilter] = useState('All');
+
+  // Page dropdown states
   const [showPageDropdown, setShowPageDropdown] = useState(false);
   const pageDropdownRef = useRef(null);
 
@@ -1649,18 +1659,6 @@ export default function ConversationsPage() {
     };
   }, []);
 
-  const [employeeFilter, setEmployeeFilter] = useState('All');
-  const [tagFilter, setTagFilter] = useState('All');
-  
-  // Sidebar states
-  const [search, setSearch] = useState('');
-  const [adsOnly, setAdsOnly] = useState(false);
-
-  // Business Action Toast Notifications State
-  const [toastMessage, setToastMessage] = useState('');
-  const [draftReply, setDraftReply] = useState(null);
-  const [aiAssistantCollapsed, setAiAssistantCollapsed] = useState(false);
-
   const triggerToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -1668,29 +1666,203 @@ export default function ConversationsPage() {
     }, 3000);
   };
 
-  // Filters calculation
-  const filteredConversations = convData.filter(c => {
-    // 1. Page Filter (Multi-select)
-    if (selectedPages.length > 0 && !selectedPages.includes(c.page)) return false;
-    if (selectedPages.length === 0) return false;
-    // 2. Employee Filter
-    if (employeeFilter !== 'All' && c.employee !== employeeFilter) return false;
-    // 3. Tag Filter
-    if (tagFilter !== 'All' && !c.tags.includes(tagFilter) && !c.customTags.includes(tagFilter)) return false;
-    // 4. Search Filter
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return c.name.toLowerCase().includes(q) || 
-             c.employee.toLowerCase().includes(q) || 
-             c.preview.toLowerCase().includes(q);
-    }
-    return true;
+  // Fetch real Facebook pages
+  const { data: pagesData } = useQuery({
+    queryKey: ['cskh', 'pages'],
+    queryFn: fetchCskhPages,
   });
 
-  const selectedConv = convData.find(c => c.id === activeConv) || filteredConversations[0] || convData[0];
+  const realPages = pagesData?.pages ?? [];
+
+  const ALL_PAGES = useMemo(() => {
+    return realPages.map(p => {
+      let flag = '🌐';
+      const name = p.pageName || '';
+      if (name.toLowerCase().includes('thail') || name.toLowerCase().includes('thái')) flag = '🇹🇭';
+      else if (name.toLowerCase().includes('usa') || name.toLowerCase().includes('mỹ')) flag = '🇺🇸';
+      else if (name.toLowerCase().includes('japan') || name.toLowerCase().includes('nhật')) flag = '🇯🇵';
+      else if (name.toLowerCase().includes('global') || name.toLowerCase().includes('quốc tế')) flag = '🇪🇸';
+      else if (name.toLowerCase().includes('indo')) flag = '🇮🇩';
+      else if (name.toLowerCase().includes('jewelry') || name.toLowerCase().includes('việt')) flag = '🇻🇳';
+      return {
+        id: p.pageId,
+        name: p.pageName || `Kênh ${p.pageId}`,
+        flag: flag
+      };
+    });
+  }, [realPages]);
+
+  const [selectedPages, setSelectedPages] = useState([]);
+
+  useEffect(() => {
+    if (ALL_PAGES.length > 0 && selectedPages.length === 0) {
+      setSelectedPages(ALL_PAGES.map(p => p.id));
+    }
+  }, [ALL_PAGES]);
+
+  // Fetch real conversations
+  const { data: conversationsData = [] } = useQuery({
+    queryKey: ['cskh', 'inbox', 'conversations'],
+    queryFn: () => fetchInboxConversations(),
+  });
+
+  // Enable real-time SSE stream
+  const { typingConversationIds } = useCskhInboxStream({
+    enabled: true,
+    activeConversationId: activeConv || null,
+  });
+
+  // Auto-select first conversation
+  useEffect(() => {
+    if (conversationsData.length > 0 && !activeConv) {
+      setActiveConv(conversationsData[0].id);
+    }
+  }, [conversationsData, activeConv]);
+
+  // Filter conversations based on UI selections
+  const filteredConversations = useMemo(() => {
+    return conversationsData.filter(c => {
+      // 1. Page Filter (Multi-select)
+      if (selectedPages.length > 0 && !selectedPages.includes(c.pageId)) return false;
+      if (selectedPages.length === 0) return false;
+      
+      // 2. Ads Only Filter
+      if (adsOnly && !c.fromAd) return false;
+      
+      // 3. Search Filter
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return (c.customerName || '').toLowerCase().includes(q) || 
+               (c.lastMessage || '').toLowerCase().includes(q);
+      }
+      return true;
+    }).map(c => {
+      let flag = '🌐';
+      const name = c.pageName || '';
+      if (name.toLowerCase().includes('thail') || name.toLowerCase().includes('thái')) flag = '🇹🇭';
+      else if (name.toLowerCase().includes('usa') || name.toLowerCase().includes('mỹ')) flag = '🇺🇸';
+      else if (name.toLowerCase().includes('japan') || name.toLowerCase().includes('nhật')) flag = '🇯🇵';
+      else if (name.toLowerCase().includes('global') || name.toLowerCase().includes('quốc tế')) flag = '🇪🇸';
+      else if (name.toLowerCase().includes('indo')) flag = '🇮🇩';
+      else if (name.toLowerCase().includes('jewelry') || name.toLowerCase().includes('việt')) flag = '🇻🇳';
+
+      const tags = [
+        ...(c.fromAd ? ['Quảng cáo'] : ['Tự nhiên']),
+      ];
+
+      return {
+        id: c.id,
+        name: c.customerName || `Khách hàng ${c.participantPsid.slice(0, 8)}`,
+        flag: flag,
+        channel: 'Messenger',
+        page: c.pageName || `Kênh ${c.pageId}`,
+        preview: c.lastMessage || '[Không có tin nhắn]',
+        time: c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+        unread: c.unreadCount,
+        isAds: c.fromAd,
+        employee: 'Minh Anh', // default/fallback employee
+        tags: tags,
+        customTags: localTags[c.id] || [],
+        avatarColor: '#6366f1',
+        status: c.unreadCount === 0 ? 'reviewed' : 'pending'
+      };
+    });
+  }, [conversationsData, selectedPages, adsOnly, search, localTags]);
+
+  const selectedConvRaw = useMemo(() => {
+    if (!activeConv) return filteredConversations[0] || null;
+    return conversationsData.find(c => c.id === activeConv) || filteredConversations[0] || null;
+  }, [conversationsData, filteredConversations, activeConv]);
+
+  // Sync activeConv if selectedConvRaw changes
+  useEffect(() => {
+    if (selectedConvRaw && selectedConvRaw.id !== activeConv) {
+      setActiveConv(selectedConvRaw.id);
+    }
+  }, [selectedConvRaw, activeConv]);
+
+  // Fetch real messages for active conversation
+  const { data: messagesData } = useQuery({
+    queryKey: ['cskh', 'inbox', 'messages', selectedConvRaw?.id],
+    queryFn: () => fetchInboxMessages(selectedConvRaw.id),
+    enabled: !!selectedConvRaw?.id,
+  });
+
+  // Fetch real customer intent
+  const { data: resolvedIntent } = useQuery({
+    queryKey: ['cskh', 'inbox', 'intent', selectedConvRaw?.id],
+    queryFn: () => fetchCustomerIntent(selectedConvRaw.id),
+    enabled: !!selectedConvRaw?.id,
+  });
+
+  // Automatically mark as read when active conversation changes or new messages arrive
+  useEffect(() => {
+    if (selectedConvRaw?.id && selectedConvRaw.unreadCount > 0) {
+      void markInboxAsRead(selectedConvRaw.id).then(() => {
+        void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] });
+      }).catch(() => {});
+    }
+  }, [selectedConvRaw?.id, selectedConvRaw?.unreadCount, qc]);
+
+  const selectedConv = useMemo(() => {
+    if (!selectedConvRaw) return null;
+
+    let flag = '🌐';
+    const pName = selectedConvRaw.pageName || '';
+    if (pName.toLowerCase().includes('thail') || pName.toLowerCase().includes('thái')) flag = '🇹🇭';
+    else if (pName.toLowerCase().includes('usa') || pName.toLowerCase().includes('mỹ')) flag = '🇺🇸';
+    else if (pName.toLowerCase().includes('japan') || pName.toLowerCase().includes('nhật')) flag = '🇯🇵';
+    else if (pName.toLowerCase().includes('global') || pName.toLowerCase().includes('quốc tế')) flag = '🇪🇸';
+    else if (pName.toLowerCase().includes('indo')) flag = '🇮🇩';
+    else if (pName.toLowerCase().includes('jewelry') || pName.toLowerCase().includes('việt')) flag = '🇻🇳';
+
+    const customTags = localTags[selectedConvRaw.id] || [];
+
+    const rawMsgs = messagesData?.messages ?? [];
+    const messages = rawMsgs.map(m => ({
+      id: m.id,
+      sender: m.senderType === 'customer' ? 'customer' : 'agent',
+      text: m.text,
+      time: new Date(m.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      translation: ''
+    }));
+
+    return {
+      id: selectedConvRaw.id,
+      name: selectedConvRaw.customerName || `Khách hàng ${selectedConvRaw.participantPsid.slice(0, 8)}`,
+      flag: flag,
+      channel: 'Messenger',
+      page: selectedConvRaw.pageName || `Kênh ${selectedConvRaw.pageId}`,
+      gender: 'Chưa xác định',
+      phone: resolvedIntent?.phone || 'Chưa có',
+      isReturning: false,
+      lastPurchase: '-',
+      source: selectedConvRaw.fromAd ? 'Facebook Ads' : 'Tự nhiên (Organic)',
+      campaign: '-',
+      adset: '-',
+      cost: selectedConvRaw.fromAd ? '12.000đ / Mess' : '0đ',
+      firstMessage: selectedConvRaw.lastMessage || '',
+      tags: [
+        ...(selectedConvRaw.fromAd ? ['Quảng cáo'] : ['Tự nhiên']),
+        ...(resolvedIntent?.topics || [])
+      ],
+      customTags: customTags,
+      sentiment: { 
+        positive: resolvedIntent?.urgency === 'low' ? 80 : 50, 
+        neutral: 20, 
+        negative: resolvedIntent?.urgency === 'high' ? 50 : 10 
+      },
+      unread: selectedConvRaw.unreadCount,
+      employee: 'Minh Anh',
+      status: selectedConvRaw.unreadCount === 0 ? 'reviewed' : 'pending',
+      avatarColor: '#6366f1',
+      messages: messages,
+      interestedProducts: resolvedIntent?.productMentions || []
+    };
+  }, [selectedConvRaw, messagesData, resolvedIntent, localTags]);
 
   const handleUpdateTags = (convId, newTags) => {
-    setConvData(prev => prev.map(c => c.id === convId ? { ...c, customTags: newTags } : c));
+    setLocalTags(prev => ({ ...prev, [convId]: newTags }));
   };
 
   const handleUseSuggestion = (text) => {
@@ -1698,31 +1870,26 @@ export default function ConversationsPage() {
     triggerToast('Đã đưa câu gợi ý vào ô trả lời.');
   };
 
-  // State-based live sending of messages as requested!
+  // State-based live sending of messages via API mutation
+  const sendMut = useMutation({
+    mutationFn: (text) => sendInboxMessage(selectedConvRaw.id, text),
+    onSuccess: () => {
+      // Invalidate queries to fetch updated messages
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'messages', selectedConvRaw.id] });
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] });
+    }
+  });
+
   const handleSendMessage = (convId, text) => {
-    setConvData(prev => prev.map(c => {
-      if (c.id === convId) {
-        const newMsg = {
-          id: Date.now(),
-          sender: 'agent',
-          text: text,
-          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        };
-        return {
-          ...c,
-          preview: text.length > 25 ? text.substring(0, 25) + '...' : text,
-          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-          messages: [...c.messages, newMsg]
-        };
-      }
-      return c;
-    }));
+    if (!selectedConvRaw) return;
+    sendMut.mutate(text);
   };
 
-  // Handle business quick actions click as requested!
   const handleTriggerAction = (actionId, label) => {
     const addCustomTag = (tag) => {
-      handleUpdateTags(selectedConv.id, Array.from(new Set([...selectedConv.customTags, tag])));
+      if (selectedConv) {
+        handleUpdateTags(selectedConv.id, Array.from(new Set([...selectedConv.customTags, tag])));
+      }
     };
 
     if (actionId === 'create_order' || actionId === 'place_order') {
@@ -1743,6 +1910,20 @@ export default function ConversationsPage() {
     }
   };
 
+  const conversationTabs = useMemo(() => {
+    const allCount = conversationsData.length;
+    const pendingCount = conversationsData.filter(c => c.unreadCount > 0).length;
+    const waitingCount = conversationsData.filter(c => c.unreadCount > 0).length;
+    const doneCount = conversationsData.filter(c => c.unreadCount === 0).length;
+
+    return [
+      { key: 'all', label: 'Tất cả', count: allCount },
+      { key: 'pending', label: 'Chưa đọc', count: pendingCount },
+      { key: 'waiting', label: 'Đang chờ', count: waitingCount },
+      { key: 'done', label: 'Hoàn thành', count: doneCount }
+    ];
+  }, [conversationsData]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '10px', position: 'relative' }}>
       
@@ -1759,7 +1940,7 @@ export default function ConversationsPage() {
         </div>
       )}
 
-      {/* HEADER: Omni-channel multi-select filter selector row as requested! */}
+      {/* HEADER: Omni-channel multi-select filter selector row */}
       <div style={{
         background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px',
         padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center',
@@ -1794,7 +1975,7 @@ export default function ConversationsPage() {
                   <span style={{ color: '#9ca3af' }}>Chưa chọn Page nào</span>
                 ) : selectedPages.length === 1 ? (
                   <span>
-                    {ALL_PAGES.find(p => p.name === selectedPages[0])?.flag} {selectedPages[0]}
+                    {ALL_PAGES.find(p => p.id === selectedPages[0])?.flag} {ALL_PAGES.find(p => p.id === selectedPages[0])?.name}
                   </span>
                 ) : (
                   <span>Đã chọn {selectedPages.length} Page</span>
@@ -1813,7 +1994,7 @@ export default function ConversationsPage() {
                 {/* Quick actions for dropdown */}
                 <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
                   <button 
-                    onClick={() => setSelectedPages(ALL_PAGES.map(p => p.name))}
+                    onClick={() => setSelectedPages(ALL_PAGES.map(p => p.id))}
                     style={{
                       flex: 1, padding: '4px 6px', fontSize: '11px', fontWeight: 700,
                       background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe',
@@ -1841,7 +2022,7 @@ export default function ConversationsPage() {
                 {/* Page list with checkboxes */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '200px', overflowY: 'auto' }}>
                   {ALL_PAGES.map((page, idx) => {
-                    const isChecked = selectedPages.includes(page.name);
+                    const isChecked = selectedPages.includes(page.id);
                     return (
                       <label 
                         key={idx}
@@ -1860,9 +2041,9 @@ export default function ConversationsPage() {
                           checked={isChecked}
                           onChange={() => {
                             if (isChecked) {
-                              setSelectedPages(prev => prev.filter(name => name !== page.name));
+                              setSelectedPages(prev => prev.filter(id => id !== page.id));
                             } else {
-                              setSelectedPages(prev => [...prev, page.name]);
+                              setSelectedPages(prev => [...prev, page.id]);
                             }
                           }}
                           style={{ cursor: 'pointer' }}
@@ -1931,44 +2112,57 @@ export default function ConversationsPage() {
             setSearch={setSearch}
             adsOnly={adsOnly}
             setAdsOnly={setAdsOnly}
+            conversationTabs={conversationTabs}
           />
         </div>
         
         {/* Chat Dialogue Panel */}
-        <div style={{ flex: '1 1 auto', minWidth: 420, display: 'flex', flexDirection: 'column' }}>
-          <ChatPanel 
-            conv={selectedConv} 
-            onSendMessage={handleSendMessage}
-            onUpdateTags={handleUpdateTags}
-            draftReply={draftReply}
-          />
-        </div>
+        {selectedConv ? (
+          <>
+            <div style={{ flex: '1 1 auto', minWidth: 420, display: 'flex', flexDirection: 'column' }}>
+              <ChatPanel 
+                conv={selectedConv} 
+                onSendMessage={handleSendMessage}
+                onUpdateTags={handleUpdateTags}
+                draftReply={draftReply}
+              />
+            </div>
 
-        {/* Internal AI assistant column */}
-        <div style={{
-          width: aiAssistantCollapsed ? 48 : 'clamp(300px, 22vw, 360px)',
-          minWidth: aiAssistantCollapsed ? 48 : 300,
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          transition: 'width 180ms ease, min-width 180ms ease'
-        }}>
-          <InternalAIAssistant
-            conv={selectedConv}
-            collapsed={aiAssistantCollapsed}
-            onToggle={() => setAiAssistantCollapsed(prev => !prev)}
-          />
-        </div>
-        
-        {/* AI sales suggestion panel */}
-        <div style={{ width: 'clamp(310px, 24vw, 380px)', minWidth: 310, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <RightPanel 
-            conv={selectedConv} 
-            onUpdateTags={handleUpdateTags}
-            onTriggerAction={handleTriggerAction}
-            onUseSuggestion={handleUseSuggestion}
-          />
-        </div>
+            {/* Internal AI assistant column */}
+            <div style={{
+              width: aiAssistantCollapsed ? 48 : 'clamp(300px, 22vw, 360px)',
+              minWidth: aiAssistantCollapsed ? 48 : 300,
+              display: 'flex',
+              flexDirection: 'column',
+              flexShrink: 0,
+              transition: 'width 180ms ease, min-width 180ms ease'
+            }}>
+              <InternalAIAssistant
+                conv={selectedConv}
+                collapsed={aiAssistantCollapsed}
+                onToggle={() => setAiAssistantCollapsed(prev => !prev)}
+              />
+            </div>
+            
+            {/* AI sales suggestion panel */}
+            <div style={{ width: 'clamp(310px, 24vw, 380px)', minWidth: 310, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+              <RightPanel 
+                conv={selectedConv} 
+                onUpdateTags={handleUpdateTags}
+                onTriggerAction={handleTriggerAction}
+                onUseSuggestion={handleUseSuggestion}
+              />
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '40px', color: '#6b7280' }}>
+            <div style={{ textAlign: 'center', margin: 'auto' }}>
+              <Brain size={48} style={{ color: '#d1d5db', margin: '0 auto 12px' }} />
+              <div style={{ fontSize: '15px', fontWeight: 700 }}>Không có hội thoại nào</div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Chọn Page hoặc đồng bộ tin nhắn để bắt đầu</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
