@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { fetchCskhPages, type CskhInboxConversation } from './api'
+import { toast } from 'sonner'
+import { fetchCskhPages, syncInboxFromGraph, type CskhInboxConversation } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
 import { useCskhInboxStream } from './useCskhInboxStream'
@@ -22,6 +23,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [selectedConversation, setSelectedConversation] = useState<CskhInboxConversation | null>(
     null
   )
+  const qc = useQueryClient()
 
   const [selectedPageId, setSelectedPageId] = useState<string | undefined>(pageId)
 
@@ -49,6 +51,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: fetchCskhPages,
   })
 
+  // Manual sync mutation
+  const syncMut = useMutation({
+    mutationFn: () => syncInboxFromGraph(selectedPageId),
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
+      toast.success(`Đã đồng bộ ${result.synced} tin nhắn từ ${result.pageCount} kênh`)
+    },
+    onError: () => {
+      toast.error('Đồng bộ thất bại, vui lòng thử lại')
+    },
+  })
+
   const allPages = useMemo(() => {
     return pagesData?.pages ?? []
   }, [pagesData])
@@ -67,6 +81,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               <h2 className="text-lg font-semibold text-gray-900">Hội thoại</h2>
               <p className="text-xs text-gray-500 mt-0.5">Facebook Messenger</p>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => syncMut.mutate()}
+              disabled={syncMut.isPending}
+              title="Đồng bộ hội thoại từ Facebook"
+              className="text-gray-500 hover:text-blue-600"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncMut.isPending ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
           <Select
             value={selectedPageId ?? 'all'}
