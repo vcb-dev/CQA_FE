@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { routes } from "@/router/routes";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/Login/LoginPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
 
@@ -56,6 +57,7 @@ export default function App() {
     <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route element={<ProtectedLayout />}>
           {routes.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
