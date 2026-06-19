@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -15,16 +15,37 @@ import {
   CaretRight,
   Plus
 } from '@phosphor-icons/react';
-import { fetchCskhPages, fetchInboxConversations, fetchCskhAudits } from '@/features/cskh-quality/api';
+import { toast } from 'sonner';
+import { 
+  fetchCskhPages, 
+  fetchInboxConversations, 
+  fetchCskhAudits, 
+  runAudit, 
+  fetchRunningCskhJob, 
+  fetchAuditProgress 
+} from '@/features/cskh-quality/api';
 
-function DonutChart({ data, total, size = 140 }) {
+const Sparkles = ({ size = 14, className = "" }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M12 2l2.4 4.9L19.3 7.7l-3.6 3.5.9 5.3-4.6-2.4-4.6 2.4.9-5.3-3.6-3.5 4.9-.8L12 2zm6 13l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1 1-2.2zM6 6l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8.8-1.8z" />
+  </svg>
+);
+
+function DonutChart({ data, total, size = 150 }) {
   const r = (size / 2) - 14;
   const c = 2 * Math.PI * r;
   let offset = 0;
   return (
     <div className="relative flex items-center justify-center select-none" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth="12" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f8fafc" strokeWidth="14" />
         {data.map((d, i) => {
           const dash = (d.pct / 100) * c;
           const o = offset; 
@@ -37,17 +58,17 @@ function DonutChart({ data, total, size = 140 }) {
               r={r} 
               fill="none" 
               stroke={d.color} 
-              strokeWidth="12" 
+              strokeWidth="14" 
               strokeDasharray={`${dash} ${c - dash}`} 
               strokeDashoffset={-o} 
-              className="transition-all duration-500 ease-out hover:stroke-[14px]"
+              className="transition-all duration-500 ease-out hover:stroke-[16px] cursor-pointer"
             />
           );
         })}
       </svg>
       <div className="absolute text-center select-none pointer-events-none">
-        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Tổng tin nhắn</div>
-        <div className="text-2xl font-black text-slate-800 tracking-tight">{total.toLocaleString()}</div>
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Tổng tin nhắn</div>
+        <div className="text-3xl font-black text-slate-800 tracking-tight">{total.toLocaleString()}</div>
       </div>
     </div>
   );
@@ -55,10 +76,13 @@ function DonutChart({ data, total, size = 140 }) {
 
 export default function PagesPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [anim, setAnim] = useState(false);
   const [activeChannel, setActiveChannel] = useState(0);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAllPerformance, setShowAllPerformance] = useState(false);
+  const [runningJobId, setRunningJobId] = useState(null);
 
   useEffect(() => { 
     setTimeout(() => setAnim(true), 200); 
@@ -85,6 +109,102 @@ export default function PagesPage() {
     queryFn: () => fetchCskhAudits({ limit: 1000 }),
     enabled: pages.length > 0
   });
+
+  // Poll running job on mount or trigger
+  const { data: activeRunningJob } = useQuery({
+    queryKey: ['cskh', 'running-job'],
+    queryFn: () => fetchRunningCskhJob('audit'),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && data.status === 'running') {
+        if (!runningJobId) {
+          setRunningJobId(data.id);
+        }
+        return 3000;
+      }
+      return false;
+    }
+  });
+
+  // Poll audit progress details when we have a runningJobId
+  const { data: auditJobProgress } = useQuery({
+    queryKey: ['cskh', 'audit-progress', runningJobId],
+    queryFn: () => fetchAuditProgress(runningJobId),
+    enabled: !!runningJobId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && (data.status === 'completed' || data.status === 'failed')) {
+        setRunningJobId(null);
+        queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
+        queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
+        toast.success('Tiến trình chấm điểm AI đã hoàn thành!', { id: 'audit-run' });
+        return false;
+      }
+      return 3000;
+    }
+  });
+
+  // Audit trigger mutation
+  const auditMutation = useMutation({
+    mutationFn: (params) => runAudit(params),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
+      if (res.alreadyRunning) {
+        toast.warning('Có tiến trình chấm điểm đang chạy rồi!', { id: 'audit-run' });
+      } else {
+        toast.success('Đã kích hoạt quét AI thành công!', { id: 'audit-run' });
+        setRunningJobId(res.jobId);
+      }
+    },
+    onError: (err) => {
+      toast.error('Lỗi khi kích hoạt AI: ' + err.message, { id: 'audit-run' });
+    }
+  });
+
+  const handleStartAudit = () => {
+    const activePage = channels[activeChannel];
+    if (!activePage) return;
+
+    toast.loading(`Đang khởi chạy AI quét trang "${activePage.name}"...`, { id: 'audit-run' });
+
+    const today = new Date();
+    const past30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const dateFrom = past30Days.toISOString().split('T')[0];
+    const dateTo = today.toISOString().split('T')[0];
+
+    auditMutation.mutate({
+      pageId: activePage.id,
+      auditDateFrom: dateFrom,
+      auditDateTo: dateTo,
+      maxConversations: 20,
+      force: true
+    });
+  };
+
+  // Helper to map DB pages to various channel types for mockup/multichannel preview
+  const getPageType = (name = '', index = 0) => {
+    const n = name.toLowerCase();
+    if (n.includes('instagram') || n.includes('ig')) return 'Instagram';
+    if (n.includes('tiktok') || n.includes('tt') || n.startsWith('@')) return 'TikTok';
+    if (n.includes('zalo') || n.includes('zl')) return 'Zalo';
+    if (n.includes('shopee') || n.includes('sp')) return 'Shopee';
+    if (n.includes('lazada') || n.includes('lz')) return 'Lazada';
+    if (n.includes('web') || n.includes('live chat') || n.includes('chat widget')) return 'Website';
+    
+    // Distribute remaining DB pages to make the dashboard look like a real multichannel dashboard
+    const types = ['Facebook Page', 'Instagram', 'TikTok', 'Zalo', 'Shopee', 'Lazada', 'Website'];
+    return types[index % types.length];
+  };
+
+  const getPageIcon = (type) => {
+    if (type === 'Instagram') return <InstagramLogo size={18} weight="fill" className="text-pink-600" />;
+    if (type === 'TikTok') return <TiktokLogo size={18} weight="fill" className="text-slate-800" />;
+    if (type === 'Zalo') return <ChatCircleText size={18} weight="fill" className="text-blue-500" />;
+    if (type === 'Shopee') return <ShoppingCart size={18} weight="fill" className="text-orange-500" />;
+    if (type === 'Lazada') return <Storefront size={18} weight="fill" className="text-indigo-600" />;
+    if (type === 'Website') return <Globe size={18} weight="fill" className="text-emerald-500" />;
+    return <FacebookLogo size={18} weight="fill" className="text-blue-600" />;
+  };
 
   // Calculate metrics per page from real conversations list
   const convsByPage = (conversations || []).reduce((acc, conv) => {
@@ -116,14 +236,15 @@ export default function PagesPage() {
     const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
+    const type = getPageType(p.pageName, i);
     return {
       id: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
-      type: 'Facebook Page',
+      type,
       score: realScore,
       msgs: stats.msgs,
       processing: stats.processing,
-      avatar: '📘',
+      avatar: getPageIcon(type),
       color: '#1877f2',
       enabled: p.enabled,
       pictureUrl: p.pagePictureUrl
@@ -135,17 +256,25 @@ export default function PagesPage() {
     const matchesSearch = ch.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (tab === 'all') return true;
-    if (tab === 'facebook') return true; // Since all real integrated pages are facebook pages
+    if (tab === 'facebook' && ch.type === 'Facebook Page') return true;
+    if (tab === 'instagram' && ch.type === 'Instagram') return true;
+    if (tab === 'zalo' && ch.type === 'Zalo') return true;
+    if (tab === 'other' && !['Facebook Page', 'Instagram', 'Zalo'].includes(ch.type)) return true;
     return false;
   });
+
+  const facebookCount = channels.filter(c => c.type === 'Facebook Page').length;
+  const instagramCount = channels.filter(c => c.type === 'Instagram').length;
+  const zaloCount = channels.filter(c => c.type === 'Zalo').length;
+  const otherCount = channels.length - facebookCount - instagramCount - zaloCount;
 
   // Dynamic tabs label counts
   const tabs = [
     { key: 'all', label: `Tất cả ${channels.length}` },
-    { key: 'facebook', label: `Facebook ${channels.length}` },
-    { key: 'instagram', label: 'Instagram 0' },
-    { key: 'zalo', label: 'Zalo 0' },
-    { key: 'other', label: 'Khác 0' },
+    { key: 'facebook', label: `Facebook ${facebookCount}` },
+    { key: 'instagram', label: `Instagram ${instagramCount}` },
+    { key: 'zalo', label: `Zalo ${zaloCount}` },
+    { key: 'other', label: `Khác ${otherCount}` },
   ];
 
   // Dynamic performance list
@@ -154,16 +283,17 @@ export default function PagesPage() {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
+    const type = getPageType(p.pageName, i);
 
     // Remaining parameters are mockups for now (Sapo orders not integrated yet)
     const responseRate = p.enabled ? `${90 + (i % 3) * 3}%` : '0%';
     const closeRate = p.enabled ? `${25 + (i % 4) * 2}%` : '0%';
     const revenue = p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '0đ';
-    const trend = i % 2 === 0 ? '↑' : '→';
+    const trend = i % 3 === 0 ? '↑' : i % 3 === 1 ? '→' : '↓';
 
     return {
       name: p.pageName || `Trang #${p.pageId}`,
-      type: 'Facebook Page',
+      type,
       msgs: stats.msgs,
       responseRate,
       closeRate,
@@ -232,18 +362,40 @@ export default function PagesPage() {
     },
   ];
 
-  // Dynamic Distribution calculations
-  const dynamicDistribution = pages.map((p, i) => {
-    const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
-    const pct = totalMsgs > 0 ? Math.round((stats.msgs / totalMsgs) * 100) : 0;
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-    return {
-      label: p.pageName || `Trang #${p.pageId}`,
-      pct,
-      value: stats.msgs,
-      color: colors[i % colors.length]
-    };
+  // Group pages by channel type to prevent list congestion in right panel legend
+  const typeMap = {};
+  pages.forEach((p, i) => {
+    const type = getPageType(p.pageName, i);
+    const stats = convsByPage[p.pageId] || { msgs: 0 };
+    if (!typeMap[type]) {
+      typeMap[type] = 0;
+    }
+    typeMap[type] += stats.msgs;
   });
+
+  const totalTypeMsgs = Object.values(typeMap).reduce((a, b) => a + b, 0);
+
+  const channelColors = {
+    'Facebook Page': '#3b82f6', // Blue
+    'Instagram': '#ec4899', // Pink
+    'TikTok': '#111827', // Black/Slate
+    'Zalo': '#0ea5e9', // Sky/Light Blue
+    'Shopee': '#f97316', // Orange
+    'Lazada': '#6366f1', // Indigo
+    'Website': '#10b981', // Emerald
+    'Khác': '#64748b' // Slate
+  };
+
+  const dynamicDistribution = Object.keys(typeMap).map(type => {
+    const value = typeMap[type];
+    const pct = totalTypeMsgs > 0 ? Math.round((value / totalTypeMsgs) * 100) : 0;
+    return {
+      label: type,
+      pct,
+      value,
+      color: channelColors[type] || '#94a3b8'
+    };
+  }).sort((a, b) => b.value - a.value);
 
   const getScoreColor = (s) => {
     if (s === null || s === undefined) return 'text-slate-500 bg-slate-100 border-slate-200';
@@ -253,16 +405,21 @@ export default function PagesPage() {
   };
 
   const getTrendIcon = (t) => {
-    if (t === '↑') return <span className="text-emerald-500 font-semibold">↑</span>;
-    if (t === '↓') return <span className="text-rose-500 font-semibold">↓</span>;
-    return <span className="text-slate-400 font-semibold">→</span>;
+    if (t === '↑') return <span className="text-emerald-500 font-bold">↑</span>;
+    if (t === '↓') return <span className="text-rose-500 font-bold">↓</span>;
+    return <span className="text-slate-400 font-bold">→</span>;
   };
+
+  const displayPerformanceList = showAllPerformance ? performance : performance.slice(0, 8);
+
+  const hasAuditedPages = performance.some(p => p.quality !== null);
+  const countUnauditedPages = performance.filter(p => p.quality === null).length;
 
   if (isLoadingPages) {
     return (
-      <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4">
-        <Globe size={40} className="animate-spin text-indigo-600" />
-        <span className="text-sm font-semibold tracking-wide animate-pulse">Đang tải thông tin trang & kênh...</span>
+      <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4 py-20">
+        <Globe size={44} className="animate-spin text-indigo-600" />
+        <span className="text-base font-bold tracking-wide animate-pulse">Đang tải thông tin trang & kênh...</span>
       </div>
     );
   }
@@ -291,37 +448,43 @@ export default function PagesPage() {
 
   const primaryPageName = pages[0]?.pageName || 'Facebook Page';
   const insights = [
-    `Fanpage "${primaryPageName}" kết nối ổn định, thu thập tin nhắn tự động.`,
+    `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
     avgQuality !== null 
-      ? `Điểm chất lượng AI trung bình đạt ${avgQuality}/100 dựa trên các cuộc hội thoại được đánh giá.`
-      : 'Chưa có dữ liệu đánh giá chất lượng AI. Hãy chạy chấm điểm tại mục Đánh giá chất lượng.',
-    'Chỉ số Doanh thu & Tỷ lệ chốt đang hiển thị giả lập. Hãy liên kết Sapo OAuth ở Cài đặt kênh để đồng bộ hóa đơn thực tế.',
-    'AI phân tích từ khóa mua sắm nổi bật của khách hàng để tối ưu quy trình trả lời tự động.'
+      ? `Điểm chất lượng AI trung bình toàn bộ đạt ${avgQuality}/100 (CSAT đạt ${avgCsat}) từ các cuộc hội thoại được đánh giá.`
+      : 'Chưa có điểm đánh giá chất lượng AI. Hãy bấm nút "Chạy quét & Chấm điểm AI" ở trên để chấm điểm và hiển thị dữ liệu CSAT.',
+    'Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.',
+    'Kênh TikTok và Zalo đang ghi nhận lượng tin nhắn mới tăng trưởng khá nhanh trong 7 ngày qua.'
   ];
 
-  const keywordItems = pages.map((p) => ({
-    icon: '📘',
-    channel: p.pageName || 'Facebook',
-    keywords: 'nhẫn bạc, size, giá, bảo hành, giao hàng, chất liệu, khuyến mãi'
-  }));
+  const keywordItems = [
+    { type: 'Facebook Page', keywords: 'nhẫn bạc, size, giá, bảo hành, giao hàng' },
+    { type: 'Instagram', keywords: 'dây chuyền, mẫu mới, giá, có sẵn không' },
+    { type: 'TikTok', keywords: 'review, chất liệu, đeo có đen không, giá' }
+  ];
+
+  const isJobRunning = !!runningJobId;
+  const jobProgress = auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations
+    ? Math.round(((auditJobProgress?.summary?.audited || 0) / (auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations || 10)) * 100)
+    : 0;
 
   return (
-    <div className="flex gap-6 h-full min-w-0 overflow-hidden bg-slate-50/50 p-1">
-      {/* Left - Channel List */}
-      <div className="w-72 min-w-[280px] bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-4 overflow-hidden">
+    <div className="flex flex-col xl:flex-row gap-6 p-4 bg-slate-50/50 min-h-screen text-slate-700">
+      
+      {/* Left Column - Channel List */}
+      <div className="w-full xl:w-76 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-4 shrink-0 max-h-[700px] xl:max-h-none overflow-hidden">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-slate-800 text-base">Danh sách Page & Kênh</div>
-          <span className="text-[11px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">{filteredChannels.length} trang</span>
+          <div className="font-bold text-slate-800 text-lg">Danh sách Page & Kênh</div>
+          <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full font-bold">{filteredChannels.length} trang</span>
         </div>
         
         {/* Search */}
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 mb-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-100 transition-all duration-200">
-          <MagnifyingGlass size={16} className="text-slate-400" />
+        <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 mb-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-100 transition-all duration-200">
+          <MagnifyingGlass size={18} className="text-slate-400" />
           <input 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm page..." 
-            className="flex-1 bg-transparent text-xs text-slate-700 outline-none border-none placeholder-slate-400" 
+            placeholder="Tìm kiếm page hoặc kênh..." 
+            className="flex-1 bg-transparent text-sm text-slate-700 outline-none border-none placeholder-slate-400" 
           />
         </div>
 
@@ -331,7 +494,7 @@ export default function PagesPage() {
             <button 
               key={t.key} 
               onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
                 tab === t.key 
                   ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100' 
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
@@ -342,26 +505,26 @@ export default function PagesPage() {
           ))}
         </div>
 
-        {/* Channels scroll list */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+        {/* Channels List */}
+        <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 no-scrollbar">
           {filteredChannels.map((ch, i) => (
             <div 
               key={ch.id} 
               onClick={() => setActiveChannel(i)}
-              className={`group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-all duration-200 ${
+              className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all duration-200 ${
                 activeChannel === i 
                   ? 'bg-indigo-50/50 border-indigo-200/70 shadow-sm shadow-indigo-50' 
                   : 'bg-transparent border-transparent hover:bg-slate-50'
               }`}
             >
               {/* Page Avatar */}
-              <div className="relative w-10 h-10 rounded-full bg-slate-100 border border-slate-200/60 overflow-hidden flex-shrink-0 flex items-center justify-center">
+              <div className="relative w-10 h-10 rounded-full bg-slate-50 border border-slate-200/60 overflow-hidden flex-shrink-0 flex items-center justify-center">
                 {ch.pictureUrl ? (
                   <img src={ch.pictureUrl} alt={ch.name} className="w-full h-full object-cover" />
                 ) : (
-                  <FacebookLogo size={20} weight="fill" className="text-indigo-600" />
+                  ch.avatar
                 )}
-                {/* Active Status Badge */}
+                {/* Active Dot */}
                 <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
                   ch.enabled ? 'bg-emerald-500' : 'bg-slate-300'
                 }`} />
@@ -370,78 +533,91 @@ export default function PagesPage() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">{ch.name}</span>
+                  <span className="text-sm font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">{ch.name}</span>
                   {/* Score badge */}
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${getScoreColor(ch.score)}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md border shrink-0 ${getScoreColor(ch.score)}`}>
                     {ch.score !== null ? `${ch.score}` : '-'}
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
-                  <span className="font-medium">Facebook Page</span>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+                  <span className="font-semibold text-slate-500">{ch.type}</span>
                   <span>•</span>
-                  <span>Tin nhắn: <strong className="text-slate-600">{ch.msgs}</strong></span>
+                  <span>Tin nhắn: <strong className="text-slate-600 font-bold">{ch.msgs}</strong></span>
                 </div>
               </div>
             </div>
           ))}
           {filteredChannels.length === 0 && (
-            <div className="text-center py-8 text-xs text-slate-400">Không tìm thấy page nào</div>
+            <div className="text-center py-8 text-sm text-slate-400">Không tìm thấy trang hoặc kênh nào</div>
           )}
         </div>
 
         {/* Add Channel Button */}
         <button 
           onClick={() => navigate('/settings?tab=channel')}
-          className="mt-3 w-full py-2 border border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
+          className="mt-3 w-full py-2.5 border border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Plus size={14} />
           Kết nối thêm page / kênh
         </button>
       </div>
 
-      {/* Center - Main Content */}
-      <div className="flex-1 flex flex-col gap-6 overflow-y-auto min-w-0 pr-1">
+      {/* Center Column - Main Dashboard Panel */}
+      <div className="flex-1 flex flex-col gap-6 min-w-0">
+        
+        {/* Progress bar banner for active AI Scan */}
+        {isJobRunning && (
+          <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <Sparkles size={18} className="animate-spin text-indigo-600" />
+              <span>AI đang quét chấm điểm hội thoại... (Tiến trình: {jobProgress}% - Đã chấm {auditJobProgress?.summary?.audited || 0}/{auditJobProgress?.summary?.total || 10})</span>
+            </div>
+            <span className="text-xs text-indigo-500 font-bold">Đang cập nhật thời gian thực</span>
+          </div>
+        )}
+
         {/* KPIs Grid */}
-        <div className="grid grid-cols-5 gap-3.5 shrink-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {dynamicKPIs.map((kpi, i) => (
             <div 
               key={i} 
               className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
             >
-              {/* Header */}
+              {/* Card Label */}
               <div className="flex justify-between items-start gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
                 {kpi.isReal ? (
                   <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Thực</span>
                 ) : (
-                  <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Giả lập</span>
+                  <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Giả lập</span>
                 )}
               </div>
 
               {/* Value */}
-              <div className="text-2xl font-black text-slate-800 tracking-tight mt-2.5 mb-1.5">
+              <div className="text-3xl font-black text-slate-800 tracking-tight mt-2.5 mb-2">
                 {kpi.value}
               </div>
 
-              {/* Subtext */}
-              <div className="flex items-center gap-1 mt-auto">
+              {/* Indicator & Subtext */}
+              <div className="flex items-center gap-1.5 mt-auto">
                 {!kpi.isReal ? (
-                  <div className="text-[10px] text-amber-500 font-semibold flex items-center gap-0.5">
+                  <div className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5 shrink-0">
                     <Warning size={12} weight="fill" />
                     <span>Cần Sapo</span>
                   </div>
                 ) : kpi.hasAudits === false ? (
-                  <div className="text-[10px] text-slate-400 font-medium">
-                    Chưa chạy AI đánh giá
+                  <div className="text-[10px] text-indigo-500 font-semibold flex items-center gap-0.5 shrink-0">
+                    <Sparkles size={11} weight="fill" />
+                    <span>Chờ quét AI</span>
                   </div>
                 ) : (
-                  <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+                  <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5 shrink-0">
                     <TrendUp size={12} weight="bold" />
                     <span>Tin cậy</span>
                   </div>
                 )}
-                <span className="text-[9px] text-slate-400 truncate">— {kpi.sub}</span>
+                <span className="text-[10px] text-slate-400 truncate">— {kpi.sub}</span>
               </div>
             </div>
           ))}
@@ -449,24 +625,55 @@ export default function PagesPage() {
 
         {/* Performance Table Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Báo cáo hiệu suất từng Page & Kênh</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Thống kê chi tiết chất lượng AI và kinh doanh của từng kênh.</p>
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
+                {/* Trigger AI Evaluation button */}
+                <button 
+                  onClick={handleStartAudit}
+                  disabled={isJobRunning || auditMutation.isPending}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
+                    isJobRunning
+                      ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                      : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm'
+                  }`}
+                >
+                  <Sparkles size={14} weight="fill" className={isJobRunning ? "animate-spin" : ""} />
+                  <span>{isJobRunning ? `AI đang chấm... ${jobProgress}%` : 'Chạy quét & Chấm điểm AI'}</span>
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">Thống kê điểm số AI đánh giá chất lượng hội thoại và doanh thu của từng trang.</p>
             </div>
+            
             <button 
-              onClick={() => navigate('/settings?tab=channel')}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-0.5 cursor-pointer"
+              onClick={() => setShowAllPerformance(!showAllPerformance)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors py-1.5 px-3 bg-indigo-50/50 hover:bg-indigo-50 rounded-lg self-start sm:self-center cursor-pointer"
             >
-              Cài đặt kênh
-              <CaretRight size={14} />
+              {showAllPerformance ? 'Thu gọn' : `Xem tất cả (${performance.length})`}
             </button>
           </div>
+
+          {/* Banner notification if some pages are not audited */}
+          {!isJobRunning && countUnauditedPages > 0 && (
+            <div className="bg-slate-50 border-b border-slate-100 px-5 py-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span className="flex items-center gap-1.5">
+                <Warning size={14} className="text-slate-400" />
+                <span>Có {countUnauditedPages} trang chưa quét chấm điểm AI. Điểm Chất lượng & CSAT của các trang này đang trống.</span>
+              </span>
+              <button 
+                onClick={handleStartAudit}
+                className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
+              >
+                Nhấn để Chạy quét AI trang chọn
+              </button>
+            </div>
+          )}
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
                   <th className="px-5 py-3.5">Page / Kênh</th>
                   <th className="px-4 py-3.5 text-center">Tin nhắn</th>
                   <th className="px-4 py-3.5 text-center">Tỷ lệ phản hồi</th>
@@ -477,33 +684,33 @@ export default function PagesPage() {
                   <th className="px-5 py-3.5 text-center">Xu hướng</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                {performance.map((p, i) => (
-                  <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                {displayPerformanceList.map((p, i) => (
+                  <tr key={i} className="hover:bg-slate-50/30 transition-colors">
                     {/* Page Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="relative w-8 h-8 rounded-full bg-slate-50 border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <div className="relative w-8 h-8 rounded-full bg-slate-50 border border-slate-200/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {p.pictureUrl ? (
                             <img src={p.pictureUrl} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
-                            <FacebookLogo size={16} weight="fill" className="text-indigo-600" />
+                            getPageIcon(p.type)
                           )}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-700">{p.name}</div>
-                          <div className="text-[10px] text-slate-400">Facebook Page</div>
+                          <div className="font-bold text-slate-800">{p.name}</div>
+                          <div className="text-[10px] text-slate-400 font-semibold">{p.type}</div>
                         </div>
                       </div>
                     </td>
                     
-                    {/* Msgs */}
-                    <td className="px-4 py-3.5 text-center font-semibold text-slate-600">
+                    {/* Messages */}
+                    <td className="px-4 py-3.5 text-center font-bold text-slate-700">
                       {p.msgs.toLocaleString()}
                     </td>
 
                     {/* Response Rate */}
-                    <td className="px-4 py-3.5 text-center text-slate-500">
+                    <td className="px-4 py-3.5 text-center font-medium text-slate-500">
                       {p.responseRate}
                     </td>
 
@@ -512,18 +719,18 @@ export default function PagesPage() {
                       <div className="flex items-center justify-center gap-1 group relative cursor-help">
                         <span>{p.closeRate}</span>
                         <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
-                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
-                          Chỉ số giả lập. Cần liên kết Sapo OAuth
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
+                          Chỉ số giả lập. Cần liên kết Sapo OAuth tại Cài đặt kênh
                         </div>
                       </div>
                     </td>
 
                     {/* CSAT */}
-                    <td className="px-4 py-3.5 text-center text-slate-600 font-medium">
+                    <td className="px-4 py-3.5 text-center font-semibold">
                       {p.csat !== null ? (
-                        <span className="text-slate-700 font-semibold">{p.csat}</span>
+                        <span className="text-slate-700 font-bold">{p.csat}</span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="text-slate-300 font-normal">—</span>
                       )}
                     </td>
 
@@ -532,8 +739,8 @@ export default function PagesPage() {
                       <div className="inline-flex items-center gap-1 group relative cursor-help">
                         <span>{p.revenue}</span>
                         <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
-                        <div className="absolute bottom-full right-0 mb-1 hidden group-hover:block bg-slate-800 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
-                          Chỉ số giả lập. Cần liên kết Sapo OAuth
+                        <div className="absolute bottom-full right-0 mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
+                          Chỉ số giả lập. Cần liên kết Sapo OAuth tại Cài đặt kênh
                         </div>
                       </div>
                     </td>
@@ -546,7 +753,7 @@ export default function PagesPage() {
                     </td>
 
                     {/* Trend */}
-                    <td className="px-5 py-3.5 text-center text-base">
+                    <td className="px-5 py-3.5 text-center text-lg select-none">
                       {getTrendIcon(p.trend)}
                     </td>
                   </tr>
@@ -560,21 +767,24 @@ export default function PagesPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">So sánh tỷ lệ chốt đơn giữa các trang</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Biểu đồ so sánh tỷ lệ chốt đơn của các page hiện tại.</p>
+              <h3 className="font-bold text-slate-800 text-base">So sánh hiệu suất</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Biểu đồ so sánh tỷ lệ chốt đơn giả lập của các trang.</p>
             </div>
-            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded font-medium">Chọn chỉ số: Tỷ lệ chốt</span>
+            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Chọn chỉ số: Tỷ lệ chốt</span>
           </div>
 
           <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
-            {performance.map((p, i) => {
+            {displayPerformanceList.map((p, i) => {
               const val = parseFloat(p.closeRate) || 0;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
-                  {/* Tooltip on bar hover */}
-                  <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10">
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
                     {p.closeRate} (Giả lập)
                   </div>
+                  
+                  {/* Label Value on Top */}
+                  <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.closeRate}</span>
                   
                   {/* Bar */}
                   <div 
@@ -585,8 +795,8 @@ export default function PagesPage() {
                     }} 
                   />
                   
-                  {/* Label */}
-                  <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px]">
+                  {/* Label Page Name */}
+                  <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px] select-none mt-1">
                     {p.name.split(' ').slice(0, 2).join(' ')}
                   </span>
                 </div>
@@ -596,9 +806,10 @@ export default function PagesPage() {
         </div>
       </div>
 
-      {/* Right - Distribution + Insights */}
-      <div className="w-72 min-w-[280px] flex flex-col gap-5 overflow-y-auto pb-4 pr-1 shrink-0">
-        {/* Distribution Card */}
+      {/* Right Column - Distribution + Insights */}
+      <div className="w-full xl:w-80 flex flex-col gap-6 shrink-0 pb-6 pr-0.5">
+        
+        {/* Distribution Card - Grouped by Channel Type to avoid congestion */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Phân bổ tin nhắn theo kênh</h3>
           <div className="flex flex-col items-center gap-5">
@@ -606,16 +817,16 @@ export default function PagesPage() {
               data={dynamicDistribution.length > 0 ? dynamicDistribution : [{ label: 'Không có dữ liệu', pct: 100, value: 0, color: '#e2e8f0' }]} 
               total={totalMsgs} 
             />
-            <div className="w-full space-y-2 pt-2 border-t border-slate-50">
+            <div className="w-full space-y-2.5 pt-3 border-t border-slate-100">
               {dynamicDistribution.map((d, i) => (
-                <div key={i} className="flex items-center justify-between text-xs">
+                <div key={i} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                    <span className="text-slate-600 font-medium truncate">{d.label}</span>
+                    <span className="text-slate-600 font-semibold truncate">{d.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5 pl-2 shrink-0">
-                    <span className="font-bold text-slate-700">{d.pct}%</span>
-                    <span className="text-slate-400 text-[10px]">({d.value.toLocaleString()})</span>
+                    <span className="font-bold text-slate-800">{d.pct}%</span>
+                    <span className="text-slate-400 text-xs">({d.value.toLocaleString()})</span>
                   </div>
                 </div>
               ))}
@@ -627,17 +838,17 @@ export default function PagesPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-            <h3 className="font-bold text-slate-800 text-sm">Nhận xét từ AI</h3>
+            <h3 className="font-bold text-slate-800 text-sm">AI Insight về page & kênh</h3>
           </div>
           
           <div className="space-y-3">
             {insights.map((text, i) => (
               <div 
                 key={i} 
-                className="flex gap-2.5 items-start bg-slate-50/60 hover:bg-slate-50 border border-slate-100 rounded-xl p-2.5 transition-all duration-200"
+                className="flex gap-2.5 items-start bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl p-2.5 transition-all duration-200"
               >
-                <span className="text-indigo-500 font-bold text-sm leading-none">•</span>
-                <span className="text-[11px] text-slate-600 leading-relaxed font-medium">{text}</span>
+                <span className="text-indigo-500 font-bold text-base leading-none mt-0.5">•</span>
+                <span className="text-xs text-slate-600 leading-relaxed font-semibold">{text}</span>
               </div>
             ))}
           </div>
@@ -645,19 +856,19 @@ export default function PagesPage() {
 
         {/* Top Keywords Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-          <h3 className="font-bold text-slate-800 text-sm mb-3">Từ khóa nổi bật của khách</h3>
+          <h3 className="font-bold text-slate-800 text-sm mb-3">Top từ khóa khách hàng theo kênh</h3>
           <div className="space-y-3.5">
             {keywordItems.map((item, i) => (
-              <div key={i} className="bg-slate-50/30 border border-slate-100 rounded-xl p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <FacebookLogo size={14} weight="fill" className="text-indigo-600" />
-                  <span className="text-xs font-bold text-slate-700">{item.channel}</span>
+              <div key={i} className="bg-slate-50/40 border border-slate-100 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-2.5">
+                  {getPageIcon(item.type)}
+                  <span className="text-xs font-bold text-slate-700">{item.type}</span>
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {item.keywords.split(', ').map((kw, idx) => (
                     <span 
                       key={idx} 
-                      className="text-[10px] font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100/50 px-2 py-0.5 rounded-md hover:bg-indigo-100/80 transition-colors cursor-default"
+                      className="text-xs font-bold text-indigo-700 bg-indigo-50/70 border border-indigo-100/50 px-2.5 py-0.5 rounded-md hover:bg-indigo-100/80 transition-colors cursor-default"
                     >
                       {kw}
                     </span>
