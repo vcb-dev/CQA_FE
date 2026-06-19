@@ -1,37 +1,53 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MagnifyingGlass, FacebookLogo, InstagramLogo, TiktokLogo, ChatCircleText, ShoppingCart, Storefront, Globe } from '@phosphor-icons/react';
-import { pageKPIs, pageChannels, pagePerformance, pageDistribution } from '../../data/mockData';
-import { fetchCskhPages, fetchInboxConversations } from '@/features/cskh-quality/api';
+import { 
+  MagnifyingGlass, 
+  FacebookLogo, 
+  InstagramLogo, 
+  TiktokLogo, 
+  ChatCircleText, 
+  ShoppingCart, 
+  Storefront, 
+  Globe,
+  Warning,
+  TrendUp,
+  CaretRight,
+  Plus
+} from '@phosphor-icons/react';
+import { fetchCskhPages, fetchInboxConversations, fetchCskhAudits } from '@/features/cskh-quality/api';
 
-const channelIcons = {
-  '📘': FacebookLogo,
-  '📸': InstagramLogo,
-  '🎵': TiktokLogo,
-  '💬': ChatCircleText,
-  '🛒': ShoppingCart,
-  '🏪': Storefront,
-  '🌐': Globe
-};
-
-function DonutChart({ data, total, size = 130 }) {
-  const r = (size / 2) - 12;
+function DonutChart({ data, total, size = 140 }) {
+  const r = (size / 2) - 14;
   const c = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f3f4f6" strokeWidth="16" />
+    <div className="relative flex items-center justify-center select-none" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth="12" />
         {data.map((d, i) => {
           const dash = (d.pct / 100) * c;
-          const o = offset; offset += dash;
-          return <circle key={i} cx={size/2} cy={size/2} r={r} fill="none" stroke={d.color} strokeWidth="16" strokeDasharray={`${dash} ${c - dash}`} strokeDashoffset={-o} />;
+          const o = offset; 
+          offset += dash;
+          return (
+            <circle 
+              key={i} 
+              cx={size/2} 
+              cy={size/2} 
+              r={r} 
+              fill="none" 
+              stroke={d.color} 
+              strokeWidth="12" 
+              strokeDasharray={`${dash} ${c - dash}`} 
+              strokeDashoffset={-o} 
+              className="transition-all duration-500 ease-out hover:stroke-[14px]"
+            />
+          );
         })}
       </svg>
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-        <div style={{ fontSize: '11px', color: '#6b7280' }}>Tổng tin nhắn</div>
-        <div style={{ fontSize: '21px', fontWeight: 800, color: '#111827' }}>{total.toLocaleString()}</div>
+      <div className="absolute text-center select-none pointer-events-none">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Tổng tin nhắn</div>
+        <div className="text-2xl font-black text-slate-800 tracking-tight">{total.toLocaleString()}</div>
       </div>
     </div>
   );
@@ -42,8 +58,11 @@ export default function PagesPage() {
   const [anim, setAnim] = useState(false);
   const [activeChannel, setActiveChannel] = useState(0);
   const [tab, setTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
+  useEffect(() => { 
+    setTimeout(() => setAnim(true), 200); 
+  }, []);
 
   // Fetch real pages list
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
@@ -53,10 +72,17 @@ export default function PagesPage() {
 
   const pages = pagesData?.pages || [];
 
-  // Fetch real conversations to calculate conversation and unread metrics
+  // Fetch real conversations to calculate message metrics
   const { data: conversations } = useQuery({
     queryKey: ['cskh', 'inbox-conversations'],
     queryFn: () => fetchInboxConversations(),
+    enabled: pages.length > 0
+  });
+
+  // Fetch real audits to calculate average AI quality scores
+  const { data: audits } = useQuery({
+    queryKey: ['cskh', 'audits-all'],
+    queryFn: () => fetchCskhAudits({ limit: 1000 }),
     enabled: pages.length > 0
   });
 
@@ -72,14 +98,29 @@ export default function PagesPage() {
     return acc;
   }, {});
 
+  // Group audits by pageId to calculate real average score per page
+  const auditsByPage = (audits || []).reduce((acc, audit) => {
+    const pageId = audit.metadata?.pageId;
+    if (pageId) {
+      if (!acc[pageId]) {
+        acc[pageId] = { totalScore: 0, count: 0 };
+      }
+      acc[pageId].totalScore += audit.score;
+      acc[pageId].count += 1;
+    }
+    return acc;
+  }, {});
+
   // Construct dynamic channels list
   const channels = pages.map((p, i) => {
     const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
+    const pageAudit = auditsByPage[p.pageId];
+    const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     return {
       id: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
       type: 'Facebook Page',
-      score: p.enabled ? 90 + (i % 3) * 2 : 0, // Realistic quality score variation
+      score: realScore,
       msgs: stats.msgs,
       processing: stats.processing,
       avatar: '📘',
@@ -89,8 +130,10 @@ export default function PagesPage() {
     };
   });
 
-  // Filter channels based on active tab
+  // Filter channels based on tab and search query
   const filteredChannels = channels.filter(ch => {
+    const matchesSearch = ch.name.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
     if (tab === 'all') return true;
     if (tab === 'facebook') return true; // Since all real integrated pages are facebook pages
     return false;
@@ -108,10 +151,13 @@ export default function PagesPage() {
   // Dynamic performance list
   const performance = pages.map((p, i) => {
     const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
-    const baseScore = p.enabled ? (85 + (i % 3) * 4) : 0;
+    const pageAudit = auditsByPage[p.pageId];
+    const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
+    const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
+
+    // Remaining parameters are mockups for now (Sapo orders not integrated yet)
     const responseRate = p.enabled ? `${90 + (i % 3) * 3}%` : '0%';
     const closeRate = p.enabled ? `${25 + (i % 4) * 2}%` : '0%';
-    const csat = p.enabled ? `${4.2 + (i % 3) * 0.3}/5` : '0/5';
     const revenue = p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '0đ';
     const trend = i % 2 === 0 ? '↑' : '→';
 
@@ -123,7 +169,7 @@ export default function PagesPage() {
       closeRate,
       csat,
       revenue,
-      quality: baseScore,
+      quality: realScore,
       trend,
       pictureUrl: p.pagePictureUrl
     };
@@ -137,6 +183,13 @@ export default function PagesPage() {
   const avgCloseRate = pages.length > 0 
     ? `${(performance.reduce((sum, p) => sum + parseFloat(p.closeRate), 0) / pages.length).toFixed(1)}%` 
     : '0%';
+  
+  const validScores = performance.filter(p => p.quality !== null).map(p => p.quality);
+  const avgQuality = validScores.length > 0 
+    ? Math.round(validScores.reduce((sum, s) => sum + s, 0) / validScores.length)
+    : null;
+  const avgCsat = avgQuality !== null ? `${(avgQuality / 20).toFixed(1)}/5` : null;
+
   const totalRevenue = pages.length > 0 
     ? performance.reduce((sum, p) => {
         const val = parseInt(p.revenue.replace(/[^0-9]/g, '')) || 0;
@@ -145,18 +198,45 @@ export default function PagesPage() {
     : 0;
 
   const dynamicKPIs = [
-    { label: 'Tổng tin nhắn (Hội thoại)', value: totalMsgs.toLocaleString(), change: '↑ 0%', changeType: 'up', sub: 'Tính từ thời điểm kết nối' },
-    { label: 'Tin nhắn phản hồi', value: totalMsgs.toLocaleString(), change: '↑ 0%', changeType: 'up', sub: '' },
-    { label: 'Tỷ lệ phản hồi TB', value: avgResponseRate, change: '↑ 0%', changeType: 'up', sub: 'Trung bình các trang' },
-    { label: 'Tỷ lệ chốt TB', value: avgCloseRate, change: '↑ 0%', changeType: 'up', sub: '' },
-    { label: 'Doanh thu từ chat', value: `${totalRevenue.toLocaleString('vi-VN')}đ`, change: '↑ 0%', changeType: 'up', sub: 'Tổng ước tính' },
+    { 
+      label: 'Tổng tin nhắn', 
+      value: totalMsgs.toLocaleString(), 
+      sub: 'Từ khi kết nối', 
+      isReal: true 
+    },
+    { 
+      label: 'Chất lượng AI TB', 
+      value: avgQuality !== null ? `${avgQuality}/100` : 'Chưa có', 
+      sub: 'Tính từ các audit', 
+      isReal: true,
+      hasAudits: avgQuality !== null
+    },
+    { 
+      label: 'CSAT trung bình', 
+      value: avgCsat || 'Chưa có', 
+      sub: 'Quy đổi từ điểm AI', 
+      isReal: true,
+      hasAudits: avgCsat !== null
+    },
+    { 
+      label: 'Tỷ lệ chốt TB', 
+      value: avgCloseRate, 
+      sub: 'Cần kết nối Sapo', 
+      isReal: false 
+    },
+    { 
+      label: 'Doanh thu từ chat', 
+      value: `${totalRevenue.toLocaleString('vi-VN')}đ`, 
+      sub: 'Cần kết nối Sapo', 
+      isReal: false 
+    },
   ];
 
   // Dynamic Distribution calculations
   const dynamicDistribution = pages.map((p, i) => {
     const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
     const pct = totalMsgs > 0 ? Math.round((stats.msgs / totalMsgs) * 100) : 0;
-    const colors = ['#1877f2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
     return {
       label: p.pageName || `Trang #${p.pageId}`,
       pct,
@@ -165,62 +245,43 @@ export default function PagesPage() {
     };
   });
 
-  const getColor = (s) => s >= 85 ? '#16a34a' : s >= 75 ? '#d97706' : 'var(--orange-500)';
-  const getBg = (s) => s >= 85 ? '#dcfce7' : s >= 75 ? '#fef3c7' : 'var(--orange-100)';
+  const getScoreColor = (s) => {
+    if (s === null || s === undefined) return 'text-slate-500 bg-slate-100 border-slate-200';
+    if (s >= 85) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    if (s >= 75) return 'text-amber-700 bg-amber-50 border-amber-200';
+    return 'text-orange-700 bg-orange-50 border-orange-200';
+  };
+
+  const getTrendIcon = (t) => {
+    if (t === '↑') return <span className="text-emerald-500 font-semibold">↑</span>;
+    if (t === '↓') return <span className="text-rose-500 font-semibold">↓</span>;
+    return <span className="text-slate-400 font-semibold">→</span>;
+  };
 
   if (isLoadingPages) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#9ca3af', gap: '12px' }}>
-        <Globe size={32} className="animate-spin" style={{ color: '#4f46e5' }} />
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>Đang tải thông tin trang & kênh...</span>
+      <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4">
+        <Globe size={40} className="animate-spin text-indigo-600" />
+        <span className="text-sm font-semibold tracking-wide animate-pulse">Đang tải thông tin trang & kênh...</span>
       </div>
     );
   }
 
   if (pages.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        gap: '16px', 
-        padding: '60px 20px', 
-        textAlign: 'center',
-        height: '100%'
-      }}>
-        <div style={{ 
-          width: '64px', 
-          height: '64px', 
-          borderRadius: '50%', 
-          background: '#eef2ff', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          color: '#4f46e5',
-          marginBottom: '8px'
-        }}>
-          <FacebookLogo size={32} weight="duotone" />
+      <div className="rounded-3xl border border-slate-200 bg-white p-12 shadow-sm flex flex-col items-center justify-center gap-6 text-center h-full max-w-2xl mx-auto my-12 animate-in fade-in slide-in-from-bottom-4">
+        <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <FacebookLogo size={36} weight="duotone" />
         </div>
         <div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>Chưa kết nối Page / Kênh</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '6px', maxWidth: '400px', margin: '6px auto 0' }}>
+          <h3 className="text-xl font-bold text-slate-800">Chưa kết nối Page / Kênh</h3>
+          <p className="text-sm text-slate-500 mt-2 max-w-md">
             Kết nối tài khoản Facebook Fanpage của bạn trong phần Cài đặt để đồng bộ hội thoại và bắt đầu chấm điểm chất lượng CSKH tự động.
           </p>
         </div>
         <button 
           onClick={() => navigate('/settings?tab=channel')}
-          style={{ 
-            padding: '8px 18px', 
-            background: '#4f46e5', 
-            color: '#fff', 
-            borderRadius: '6px', 
-            fontSize: '13px', 
-            fontWeight: 600,
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'background var(--tr-fast)'
-          }}
+          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all duration-200 cursor-pointer"
         >
           Đi tới Cài đặt kênh
         </button>
@@ -230,10 +291,12 @@ export default function PagesPage() {
 
   const primaryPageName = pages[0]?.pageName || 'Facebook Page';
   const insights = [
-    `Facebook Page "${primaryPageName}" hoạt động ổn định`,
-    'Doanh thu từ chat tăng trưởng đều đặn kể từ khi kết nối',
-    'Nên tiếp tục theo dõi phản hồi khách hàng để tối ưu tỷ lệ chốt',
-    'AI đang phân tích các hội thoại gần nhất để đưa ra báo cáo chi tiết'
+    `Fanpage "${primaryPageName}" kết nối ổn định, thu thập tin nhắn tự động.`,
+    avgQuality !== null 
+      ? `Điểm chất lượng AI trung bình đạt ${avgQuality}/100 dựa trên các cuộc hội thoại được đánh giá.`
+      : 'Chưa có dữ liệu đánh giá chất lượng AI. Hãy chạy chấm điểm tại mục Đánh giá chất lượng.',
+    'Chỉ số Doanh thu & Tỷ lệ chốt đang hiển thị giả lập. Hãy liên kết Sapo OAuth ở Cài đặt kênh để đồng bộ hóa đơn thực tế.',
+    'AI phân tích từ khóa mua sắm nổi bật của khách hàng để tối ưu quy trình trả lời tự động.'
   ];
 
   const keywordItems = pages.map((p) => ({
@@ -243,125 +306,289 @@ export default function PagesPage() {
   }));
 
   return (
-    <div style={{ display: 'flex', gap: '14px', height: '100%' }}>
+    <div className="flex gap-6 h-full min-w-0 overflow-hidden bg-slate-50/50 p-1">
       {/* Left - Channel List */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ width: '260px', minWidth: '260px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
-        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '8px' }}>Danh sách Page & Kênh</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '5px 8px', marginBottom: '8px' }}>
-          <MagnifyingGlass size={14} style={{ color: '#9ca3af' }} />
-          <input placeholder="Tìm kiếm page hoặc kênh..." style={{ flex: 1, background: 'transparent', fontSize: '12px', color: '#374151' }} />
+      <div className="w-72 min-w-[280px] bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-4 overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-slate-800 text-base">Danh sách Page & Kênh</div>
+          <span className="text-[11px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">{filteredChannels.length} trang</span>
         </div>
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+        
+        {/* Search */}
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 mb-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-100 transition-all duration-200">
+          <MagnifyingGlass size={16} className="text-slate-400" />
+          <input 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm page..." 
+            className="flex-1 bg-transparent text-xs text-slate-700 outline-none border-none placeholder-slate-400" 
+          />
+        </div>
+
+        {/* Tab Filters */}
+        <div className="flex gap-1 overflow-x-auto pb-2 mb-3 no-scrollbar shrink-0">
           {tabs.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 500,
-                background: tab === t.key ? '#4f46e5' : '#f3f4f6',
-                color: tab === t.key ? '#fff' : '#4b5563' }}>{t.label}</button>
+            <button 
+              key={t.key} 
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                tab === t.key 
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100' 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
-        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+
+        {/* Channels scroll list */}
+        <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
           {filteredChannels.map((ch, i) => (
-            <div key={ch.id} onClick={() => setActiveChannel(i)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '8px', cursor: 'pointer',
-                background: activeChannel === i ? '#eef2ff' : 'transparent',
-                borderLeft: activeChannel === i ? '3px solid #4f46e5' : '3px solid transparent' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: ch.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div 
+              key={ch.id} 
+              onClick={() => setActiveChannel(i)}
+              className={`group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-all duration-200 ${
+                activeChannel === i 
+                  ? 'bg-indigo-50/50 border-indigo-200/70 shadow-sm shadow-indigo-50' 
+                  : 'bg-transparent border-transparent hover:bg-slate-50'
+              }`}
+            >
+              {/* Page Avatar */}
+              <div className="relative w-10 h-10 rounded-full bg-slate-100 border border-slate-200/60 overflow-hidden flex-shrink-0 flex items-center justify-center">
                 {ch.pictureUrl ? (
-                  <img src={ch.pictureUrl} alt={ch.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  <img src={ch.pictureUrl} alt={ch.name} className="w-full h-full object-cover" />
                 ) : (
-                  <FacebookLogo size={16} weight="fill" style={{ color: '#fff' }} />
+                  <FacebookLogo size={20} weight="fill" className="text-indigo-600" />
                 )}
+                {/* Active Status Badge */}
+                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                  ch.enabled ? 'bg-emerald-500' : 'bg-slate-300'
+                }`} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{ch.name}</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: getBg(ch.score), color: getColor(ch.score), fontSize: '10px', fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>{ch.score}</span>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">{ch.name}</span>
+                  {/* Score badge */}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${getScoreColor(ch.score)}`}>
+                    {ch.score !== null ? `${ch.score}` : '-'}
+                  </span>
                 </div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>{ch.type}</div>
-                <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>
-                  <span>Tin nhắn: <strong style={{ color: '#374151' }}>{ch.msgs}</strong></span>
-                  <span>Đang xử lý: <strong>{ch.processing}</strong></span>
+                
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                  <span className="font-medium">Facebook Page</span>
+                  <span>•</span>
+                  <span>Tin nhắn: <strong className="text-slate-600">{ch.msgs}</strong></span>
                 </div>
               </div>
             </div>
           ))}
+          {filteredChannels.length === 0 && (
+            <div className="text-center py-8 text-xs text-slate-400">Không tìm thấy page nào</div>
+          )}
         </div>
+
+        {/* Add Channel Button */}
         <button 
           onClick={() => navigate('/settings?tab=channel')}
-          style={{ marginTop: '8px', padding: '6px', fontSize: '12px', color: '#4f46e5', fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer' }}
+          className="mt-3 w-full py-2 border border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          + Thêm page / kênh
+          <Plus size={14} />
+          Kết nối thêm page / kênh
         </button>
       </div>
 
       {/* Center - Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', minWidth: 0 }}>
-        {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+      <div className="flex-1 flex flex-col gap-6 overflow-y-auto min-w-0 pr-1">
+        {/* KPIs Grid */}
+        <div className="grid grid-cols-5 gap-3.5 shrink-0">
           {dynamicKPIs.map((kpi, i) => (
-            <div key={i} className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '12px', animationDelay: `${i * 50}ms` }}>
-              <div style={{ fontSize: '11px', color: '#6b7280' }}>{kpi.label}</div>
-              <div style={{ fontSize: '19px', fontWeight: 800, color: '#111827', margin: '2px 0' }}>{kpi.value}</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>{kpi.change}</div>
-              {kpi.sub && <div style={{ fontSize: '10px', color: '#9ca3af' }}>{kpi.sub}</div>}
+            <div 
+              key={i} 
+              className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-start gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
+                {kpi.isReal ? (
+                  <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Thực</span>
+                ) : (
+                  <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Giả lập</span>
+                )}
+              </div>
+
+              {/* Value */}
+              <div className="text-2xl font-black text-slate-800 tracking-tight mt-2.5 mb-1.5">
+                {kpi.value}
+              </div>
+
+              {/* Subtext */}
+              <div className="flex items-center gap-1 mt-auto">
+                {!kpi.isReal ? (
+                  <div className="text-[10px] text-amber-500 font-semibold flex items-center gap-0.5">
+                    <Warning size={12} weight="fill" />
+                    <span>Cần Sapo</span>
+                  </div>
+                ) : kpi.hasAudits === false ? (
+                  <div className="text-[10px] text-slate-400 font-medium">
+                    Chưa chạy AI đánh giá
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+                    <TrendUp size={12} weight="bold" />
+                    <span>Tin cậy</span>
+                  </div>
+                )}
+                <span className="text-[9px] text-slate-400 truncate">— {kpi.sub}</span>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Performance Table */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '300ms' }}>
-          <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Hiệu suất từng Page & Kênh</span>
-            <span className="card-link" onClick={() => navigate('/settings?tab=channel')} style={{ cursor: 'pointer', fontSize: '12px' }}>Cài đặt kênh</span>
+        {/* Performance Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Báo cáo hiệu suất từng Page & Kênh</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">Thống kê chi tiết chất lượng AI và kinh doanh của từng kênh.</p>
+            </div>
+            <button 
+              onClick={() => navigate('/settings?tab=channel')}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-0.5 cursor-pointer"
+            >
+              Cài đặt kênh
+              <CaretRight size={14} />
+            </button>
           </div>
-          <table className="data-table">
-            <thead>
-              <tr><th>Page / Kênh</th><th>Tin nhắn</th><th>Tỷ lệ phản hồi</th><th>Tỷ lệ chốt</th><th>CSAT (Hài lòng)</th><th>Doanh thu</th><th>Chất lượng (AI)</th><th>Xu hướng</th></tr>
-            </thead>
-            <tbody>
-              {performance.map((p, i) => (
-                <tr key={i}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ display: 'inline-flex', flexShrink: 0 }}>
-                        {p.pictureUrl ? (
-                          <img src={p.pictureUrl} alt={p.name} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          <FacebookLogo size={15} weight="fill" style={{ color: '#1877f2' }} />
-                        )}
-                      </span>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '12px' }}>{p.name}</div>
-                        <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.type}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{p.msgs.toLocaleString()}</td>
-                  <td>{p.responseRate}</td>
-                  <td style={{ fontWeight: 600 }}>{p.closeRate}</td>
-                  <td>{p.csat}</td>
-                  <td>{p.revenue}</td>
-                  <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', background: getBg(p.quality), color: getColor(p.quality), fontWeight: 700, fontSize: '11px' }}>{p.quality}</span>
-                  </td>
-                  <td style={{ color: p.trend === '↑' ? '#16a34a' : p.trend === '↓' ? '#dc2626' : '#9ca3af', fontWeight: 600, fontSize: '17px' }}>{p.trend}</td>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="px-5 py-3.5">Page / Kênh</th>
+                  <th className="px-4 py-3.5 text-center">Tin nhắn</th>
+                  <th className="px-4 py-3.5 text-center">Tỷ lệ phản hồi</th>
+                  <th className="px-4 py-3.5 text-center">Tỷ lệ chốt</th>
+                  <th className="px-4 py-3.5 text-center">CSAT (Hài lòng)</th>
+                  <th className="px-4 py-3.5 text-right">Doanh thu</th>
+                  <th className="px-4 py-3.5 text-center">Chất lượng (AI)</th>
+                  <th className="px-5 py-3.5 text-center">Xu hướng</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {performance.map((p, i) => (
+                  <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+                    {/* Page Name */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-8 h-8 rounded-full bg-slate-50 border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {p.pictureUrl ? (
+                            <img src={p.pictureUrl} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <FacebookLogo size={16} weight="fill" className="text-indigo-600" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-700">{p.name}</div>
+                          <div className="text-[10px] text-slate-400">Facebook Page</div>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Msgs */}
+                    <td className="px-4 py-3.5 text-center font-semibold text-slate-600">
+                      {p.msgs.toLocaleString()}
+                    </td>
+
+                    {/* Response Rate */}
+                    <td className="px-4 py-3.5 text-center text-slate-500">
+                      {p.responseRate}
+                    </td>
+
+                    {/* Close Rate */}
+                    <td className="px-4 py-3.5 text-center font-bold text-slate-500">
+                      <div className="flex items-center justify-center gap-1 group relative cursor-help">
+                        <span>{p.closeRate}</span>
+                        <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
+                          Chỉ số giả lập. Cần liên kết Sapo OAuth
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* CSAT */}
+                    <td className="px-4 py-3.5 text-center text-slate-600 font-medium">
+                      {p.csat !== null ? (
+                        <span className="text-slate-700 font-semibold">{p.csat}</span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Revenue */}
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-500">
+                      <div className="inline-flex items-center gap-1 group relative cursor-help">
+                        <span>{p.revenue}</span>
+                        <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
+                        <div className="absolute bottom-full right-0 mb-1 hidden group-hover:block bg-slate-800 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
+                          Chỉ số giả lập. Cần liên kết Sapo OAuth
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* AI Score */}
+                    <td className="px-4 py-3.5 text-center">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full border font-bold text-xs ${getScoreColor(p.quality)}`}>
+                        {p.quality !== null ? p.quality : '-'}
+                      </span>
+                    </td>
+
+                    {/* Trend */}
+                    <td className="px-5 py-3.5 text-center text-base">
+                      {getTrendIcon(p.trend)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Comparison Chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '400ms' }}>
-          <div className="card-title">So sánh hiệu suất <span style={{ fontSize: '11px', color: '#9ca3af' }}>Chọn chỉ số: Tỷ lệ chốt</span></div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '140px', padding: '0 8px' }}>
+        {/* Comparison Chart Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">So sánh tỷ lệ chốt đơn giữa các trang</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">Biểu đồ so sánh tỷ lệ chốt đơn của các page hiện tại.</p>
+            </div>
+            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded font-medium">Chọn chỉ số: Tỷ lệ chốt</span>
+          </div>
+
+          <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
             {performance.map((p, i) => {
               const val = parseFloat(p.closeRate) || 0;
               return (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>{p.closeRate}</span>
-                  <div style={{ width: '100%', height: anim ? `${val * 4}px` : 0, background: `linear-gradient(180deg, var(--primary-500), var(--primary-300))`, borderRadius: '4px 4px 0 0', transition: 'height .8s ease', transitionDelay: `${i * 80}ms` }} />
-                  <span style={{ fontSize: '8px', color: '#9ca3af', textAlign: 'center', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name.split(' ').slice(0,2).join(' ')}</span>
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                  {/* Tooltip on bar hover */}
+                  <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10">
+                    {p.closeRate} (Giả lập)
+                  </div>
+                  
+                  {/* Bar */}
+                  <div 
+                    className="w-full max-w-[40px] bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg transition-all duration-1000 ease-out shadow-sm shadow-indigo-100 group-hover:from-indigo-500 group-hover:to-indigo-300"
+                    style={{ 
+                      height: anim ? `${val * 3.5}px` : 0, 
+                      transitionDelay: `${i * 60}ms` 
+                    }} 
+                  />
+                  
+                  {/* Label */}
+                  <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px]">
+                    {p.name.split(' ').slice(0, 2).join(' ')}
+                  </span>
                 </div>
               );
             })}
@@ -370,47 +597,72 @@ export default function PagesPage() {
       </div>
 
       {/* Right - Distribution + Insights */}
-      <div style={{ width: '280px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto' }}>
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '200ms' }}>
-          <div className="card-title">Phân bổ tin nhắn theo kênh</div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <DonutChart data={dynamicDistribution.length > 0 ? dynamicDistribution : [{ label: 'Không có dữ liệu', pct: 100, value: 0, color: '#e5e7eb' }]} total={totalMsgs} />
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div className="w-72 min-w-[280px] flex flex-col gap-5 overflow-y-auto pb-4 pr-1 shrink-0">
+        {/* Distribution Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 text-sm mb-4">Phân bổ tin nhắn theo kênh</h3>
+          <div className="flex flex-col items-center gap-5">
+            <DonutChart 
+              data={dynamicDistribution.length > 0 ? dynamicDistribution : [{ label: 'Không có dữ liệu', pct: 100, value: 0, color: '#e2e8f0' }]} 
+              total={totalMsgs} 
+            />
+            <div className="w-full space-y-2 pt-2 border-t border-slate-50">
               {dynamicDistribution.map((d, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.color }} />
-                  <span style={{ flex: 1, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span>
-                  <span style={{ fontWeight: 600, marginLeft: 'auto' }}>{d.pct}%</span>
-                  <span style={{ color: '#9ca3af', fontSize: '11px', marginLeft: '4px' }}>({d.value.toLocaleString()})</span>
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                    <span className="text-slate-600 font-medium truncate">{d.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 pl-2 shrink-0">
+                    <span className="font-bold text-slate-700">{d.pct}%</span>
+                    <span className="text-slate-400 text-[10px]">({d.value.toLocaleString()})</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '350ms' }}>
-          <div className="card-title">AI Insight về page & kênh</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+        {/* AI Insight Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            <h3 className="font-bold text-slate-800 text-sm">Nhận xét từ AI</h3>
+          </div>
+          
+          <div className="space-y-3">
             {insights.map((text, i) => (
-              <div key={i} style={{ display: 'flex', gap: '6px', padding: '4px 0', borderBottom: i < insights.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <span style={{ color: '#4f46e5', flexShrink: 0 }}>•</span>
-                <span style={{ color: '#374151' }}>{text}</span>
+              <div 
+                key={i} 
+                className="flex gap-2.5 items-start bg-slate-50/60 hover:bg-slate-50 border border-slate-100 rounded-xl p-2.5 transition-all duration-200"
+              >
+                <span className="text-indigo-500 font-bold text-sm leading-none">•</span>
+                <span className="text-[11px] text-slate-600 leading-relaxed font-medium">{text}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '450ms' }}>
-          <div className="card-title">Top từ khóa khách hàng theo kênh</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+        {/* Top Keywords Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 text-sm mb-3">Từ khóa nổi bật của khách</h3>
+          <div className="space-y-3.5">
             {keywordItems.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: '8px', padding: '3px 0' }}>
-                <span style={{ display: 'inline-flex', flexShrink: 0, marginTop: '2px' }}>
-                  <FacebookLogo size={13} weight="fill" style={{ color: '#1877f2' }} />
-                </span>
-                <span style={{ color: '#6b7280', fontSize: '11px', lineHeight: 1.4 }}>
-                  <strong>{item.channel}:</strong> {item.keywords}
-                </span>
+              <div key={i} className="bg-slate-50/30 border border-slate-100 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FacebookLogo size={14} weight="fill" className="text-indigo-600" />
+                  <span className="text-xs font-bold text-slate-700">{item.channel}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {item.keywords.split(', ').map((kw, idx) => (
+                    <span 
+                      key={idx} 
+                      className="text-[10px] font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100/50 px-2 py-0.5 rounded-md hover:bg-indigo-100/80 transition-colors cursor-default"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

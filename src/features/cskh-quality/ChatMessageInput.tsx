@@ -4,10 +4,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { Send, Loader2 } from 'lucide-react'
 
 type ChatMessageInputProps = {
-  onSend: (text: string) => Promise<void>
+  onSend: (text: string) => Promise<void> | void
   onTyping?: () => void
   disabled?: boolean
   placeholder?: string
+  draftText?: string
+  onDraftApplied?: () => void
 }
 
 export function ChatMessageInput({
@@ -15,11 +17,27 @@ export function ChatMessageInput({
   onTyping,
   disabled,
   placeholder = 'Gõ tin nhắn... (Shift+Enter để xuống dòng)',
+  draftText,
+  onDraftApplied,
 }: ChatMessageInputProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (draftText) {
+      setText(draftText)
+      onDraftApplied?.()
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus()
+          textareaRef.current.selectionStart = textareaRef.current.value.length
+          textareaRef.current.selectionEnd = textareaRef.current.value.length
+        }
+      }, 50)
+    }
+  }, [draftText, onDraftApplied])
 
   const handleSend = async () => {
     const trimmed = text.trim()

@@ -3,9 +3,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { fetchCskhPages, syncInboxFromGraph, markInboxAsRead, type CskhInboxConversation } from './api'
+import {
+  fetchCskhPages,
+  syncInboxFromGraph,
+  markInboxAsRead,
+  fetchCustomerIntent,
+  type CskhInboxConversation
+} from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
+import { ChatRightSidebar } from './ChatRightSidebar'
 import { useCskhInboxStream } from './useCskhInboxStream'
 import {
   Select,
@@ -67,8 +74,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     return pagesData?.pages ?? []
   }, [pagesData])
 
+  const [inputDraft, setInputDraft] = useState<string>('')
+
+  // Fetch AI customer intent
+  const { data: intent, isLoading: isLoadingIntent } = useQuery({
+    queryKey: ['cskh', 'inbox', 'intent', selectedConversation?.id],
+    queryFn: () => selectedConversation ? fetchCustomerIntent(selectedConversation.id) : null,
+    enabled: !!selectedConversation,
+  })
+
   const handleSelectConversation = (conv: CskhInboxConversation) => {
     setSelectedConversation(conv)
+    setInputDraft('') // Clear draft when switching conversations
     if (conv.unreadCount > 0) {
       // Optimistically update the list query cache to clear unread badge immediately
       qc.setQueryData<CskhInboxConversation[]>(
@@ -147,25 +164,40 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
       {/* Chat Area - Main */}
       {selectedConversation ? (
-        <div className="flex-1 flex flex-col">
-          {/* Mobile back button */}
-          <div className="md:hidden p-3 border-b flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedConversation(null)}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Quay lại
-            </Button>
+        <div className="flex-1 flex min-w-0">
+          {/* Middle Chat Panel */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Mobile back button */}
+            <div className="md:hidden p-3 border-b flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedConversation(null)}
+                className="gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Quay lại
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatPanel
+                conversation={selectedConversation}
+                isCustomerTyping={typingConversationIds.has(selectedConversation.id)}
+                onClose={() => setSelectedConversation(null)}
+                connected={connected}
+                draftText={inputDraft}
+                onDraftApplied={() => setInputDraft('')}
+              />
+            </div>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <ChatPanel
+
+          {/* Right Sidebar - Customer Info & AI Suggestions */}
+          <div className="hidden lg:block shrink-0">
+            <ChatRightSidebar
               conversation={selectedConversation}
-              isCustomerTyping={typingConversationIds.has(selectedConversation.id)}
-              onClose={() => setSelectedConversation(null)}
-              connected={connected}
+              intent={intent}
+              isLoadingIntent={isLoadingIntent}
+              onApplySuggestedReply={(text) => setInputDraft(text)}
             />
           </div>
         </div>

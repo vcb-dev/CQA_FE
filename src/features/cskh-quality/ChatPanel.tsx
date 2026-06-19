@@ -22,9 +22,18 @@ type ChatPanelProps = {
   isCustomerTyping?: boolean
   onClose?: () => void
   connected?: boolean
+  draftText?: string
+  onDraftApplied?: () => void
 }
 
-export function ChatPanel({ conversation, isCustomerTyping, onClose, connected }: ChatPanelProps) {
+export function ChatPanel({
+  conversation,
+  isCustomerTyping,
+  onClose,
+  connected,
+  draftText,
+  onDraftApplied,
+}: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string>('')
   const typingTimeoutRef = useRef<any>(null)
@@ -42,13 +51,58 @@ export function ChatPanel({ conversation, isCustomerTyping, onClose, connected }
   // Send message mutation
   const sendMut = useMutation({
     mutationFn: (text: string) => sendInboxMessage(conversation.id, text),
-    onSuccess: (newMessage) => {
-      if (newMessage) {
-        appendInboxMessagesToCache(
-          qc,
-          conversation.id,
-          undefined,
-          [newMessage]
+    onMutate: async (text) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await qc.cancelQueries({ queryKey: ['cskh', 'inbox', 'messages', conversation.id] })
+
+      // Create a temporary optimistic message
+      const tempId = `temp-${Date.now()}`
+      const optimisticMessage: CskhInboxMessage = {
+        id: tempId,
+        conversationId: conversation.id,
+        fbMessageId: null,
+        direction: 'outbound',
+        senderType: 'staff',
+        text,
+        messageType: 'text',
+        attachmentUrl: null,
+        sentAt: new Date().toISOString(),
+        status: 'pending', // Will show loader spinner
+      }
+
+      // Save previous messages in case of error rollback
+      const previousMessages = qc.getQueryData<{
+        conversation: CskhInboxConversation
+        messages: CskhInboxMessage[]
+      }>(['cskh', 'inbox', 'messages', conversation.id])
+
+      // Instantly append to cache
+      appendInboxMessagesToCache(qc, conversation.id, undefined, [optimisticMessage])
+
+      // Instantly update conversation previews
+      patchInboxConversationInCache(qc, {
+        id: conversation.id,
+        lastMessage: text,
+        lastMessageAt: optimisticMessage.sentAt,
+        unreadCount: 0,
+      })
+
+      return { tempId, previousMessages }
+    },
+    onSuccess: (newMessage, text, context) => {
+      if (newMessage && context?.tempId) {
+        // Replace temp message with actual message from server
+        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
+          ['cskh', 'inbox', 'messages', conversation.id],
+          (prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === context.tempId ? { ...newMessage, status: 'sent' } : m
+              ),
+            }
+          }
         )
         patchInboxConversationInCache(qc, {
           id: conversation.id,
@@ -58,8 +112,23 @@ export function ChatPanel({ conversation, isCustomerTyping, onClose, connected }
         })
       }
     },
-    onError: (error) => {
+    onError: (error, text, context) => {
       toast.error(getApiErrorMessage(error) || 'Gửi tin thất bại')
+      // Rollback to previous state
+      if (context?.previousMessages) {
+        qc.setQueryData(['cskh', 'inbox', 'messages', conversation.id], context.previousMessages)
+      } else if (context?.tempId) {
+        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
+          ['cskh', 'inbox', 'messages', conversation.id],
+          (prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              messages: prev.messages.filter((m) => m.id !== context.tempId),
+            }
+          }
+        )
+      }
     },
   })
 
@@ -166,9 +235,11 @@ export function ChatPanel({ conversation, isCustomerTyping, onClose, connected }
 
       {/* Input Area */}
       <ChatMessageInput
-        onSend={async (text) => { await sendMut.mutateAsync(text) }}
+        onSend={(text) => { sendMut.mutate(text) }}
         onTyping={handleTyping}
         disabled={sendMut.isPending}
+        draftText={draftText}
+        onDraftApplied={onDraftApplied}
       />
     </div>
   )
