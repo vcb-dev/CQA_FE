@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchInboxConversations, type CskhInboxConversation } from './api'
@@ -10,6 +11,7 @@ type ChatListPanelProps = {
   pageId?: string
   typingConversationIds?: Set<string>
   connected?: boolean
+  searchQuery?: string
 }
 
 export function ChatListPanel({
@@ -18,12 +20,25 @@ export function ChatListPanel({
   pageId,
   typingConversationIds = new Set(),
   connected,
+  searchQuery = '',
 }: ChatListPanelProps) {
   const { data: conversations, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', pageId],
     queryFn: () => fetchInboxConversations(pageId),
     refetchInterval: connected ? 20000 : 4000, // Fast 4s fallback if SSE is disconnected
   })
+
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return []
+    if (!searchQuery.trim()) return conversations
+    const q = searchQuery.toLowerCase().trim()
+    return conversations.filter((c) => {
+      const name = (c.customerName || '').toLowerCase()
+      const msg = (c.lastMessage || '').toLowerCase()
+      const psid = (c.participantPsid || '').toLowerCase()
+      return name.includes(q) || msg.includes(q) || psid.includes(q)
+    })
+  }, [conversations, searchQuery])
 
   const formatTime = (isoString: string | null): string => {
     if (!isoString) return ''
@@ -60,9 +75,19 @@ export function ChatListPanel({
     )
   }
 
+  if (filteredConversations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
+        <MessageCircle className="w-12 h-12 mb-2 opacity-50" />
+        <p className="text-sm text-center">Không tìm thấy kết quả</p>
+        <p className="text-xs text-gray-400 mt-1">Thử nhập từ khóa tìm kiếm khác</p>
+      </div>
+    )
+  }
+
   return (
     <div className="divide-y overflow-y-auto h-full">
-      {conversations.map((conv) => (
+      {filteredConversations.map((conv) => (
         <button
           key={conv.id}
           onClick={() => onSelect(conv)}
