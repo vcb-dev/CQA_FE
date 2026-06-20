@@ -81,7 +81,7 @@ export function ChatMessageInput({
   }, [text])
 
   return (
-    <div className="flex gap-2 p-4 border-t bg-white rounded-b-lg">
+    <div className="flex gap-2 p-3.5 border-t border-slate-100 bg-white">
       <Textarea
         ref={textareaRef}
         placeholder={placeholder}
@@ -90,23 +90,23 @@ export function ChatMessageInput({
         onKeyDown={handleKeyDown}
         disabled={disabled || sending}
         rows={1}
-        className="resize-none py-3 px-4 text-sm rounded-lg focus-visible:ring-blue-400"
+        className="resize-none py-2.5 px-4 text-[12.5px] text-slate-700 border border-slate-200/60 bg-slate-50/20 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-indigo-100 focus-visible:border-indigo-300 rounded-xl transition-all duration-200 placeholder:text-slate-400 min-h-[38px] max-h-[120px]"
       />
       <Button
         onClick={handleSend}
         disabled={!text.trim() || sending || disabled}
         size="sm"
-        className="self-end bg-blue-500 hover:bg-blue-600 text-white"
+        className="self-end h-[38px] bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 text-white rounded-xl shadow-sm shadow-blue-200/40 px-4 cursor-pointer font-semibold"
       >
         {sending ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin mr-1" />
-            <span className="hidden sm:inline">Gửi</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            <span className="hidden sm:inline text-xs">Gửi</span>
           </>
         ) : (
           <>
-            <Send className="w-4 h-4 mr-1" />
-            <span className="hidden sm:inline">Gửi</span>
+            <Send className="w-3.5 h-3.5 mr-1.5" />
+            <span className="hidden sm:inline text-xs">Gửi</span>
           </>
         )}
       </Button>

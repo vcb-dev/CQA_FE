@@ -187,6 +187,7 @@ export interface CskhCustomerIntent {
   sapoConfigured?: boolean
   urgency: 'low' | 'normal' | 'high'
   suggestedFocus: string
+  suggestedReply?: string
   analyzedAt: string
 }
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, Sparkles, User, Megaphone, FileText, Info } from 'lucide-react'
+import { Copy, Check, Sparkles, User, Megaphone, FileText, MessageSquare, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhInboxConversation, CskhCustomerIntent } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -39,120 +39,134 @@ export function ChatRightSidebar({
   }
 
   return (
-    <div className="w-80 border-l bg-slate-50/50 flex flex-col h-full overflow-y-auto divide-y divide-gray-100 font-sans">
-      {/* SECTION 1: Customer Profile */}
-      <div className="p-5 flex flex-col items-center text-center">
+    <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full overflow-y-auto font-sans">
+      {/* Customer Profile */}
+      <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center">
         {conversation.customerPictureUrl ? (
           <img
             src={cskhMediaProxySrc(conversation.customerPictureUrl)}
             alt={conversation.customerName || 'Customer'}
-            className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md mb-3"
+            className="w-14 h-14 rounded-full object-cover ring-3 ring-white shadow-lg mb-3"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-md mb-3">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 to-violet-600 flex items-center justify-center text-white text-lg font-bold shadow-lg ring-3 ring-white mb-3">
             {(conversation.customerName || 'K').charAt(0).toUpperCase()}
           </div>
         )}
-        <h3 className="text-base font-semibold text-gray-900 truncate max-w-full">
+        <h3 className="text-sm font-bold text-slate-800 truncate max-w-full">
           {conversation.customerName || 'Khách hàng Messenger'}
         </h3>
-        <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-          Facebook User
+        <span className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100/50">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+          Messenger · Facebook User
         </span>
       </div>
 
-      {/* SECTION 2: General Information */}
-      <div className="p-5 space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-          <User className="w-3.5 h-3.5" />
+      {/* Divider */}
+      <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+      {/* Customer Info */}
+      <div className="px-5 py-4 space-y-3">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+          <User className="w-3 h-3" />
           Thông tin khách
         </h4>
         
-        <div className="grid grid-cols-3 gap-y-3 text-xs">
-          <span className="text-gray-500 col-span-1">Kênh nhận:</span>
-          <span className="text-gray-900 col-span-2 font-medium truncate">
-            {conversation.pageName || `ID: ${conversation.pageId}`}
-          </span>
+        <div className="space-y-2.5 text-[11px]">
+          <div className="flex items-start gap-2">
+            <span className="text-slate-400 font-medium min-w-[60px] pt-0.5">Kênh nhận:</span>
+            <span className="text-slate-700 font-semibold truncate">
+              {conversation.pageName || `ID: ${conversation.pageId}`}
+            </span>
+          </div>
 
-          <span className="text-gray-500 col-span-1">Nguồn:</span>
-          <span className="col-span-2 font-medium">
-            {conversation.fromAd ? (
-              <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                Facebook Ads
-              </span>
-            ) : (
-              <span className="text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                Tự nhiên (Organic)
-              </span>
-            )}
-          </span>
+          <div className="flex items-start gap-2">
+            <span className="text-slate-400 font-medium min-w-[60px] pt-0.5">Nguồn:</span>
+            <span className="font-semibold">
+              {conversation.fromAd ? (
+                <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md text-[10px]">
+                  <Megaphone className="w-2.5 h-2.5" />
+                  Facebook Ads
+                </span>
+              ) : (
+                <span className="text-slate-500 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md text-[10px]">
+                  Organic
+                </span>
+              )}
+            </span>
+          </div>
 
-          <span className="text-gray-500 col-span-1">PSID:</span>
-          <span className="text-gray-900 col-span-2 font-mono truncate select-all">
-            {conversation.participantPsid}
-          </span>
+          <div className="flex items-start gap-2">
+            <span className="text-slate-400 font-medium min-w-[60px] pt-0.5">PSID:</span>
+            <span className="text-slate-600 font-mono text-[10px] select-all bg-slate-50 px-1.5 py-0.5 rounded">
+              {conversation.participantPsid}
+            </span>
+          </div>
         </div>
 
         {/* Ads Campaign Details */}
         {conversation.fromAd && (
-          <div className="mt-3 bg-amber-50/50 rounded-lg border border-amber-100 p-3 space-y-2 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-amber-900">
-              <Megaphone className="w-3.5 h-3.5 text-amber-600" />
+          <div className="mt-2 bg-gradient-to-br from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-100/60 p-3 space-y-2 text-[11px]">
+            <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[10px]">
+              <Megaphone className="w-3 h-3 text-amber-600" />
               Chi tiết chiến dịch quảng cáo
             </div>
             {conversation.adTitle && (
               <div className="flex flex-col gap-0.5">
-                <span className="text-amber-600 font-medium">Tên quảng cáo:</span>
-                <span className="text-gray-800">{conversation.adTitle}</span>
+                <span className="text-amber-500 font-medium text-[10px]">Tên quảng cáo:</span>
+                <span className="text-slate-700 font-medium">{conversation.adTitle}</span>
               </div>
             )}
             {conversation.adId && (
               <div className="flex flex-col gap-0.5">
-                <span className="text-amber-600 font-medium">Mã quảng cáo (ID):</span>
-                <span className="text-gray-700 font-mono select-all">{conversation.adId}</span>
+                <span className="text-amber-500 font-medium text-[10px]">Mã QC:</span>
+                <span className="text-slate-600 font-mono text-[10px] select-all">{conversation.adId}</span>
               </div>
             )}
             {conversation.referralSource && (
               <div className="flex flex-col gap-0.5">
-                <span className="text-amber-600 font-medium">Nguồn giới thiệu:</span>
-                <span className="text-gray-700">{conversation.referralSource}</span>
+                <span className="text-amber-500 font-medium text-[10px]">Nguồn giới thiệu:</span>
+                <span className="text-slate-600">{conversation.referralSource}</span>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* SECTION 3: AI Customer Intent Analytics */}
-      <div className="p-5 space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-violet-600 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5" />
+      {/* Divider */}
+      <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+      {/* AI Intent Analysis */}
+      <div className="px-5 py-4 space-y-3">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" />
           AI phân tích ý định
         </h4>
 
         {isLoadingIntent ? (
-          <div className="flex items-center gap-2 py-4 text-xs text-violet-700">
-            <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center gap-2 py-3 text-[11px] text-violet-600">
+            <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             Đang phân tích cuộc hội thoại...
           </div>
         ) : !intent ? (
-          <div className="text-xs text-gray-400 italic">
+          <div className="text-[11px] text-slate-400 italic py-2">
             Chưa có đủ tin nhắn để AI phân tích ý định.
           </div>
         ) : (
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {/* Intent Label & Urgency */}
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-violet-600 text-white">
+            <div className="flex flex-wrap gap-1.5">
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-sm">
                 {intent.intentLabel}
               </span>
               <span
                 className={cn(
-                  'px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase',
+                  'px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase',
                   intent.urgency === 'high'
-                    ? 'bg-rose-100 text-rose-700'
+                    ? 'bg-rose-50 text-rose-600 border border-rose-200/60'
                     : intent.urgency === 'low'
-                      ? 'bg-slate-100 text-slate-600'
-                      : 'bg-sky-100 text-sky-700'
+                      ? 'bg-slate-50 text-slate-500 border border-slate-200/60'
+                      : 'bg-sky-50 text-sky-600 border border-sky-200/60'
                 )}
               >
                 {getUrgencyText(intent.urgency)}
@@ -160,22 +174,22 @@ export function ChatRightSidebar({
             </div>
 
             {/* Summary */}
-            <div className="bg-white rounded-lg border border-gray-200 p-3">
-              <div className="text-xs text-gray-500 font-medium mb-1">Tóm tắt nhu cầu:</div>
-              <p className="text-xs text-gray-800 leading-relaxed">{intent.summary}</p>
+            <div className="bg-white/80 rounded-xl border border-slate-200/60 p-3 shadow-sm">
+              <div className="text-[10px] text-slate-400 font-semibold mb-1.5 uppercase tracking-wide">Tóm tắt nhu cầu:</div>
+              <p className="text-[11px] text-slate-700 leading-relaxed">{intent.summary}</p>
             </div>
 
             {/* Topics */}
             {intent.topics?.length > 0 && (
               <div className="space-y-1.5">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   Chủ đề quan tâm
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {intent.topics.map((topic) => (
                     <span
                       key={topic}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-100"
+                      className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-600 border border-violet-100/60"
                     >
                       {topic}
                     </span>
@@ -187,29 +201,29 @@ export function ChatRightSidebar({
             {/* Sapo Products match */}
             {intent.products && intent.products.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   Sản phẩm quan tâm
                 </span>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {intent.products.map((p) => (
                     <div
                       key={`${p.productId}-${p.variantId}`}
-                      className="flex gap-2 rounded bg-white border border-gray-200 p-2 shadow-sm"
+                      className="flex gap-2 rounded-xl bg-white border border-slate-200/60 p-2 shadow-sm hover:shadow-md transition-shadow duration-200"
                     >
                       {p.imageUrl ? (
                         <img
                           src={p.imageUrl}
                           alt=""
-                          className="h-10 w-10 shrink-0 rounded object-cover border border-gray-100"
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-100"
                         />
                       ) : (
-                        <div className="h-10 w-10 shrink-0 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 font-semibold">
+                        <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center text-[9px] text-slate-400 font-bold">
                           SP
                         </div>
                       )}
                       <div className="min-w-0 flex-1 text-[11px]">
-                        <p className="font-semibold text-gray-800 truncate">{p.name}</p>
-                        <p className="text-violet-700 font-bold mt-0.5">{p.priceLabel}</p>
+                        <p className="font-semibold text-slate-700 truncate">{p.name}</p>
+                        <p className="text-violet-600 font-bold mt-0.5">{p.priceLabel}</p>
                       </div>
                     </div>
                   ))}
@@ -220,41 +234,59 @@ export function ChatRightSidebar({
         )}
       </div>
 
-      {/* SECTION 4: AI Suggested Response */}
-      <div className="p-5 space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5" />
+      {/* Divider */}
+      <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+      {/* AI Suggested Response */}
+      <div className="px-5 py-4 space-y-3">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-500 flex items-center gap-1.5">
+          <MessageSquare className="w-3 h-3" />
           AI gợi ý trả lời
         </h4>
 
         {isLoadingIntent ? (
-          <div className="flex items-center gap-2 py-4 text-xs text-blue-600">
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            Đang tìm kiếm gợi ý phản hồi...
+          <div className="flex items-center gap-2 py-3 text-[11px] text-blue-500">
+            <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            Đang tạo gợi ý phản hồi...
           </div>
-        ) : !intent || !intent.suggestedFocus ? (
-          <div className="text-xs text-gray-400 italic">
+        ) : !intent || (!intent.suggestedFocus && !intent.suggestedReply) ? (
+          <div className="text-[11px] text-slate-400 italic py-2">
             Chưa có gợi ý trả lời nào từ AI.
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="bg-blue-50/50 rounded-lg border border-blue-100 p-3.5 text-xs text-gray-700 leading-relaxed font-medium">
-              {intent.suggestedFocus}
+            {/* Guidance focus advice */}
+            {intent.suggestedFocus && (
+              <div className="bg-slate-50 border border-slate-200/40 rounded-xl p-3 text-[10px] text-slate-500 leading-relaxed">
+                <span className="font-semibold text-slate-600 block mb-0.5">💡 Hướng xử lý:</span>
+                {intent.suggestedFocus}
+              </div>
+            )}
+
+            {/* Actual Suggested Reply Card */}
+            <div className="relative bg-gradient-to-br from-blue-50/50 to-indigo-50/30 rounded-xl border border-blue-100/50 p-3.5 shadow-sm">
+              <div className="absolute top-2 right-2">
+                <Sparkles className="w-3.5 h-3.5 text-blue-400/40" />
+              </div>
+              <span className="font-semibold text-blue-600 text-[10.5px] block mb-1">✨ Tin nhắn gợi ý:</span>
+              <p className="text-[11px] text-slate-700 leading-relaxed pr-4 whitespace-pre-wrap">
+                {intent.suggestedReply || intent.suggestedFocus}
+              </p>
             </div>
 
             <div className="flex gap-2">
               <button
-                onClick={() => handleCopy(intent.suggestedFocus)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => handleCopy(intent.suggestedReply || intent.suggestedFocus)}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200/60 rounded-xl hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-200 shadow-sm cursor-pointer"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                 Sao chép
               </button>
               <button
-                onClick={() => onApplySuggestedReply(intent.suggestedFocus)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
+                onClick={() => onApplySuggestedReply(intent.suggestedReply || intent.suggestedFocus)}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200/50 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Zap className="w-3.5 h-3.5" />
                 Áp dụng
               </button>
             </div>

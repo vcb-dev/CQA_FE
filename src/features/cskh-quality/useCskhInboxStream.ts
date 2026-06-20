@@ -60,9 +60,9 @@ export function useCskhInboxStream({
     es.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data as string) as InboxRealtimeEvent
-        if (data.type === 'ping') return
+        if (!data || data.type === 'ping') return
 
-        // Handle typing indicator
+        // 1. Handle typing indicator
         if (data.type === 'typing' && data.conversationId) {
           setTypingConversationIds((prev) => new Set([...prev, data.conversationId!]))
 
@@ -85,16 +85,19 @@ export function useCskhInboxStream({
           return
         }
 
+        // 2. Handle intent updates (from AI analysis completion)
         if (data.type === 'intent' && data.conversationId && data.intent) {
           qc.setQueryData(['cskh', 'inbox', 'intent', data.conversationId], data.intent)
           onIntent?.(data.conversationId, data.intent)
           return
         }
 
+        // 3. Update conversation info in cache if present
         if (data.conversation) {
           patchInboxConversationInCache(qc, data.conversation)
         }
 
+        // 4. Handle incoming/outgoing message payload
         if (data.type === 'message' && data.messages?.length && data.conversationId) {
           appendInboxMessagesToCache(
             qc,
@@ -102,9 +105,7 @@ export function useCskhInboxStream({
             activeAuditDate ?? undefined,
             data.messages
           )
-          if (data.conversationId !== activeConversationId) {
-            void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
-          } else {
+          if (data.conversationId === activeConversationId) {
             // Active conversation: automatically mark it as read on the backend
             markInboxAsRead(data.conversationId).catch((err: any) => {
               console.error('Failed to auto mark active conversation as read:', err)
@@ -113,14 +114,38 @@ export function useCskhInboxStream({
           return
         }
 
-        void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+        // 5. Handle read-receipt event (local cache update for messages)
+        if (data.type === 'read-receipt' && data.conversationId) {
+          qc.setQueryData<{ conversation: any; messages: any[] }>(
+            ['cskh', 'inbox', 'messages', data.conversationId],
+            (prev) => {
+              if (!prev) return prev
+              return {
+                ...prev,
+                messages: prev.messages.map((m) =>
+                  m.status !== 'read' ? { ...m, status: 'read' } : m
+                ),
+              }
+            }
+          )
+          return
+        }
+
+        // 6. If we have a conversation event, we already patched it above, so we can just return
+        if (data.type === 'conversation') {
+          return
+        }
+
+        // Fallback: Only invalidate specific queries if we receive an unhandled event type
+        // DO NOT invalidate ['cskh', 'inbox'] globally as it causes huge API overhead (refetching intents, etc.)
         if (data.conversationId) {
           void qc.invalidateQueries({
             queryKey: ['cskh', 'inbox', 'messages', data.conversationId],
+            exact: true,
           })
         }
-      } catch {
-        void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+      } catch (err) {
+        console.error('Failed to parse SSE event:', err)
       }
     }
 

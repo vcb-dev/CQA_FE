@@ -65,7 +65,7 @@ export function ChatListPanel({
   const { data: conversations, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', pageId],
     queryFn: () => fetchInboxConversations(pageId),
-    refetchInterval: connected ? 20000 : 4000,
+    refetchInterval: connected ? false : 5000,
   })
 
   const filteredConversations = useMemo(() => {
@@ -155,7 +155,7 @@ export function ChatListPanel({
   }
 
   return (
-    <div className="overflow-y-auto h-full">
+    <div className="overflow-y-auto h-full py-1.5 bg-slate-50/20">
       {filteredConversations.map((conv) => {
         const colorIdx = getColorIndex(conv.customerName)
         const isSelected = selectedConversationId === conv.id
@@ -167,14 +167,17 @@ export function ChatListPanel({
             key={conv.id}
             onClick={() => onSelect(conv)}
             className={cn(
-              'w-full text-left px-3 py-3 transition-all duration-150 border-l-[3px] relative group',
+              'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
               isSelected
-                ? 'bg-indigo-50/60 border-l-indigo-500'
+                ? 'bg-gradient-to-r from-indigo-50/70 to-indigo-50/30 border-indigo-100/70 shadow-sm shadow-indigo-100/20'
                 : hasUnread
-                  ? `bg-white hover:bg-slate-50/80 ${borderColors[colorIdx]}`
-                  : 'bg-white hover:bg-slate-50/80 border-l-transparent'
+                  ? 'bg-slate-50/40 hover:bg-slate-50 border-slate-200/20'
+                  : 'bg-white hover:bg-slate-50 border-transparent'
             )}
           >
+            {isSelected && (
+              <div className="absolute left-0 top-3.5 bottom-3.5 w-[3.5px] bg-indigo-500 rounded-r-full" />
+            )}
             <div className="flex gap-2.5">
               {/* Avatar */}
               <div className="relative shrink-0">

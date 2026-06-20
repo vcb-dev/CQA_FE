@@ -60,7 +60,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const { data: allConversations } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
     queryFn: () => fetchInboxConversations(selectedPageId),
-    refetchInterval: connected ? 20000 : 4000,
+    refetchInterval: connected ? false : 5000,
   })
 
   // Compute filter counts
@@ -122,9 +122,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   ]
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Top Filter Bar */}
-      <div className="flex items-center justify-between px-4 h-[46px] border-b border-slate-200/80 bg-white shrink-0">
+      <div className="flex items-center justify-between px-4 h-[46px] border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/50 shrink-0">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
@@ -187,32 +187,33 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         <div
           className={`${
             selectedConversation && window.innerWidth < 768 ? 'hidden' : 'flex'
-          } w-full md:w-[300px] lg:w-[320px] flex-col bg-white border-r border-slate-200/80 shrink-0`}
+          } w-full md:w-[300px] lg:w-[320px] flex-col bg-white border-r border-slate-100 shrink-0`}
         >
           {/* Stats Filter Tabs */}
-          <div className="grid grid-cols-4 border-b border-slate-200/80">
-            {filterTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveFilter(tab.key)}
-                className={`flex flex-col items-center py-2.5 px-1 border-b-2 transition-all duration-200 cursor-pointer ${
-                  activeFilter === tab.key
-                    ? tab.activeColor + ' bg-slate-50/50'
-                    : 'border-transparent hover:bg-slate-50/50 ' + tab.color
-                }`}
-              >
-                <span className={`text-[15px] font-bold leading-none ${
-                  activeFilter === tab.key ? '' : 'text-slate-700'
-                }`}>
-                  {filterCounts[tab.key].toLocaleString()}
-                </span>
-                <span className={`text-[10px] font-medium mt-1 ${
-                  activeFilter === tab.key ? '' : 'text-slate-400'
-                }`}>
-                  {tab.label}
-                </span>
-              </button>
-            ))}
+          <div className="flex gap-1 p-1.5 bg-slate-50/40 border-b border-slate-100 shrink-0">
+            {filterTabs.map((tab) => {
+              const isActive = activeFilter === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={`flex-1 flex flex-col items-center py-1.5 px-0.5 rounded-xl transition-all duration-200 cursor-pointer border ${
+                    isActive
+                      ? 'bg-white text-slate-800 shadow-sm border-slate-200/40'
+                      : 'border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
+                  }`}
+                >
+                  <span className={`text-[13px] font-extrabold leading-none ${
+                    isActive ? tab.activeColor.split(' ')[0] : 'text-slate-600'
+                  }`}>
+                    {filterCounts[tab.key].toLocaleString()}
+                  </span>
+                  <span className="text-[9.5px] font-semibold mt-1 tracking-tight text-slate-400">
+                    {tab.label}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
           {/* Search & Filter */}

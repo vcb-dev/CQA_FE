@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2, AlertCircle, X } from 'lucide-react'
 import {
   fetchInboxMessages,
   sendInboxMessage,
@@ -179,32 +179,43 @@ export function ChatPanel({
   }, [messages])
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-gray-50 to-white">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/60 bg-white shrink-0">
         <div className="flex items-center gap-3">
-          {conversation.customerPictureUrl && (
+          {conversation.customerPictureUrl ? (
             <img
               src={cskhMediaProxySrc(conversation.customerPictureUrl)}
               alt={conversation.customerName || 'Customer'}
-              className="w-10 h-10 rounded-full object-cover border border-gray-200"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100"
             />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-violet-600 flex items-center justify-center text-white text-xs font-bold ring-2 ring-slate-100">
+              {(conversation.customerName || 'K').charAt(0).toUpperCase()}
+            </div>
           )}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
               {conversation.customerName ||
                 `Khách hàng ${conversation.participantPsid.slice(0, 8)}`}
             </h3>
-            <p className="text-xs text-gray-500">Cuộc trò chuyện Facebook</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] text-slate-400 font-medium">Cuộc trò chuyện Facebook</span>
+              {conversation.fromAd && (
+                <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white leading-none">
+                  Ads
+                </span>
+              )}
+            </div>
           </div>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 cursor-pointer"
             title="Đóng"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -212,16 +223,19 @@ export function ChatPanel({
       {/* Messages Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
+              <span className="text-[11px] text-slate-400">Đang tải tin nhắn...</span>
+            </div>
           </div>
         ) : displayMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500">
-            <AlertCircle className="w-12 h-12 mb-2 opacity-50" />
-            <p className="text-sm">Không có tin nhắn nào</p>
+          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <AlertCircle className="w-10 h-10 mb-2 opacity-40" />
+            <p className="text-sm font-medium">Không có tin nhắn nào</p>
           </div>
         ) : (
           <>
