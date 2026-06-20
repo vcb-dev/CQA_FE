@@ -446,15 +446,93 @@ export default function PagesPage() {
     );
   }
 
-  const primaryPageName = pages[0]?.pageName || 'Facebook Page';
-  const insights = [
-    `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
-    avgQuality !== null 
-      ? `Điểm chất lượng AI trung bình toàn bộ đạt ${avgQuality}/100 (CSAT đạt ${avgCsat}) từ các cuộc hội thoại được đánh giá.`
-      : 'Chưa có điểm đánh giá chất lượng AI. Hãy bấm nút "Chạy quét & Chấm điểm AI" ở trên để chấm điểm và hiển thị dữ liệu CSAT.',
-    'Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.',
-    'Kênh TikTok và Zalo đang ghi nhận lượng tin nhắn mới tăng trưởng khá nhanh trong 7 ngày qua.'
-  ];
+  const generateRealAIInsights = () => {
+    const primaryPageName = pages[0]?.pageName || 'Facebook Page';
+    if (!audits || audits.length === 0) {
+      return [
+        `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
+        'Chưa có dữ liệu đánh giá chất lượng AI. Hãy bấm nút "Chạy quét & Chấm điểm AI" ở trên để AI phân tích và đưa ra nhận xét.',
+        'Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.',
+        'Kênh TikTok và Zalo đang ghi nhận lượng tin nhắn mới tăng trưởng khá nhanh trong 7 ngày qua.'
+      ];
+    }
+
+    const insightsList = [];
+    
+    // 1. Connection status
+    insightsList.push(`Kênh "${primaryPageName}" hoạt động ổn định, đồng bộ dữ liệu thời gian thực.`);
+
+    // 2. Average quality score
+    const totalScore = audits.reduce((sum, a) => sum + a.score, 0);
+    const calculatedAvg = Math.round(totalScore / audits.length);
+    const csatScale = (calculatedAvg / 20).toFixed(1);
+    insightsList.push(`Điểm chất lượng AI trung bình toàn hệ thống đạt ${calculatedAvg}/100 (CSAT đạt ${csatScale}/5) dựa trên ${audits.length} cuộc hội thoại đã được AI đánh giá.`);
+
+    // 3. Page analysis
+    const pageScores = {};
+    audits.forEach(a => {
+      const pId = a.metadata?.pageId;
+      const pName = a.metadata?.pageName || pId;
+      if (pId) {
+        if (!pageScores[pId]) pageScores[pId] = { total: 0, count: 0, name: pName };
+        pageScores[pId].total += a.score;
+        pageScores[pId].count += 1;
+      }
+    });
+
+    const pageAverages = Object.values(pageScores).map(p => ({
+      name: p.name,
+      avg: Math.round(p.total / p.count)
+    })).sort((a, b) => b.avg - a.avg);
+
+    if (pageAverages.length > 0) {
+      const best = pageAverages[0];
+      insightsList.push(`Trang "${best.name}" đang dẫn đầu về chất lượng phục vụ với điểm trung bình ${best.avg}/100.`);
+      if (pageAverages.length > 1) {
+        const worst = pageAverages[pageAverages.length - 1];
+        if (worst.avg < 75) {
+          insightsList.push(`Trang "${worst.name}" có chất lượng phản hồi thấp hơn mặt bằng chung (${worst.avg}/100), cần cải thiện.`);
+        }
+      }
+    }
+
+    // 4. Missed replies (no reply) from audit metadata
+    const missedReplies = audits.filter(a => a.metadata?.noReply === true).length;
+    if (missedReplies > 0) {
+      insightsList.push(`Phát hiện ${missedReplies} cuộc hội thoại bị nhân viên bỏ sót, không phản hồi lại tin nhắn cuối của khách hàng.`);
+    } else {
+      insightsList.push(`Chỉ số trực tuyến rất tốt: 100% cuộc hội thoại được đánh giá đều được nhân viên phản hồi đầy đủ.`);
+    }
+
+    // 5. Response times from audit metadata
+    const responseTimes = audits
+      .map(a => a.metadata?.transcriptMetrics?.firstResponseSec)
+      .filter(t => typeof t === 'number' && t > 0);
+    if (responseTimes.length > 0) {
+      const avgResponseSec = Math.round(responseTimes.reduce((sum, t) => sum + t, 0) / responseTimes.length);
+      const timeLabel = avgResponseSec > 60 
+        ? `${Math.round(avgResponseSec / 60)} phút` 
+        : `${avgResponseSec} giây`;
+      insightsList.push(`Thời gian phản hồi khách hàng đầu tiên trung bình là khoảng ${timeLabel}.`);
+    }
+
+    // 6. Customer Sentiment analysis
+    const sentiments = audits.map(a => a.metadata?.sentiment?.tone).filter(Boolean);
+    if (sentiments.length > 0) {
+      const positiveCount = sentiments.filter(s => s === 'positive').length;
+      const positivePct = Math.round((positiveCount / sentiments.length) * 100);
+      if (positivePct > 0) {
+        insightsList.push(`Tỷ lệ hội thoại ghi nhận cảm xúc tích cực (Positive Sentiment) từ khách hàng đạt ${positivePct}%.`);
+      }
+    }
+
+    // 7. Sapo reminder
+    insightsList.push('Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.');
+
+    return insightsList.slice(0, 5); // Return top 5 insights
+  };
+
+  const insights = generateRealAIInsights();
 
   const keywordItems = [
     { type: 'Facebook Page', keywords: 'nhẫn bạc, size, giá, bảo hành, giao hàng' },
@@ -643,7 +721,7 @@ export default function PagesPage() {
                   <span>{isJobRunning ? `AI đang chấm... ${jobProgress}%` : 'Chạy quét & Chấm điểm AI'}</span>
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">Thống kê điểm số AI đánh giá chất lượng hội thoại và doanh thu của từng trang.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Thống kê chất lượng hội thoại và doanh thu từng trang. Hệ thống tự động quét AI ban đêm lúc 2:00 AM.</p>
             </div>
             
             <button 
