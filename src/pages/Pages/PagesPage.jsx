@@ -80,7 +80,7 @@ export default function PagesPage() {
   const [activeChannel, setActiveChannel] = useState(0);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAllPerformance, setShowAllPerformance] = useState(false);
+  const [performanceFilter, setPerformanceFilter] = useState('all');
   const [runningJobId, setRunningJobId] = useState(null);
 
   useEffect(() => { 
@@ -399,13 +399,29 @@ export default function PagesPage() {
   const getTrendIcon = (t) => {
     if (t === '↑') return <span className="text-emerald-500 font-bold">↑</span>;
     if (t === '↓') return <span className="text-rose-500 font-bold">↓</span>;
+    if (t === '—') return <span className="text-slate-300 font-normal">—</span>;
     return <span className="text-slate-400 font-bold">→</span>;
   };
 
-  const displayPerformanceList = showAllPerformance ? performance : performance.slice(0, 8);
+  // Filter performance list by platform
+  const filteredPerformance = performance.filter(p => {
+    if (performanceFilter === 'all') return true;
+    if (performanceFilter === 'facebook' && p.type === 'Facebook Page') return true;
+    if (performanceFilter === 'instagram' && p.type === 'Instagram') return true;
+    if (performanceFilter === 'tiktok' && p.type === 'TikTok') return true;
+    if (performanceFilter === 'zalo' && p.type === 'Zalo') return true;
+    if (performanceFilter === 'shopee' && p.type === 'Shopee') return true;
+    if (performanceFilter === 'lazada' && p.type === 'Lazada') return true;
+    if (performanceFilter === 'website' && p.type === 'Website') return true;
+    return false;
+  });
+  const displayPerformanceList = filteredPerformance;
 
   const hasAuditedPages = performance.some(p => p.quality !== null);
   const countUnauditedPages = performance.filter(p => p.quality === null).length;
+
+  // Unique platform types for filter tabs
+  const platformTypes = [...new Set(performance.map(p => p.type))].sort();
 
   if (isLoadingPages) {
     return (
@@ -716,15 +732,44 @@ export default function PagesPage() {
                   <span>{isJobRunning ? `AI đang chấm... ${jobProgress}%` : 'Chạy quét & Chấm điểm AI'}</span>
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">Thống kê chất lượng hội thoại và doanh thu từng trang. Hệ thống tự động quét AI ban đêm lúc 2:00 AM.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Thống kê chất lượng hội thoại từng trang. Hệ thống tự động quét AI ban đêm lúc 2:00 AM.</p>
             </div>
             
-            <button 
-              onClick={() => setShowAllPerformance(!showAllPerformance)}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors py-1.5 px-3 bg-indigo-50/50 hover:bg-indigo-50 rounded-lg self-start sm:self-center cursor-pointer"
+            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
+              {filteredPerformance.length}/{performance.length} trang
+            </span>
+          </div>
+
+          {/* Platform Filter Tabs */}
+          <div className="flex gap-1.5 overflow-x-auto px-5 py-3 border-b border-slate-100 no-scrollbar shrink-0">
+            <button
+              onClick={() => setPerformanceFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                performanceFilter === 'all'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+              }`}
             >
-              {showAllPerformance ? 'Thu gọn' : `Xem tất cả (${performance.length})`}
+              Tất cả {performance.length}
             </button>
+            {platformTypes.map(type => {
+              const count = performance.filter(p => p.type === type).length;
+              const filterKey = type === 'Facebook Page' ? 'facebook' : type.toLowerCase();
+              return (
+                <button
+                  key={type}
+                  onClick={() => setPerformanceFilter(filterKey)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                    performanceFilter === filterKey
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                  }`}
+                >
+                  {getPageIcon(type)}
+                  <span>{type === 'Facebook Page' ? 'Facebook' : type} {count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Banner notification if some pages are not audited */}
@@ -750,14 +795,19 @@ export default function PagesPage() {
                   <th className="px-5 py-3.5">Page / Kênh</th>
                   <th className="px-4 py-3.5 text-center">Tin nhắn</th>
                   <th className="px-4 py-3.5 text-center">Tỷ lệ phản hồi</th>
-                  <th className="px-4 py-3.5 text-center">Tỷ lệ chốt</th>
                   <th className="px-4 py-3.5 text-center">CSAT (Hài lòng)</th>
-                  <th className="px-4 py-3.5 text-right">Doanh thu</th>
                   <th className="px-4 py-3.5 text-center">Chất lượng (AI)</th>
                   <th className="px-5 py-3.5 text-center">Xu hướng</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                {displayPerformanceList.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                      Không có trang nào thuộc nền tảng này.
+                    </td>
+                  </tr>
+                )}
                 {displayPerformanceList.map((p, i) => (
                   <tr key={i} className="hover:bg-slate-50/30 transition-colors">
                     {/* Page Name */}
@@ -779,23 +829,18 @@ export default function PagesPage() {
                     
                     {/* Messages */}
                     <td className="px-4 py-3.5 text-center font-bold text-slate-700">
-                      {p.msgs.toLocaleString()}
+                      {p.msgs > 0 ? p.msgs.toLocaleString() : (
+                        <span className="text-slate-300 font-normal text-xs">Chưa có</span>
+                      )}
                     </td>
 
                     {/* Response Rate */}
                     <td className="px-4 py-3.5 text-center font-medium text-slate-500">
-                      {p.responseRate}
-                    </td>
-
-                    {/* Close Rate */}
-                    <td className="px-4 py-3.5 text-center font-bold text-slate-500">
-                      <div className="flex items-center justify-center gap-1 group relative cursor-help">
-                        <span>{p.closeRate}</span>
-                        <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
-                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
-                          Chỉ số giả lập. Cần liên kết Sapo OAuth tại Cài đặt kênh
-                        </div>
-                      </div>
+                      {p.responseRate !== '—' ? (
+                        <span className="text-slate-700 font-bold">{p.responseRate}</span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
                     </td>
 
                     {/* CSAT */}
@@ -805,17 +850,6 @@ export default function PagesPage() {
                       ) : (
                         <span className="text-slate-300 font-normal">—</span>
                       )}
-                    </td>
-
-                    {/* Revenue */}
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-500">
-                      <div className="inline-flex items-center gap-1 group relative cursor-help">
-                        <span>{p.revenue}</span>
-                        <Warning size={12} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
-                        <div className="absolute bottom-full right-0 mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap z-10 pointer-events-none select-none">
-                          Chỉ số giả lập. Cần liên kết Sapo OAuth tại Cài đặt kênh
-                        </div>
-                      </div>
                     </td>
 
                     {/* AI Score */}
