@@ -559,8 +559,9 @@ export default function PagesPage() {
   ];
 
   const isJobRunning = !!runningJobId;
-  const jobProgress = auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations
-    ? Math.round(((auditJobProgress?.summary?.audited || 0) / (auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations || 10)) * 100)
+  const totalConvs = auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations || auditJobProgress?.summary?.fetched || 10;
+  const jobProgress = totalConvs
+    ? Math.round(((auditJobProgress?.summary?.audited || 0) / totalConvs) * 100)
     : 0;
 
   return (
@@ -667,7 +668,12 @@ export default function PagesPage() {
           <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
             <div className="flex items-center gap-2 text-sm font-bold">
               <Sparkles size={18} className="animate-spin text-indigo-600" />
-              <span>AI đang quét chấm điểm hội thoại... (Tiến trình: {jobProgress}% - Đã chấm {auditJobProgress?.summary?.audited || 0}/{auditJobProgress?.summary?.total || 10})</span>
+              <span>
+                {auditJobProgress?.summary?.phase === 'fetch'
+                  ? `Đang tìm kiếm cuộc hội thoại từ Facebook... (Đã thu thập: ${auditJobProgress?.summary?.fetched || 0} cuộc)`
+                  : `AI đang chấm điểm hội thoại... (Tiến trình: ${jobProgress}% - Đã chấm ${auditJobProgress?.summary?.audited || 0}/${totalConvs})`
+                }
+              </span>
             </div>
             <span className="text-xs text-indigo-500 font-bold">Đang cập nhật thời gian thực</span>
           </div>
