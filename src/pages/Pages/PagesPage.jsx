@@ -180,19 +180,17 @@ export default function PagesPage() {
     });
   };
 
-  // Helper to map DB pages to various channel types for mockup/multichannel preview
-  const getPageType = (name = '', index = 0) => {
+  // Detect channel type from page name. All pages default to Facebook Page
+  // since they are connected via Facebook OAuth.
+  const getPageType = (name = '') => {
     const n = name.toLowerCase();
-    if (n.includes('instagram') || n.includes('ig')) return 'Instagram';
-    if (n.includes('tiktok') || n.includes('tt') || n.startsWith('@')) return 'TikTok';
-    if (n.includes('zalo') || n.includes('zl')) return 'Zalo';
-    if (n.includes('shopee') || n.includes('sp')) return 'Shopee';
-    if (n.includes('lazada') || n.includes('lz')) return 'Lazada';
+    if (n.includes('instagram') || n.includes('ig ')) return 'Instagram';
+    if (n.includes('tiktok')) return 'TikTok';
+    if (n.includes('zalo')) return 'Zalo';
+    if (n.includes('shopee')) return 'Shopee';
+    if (n.includes('lazada')) return 'Lazada';
     if (n.includes('web') || n.includes('live chat') || n.includes('chat widget')) return 'Website';
-    
-    // Distribute remaining DB pages to make the dashboard look like a real multichannel dashboard
-    const types = ['Facebook Page', 'Instagram', 'TikTok', 'Zalo', 'Shopee', 'Lazada', 'Website'];
-    return types[index % types.length];
+    return 'Facebook Page';
   };
 
   const getPageIcon = (type) => {
@@ -227,7 +225,7 @@ export default function PagesPage() {
   const channels = pages.map((p, i) => {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
-    const type = getPageType(p.pageName, i);
+    const type = getPageType(p.pageName);
     return {
       id: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
@@ -273,7 +271,7 @@ export default function PagesPage() {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
-    const type = getPageType(p.pageName, i);
+    const type = getPageType(p.pageName);
 
     const msgs = p.conversationCount || 0;
     // Real response rate from audit noReply data
@@ -357,7 +355,7 @@ export default function PagesPage() {
   // Group pages by channel type to prevent list congestion in right panel legend
   const typeMap = {};
   pages.forEach((p, i) => {
-    const type = getPageType(p.pageName, i);
+    const type = getPageType(p.pageName);
     const msgs = p.conversationCount || 0;
     if (!typeMap[type]) {
       typeMap[type] = 0;
