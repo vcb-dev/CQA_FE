@@ -96,12 +96,7 @@ export default function PagesPage() {
 
   const pages = pagesData?.pages || [];
 
-  // Fetch real conversations to calculate message metrics
-  const { data: conversations } = useQuery({
-    queryKey: ['cskh', 'inbox-conversations'],
-    queryFn: () => fetchInboxConversations(),
-    enabled: pages.length > 0
-  });
+  // Fetch real conversations query removed as message counts are fetched directly with pages list
 
   // Fetch real audits to calculate average AI quality scores
   const { data: audits } = useQuery({
@@ -206,18 +201,6 @@ export default function PagesPage() {
     return <FacebookLogo size={18} weight="fill" className="text-blue-600" />;
   };
 
-  // Calculate metrics per page from real conversations list
-  const convsByPage = (conversations || []).reduce((acc, conv) => {
-    if (!acc[conv.pageId]) {
-      acc[conv.pageId] = { msgs: 0, processing: 0 };
-    }
-    acc[conv.pageId].msgs += 1;
-    if (conv.unreadCount > 0) {
-      acc[conv.pageId].processing += 1;
-    }
-    return acc;
-  }, {});
-
   // Group audits by pageId to calculate real average score per page
   const auditsByPage = (audits || []).reduce((acc, audit) => {
     const pageId = audit.metadata?.pageId;
@@ -233,7 +216,6 @@ export default function PagesPage() {
 
   // Construct dynamic channels list
   const channels = pages.map((p, i) => {
-    const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const type = getPageType(p.pageName, i);
@@ -242,8 +224,8 @@ export default function PagesPage() {
       name: p.pageName || `Trang #${p.pageId}`,
       type,
       score: realScore,
-      msgs: stats.msgs,
-      processing: stats.processing,
+      msgs: p.conversationCount || 0,
+      processing: p.unreadConversationCount || 0,
       avatar: getPageIcon(type),
       color: '#1877f2',
       enabled: p.enabled,
@@ -279,14 +261,14 @@ export default function PagesPage() {
 
   // Dynamic performance list
   const performance = pages.map((p, i) => {
-    const stats = convsByPage[p.pageId] || { msgs: 0, processing: 0 };
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
     const type = getPageType(p.pageName, i);
 
+    const msgs = p.conversationCount || 0;
     // Remaining parameters are mockups for now (Sapo orders not integrated yet)
-    const hasMsgs = stats.msgs > 0;
+    const hasMsgs = msgs > 0;
     const responseRate = hasMsgs && p.enabled ? `${90 + (i % 3) * 3}%` : '—';
     const closeRate = hasMsgs && p.enabled ? `${25 + (i % 4) * 2}%` : '—';
     const revenue = hasMsgs && p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '—';
@@ -295,7 +277,7 @@ export default function PagesPage() {
     return {
       name: p.pageName || `Trang #${p.pageId}`,
       type,
-      msgs: stats.msgs,
+      msgs,
       responseRate,
       closeRate,
       csat,
@@ -371,11 +353,11 @@ export default function PagesPage() {
   const typeMap = {};
   pages.forEach((p, i) => {
     const type = getPageType(p.pageName, i);
-    const stats = convsByPage[p.pageId] || { msgs: 0 };
+    const msgs = p.conversationCount || 0;
     if (!typeMap[type]) {
       typeMap[type] = 0;
     }
-    typeMap[type] += stats.msgs;
+    typeMap[type] += msgs;
   });
 
   const totalTypeMsgs = Object.values(typeMap).reduce((a, b) => a + b, 0);
@@ -665,7 +647,7 @@ export default function PagesPage() {
           {dynamicKPIs.map((kpi, i) => (
             <div 
               key={i} 
-              className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+              className="bg-white rounded-2xl border border-slate-100 p-4 xl:p-3 2xl:p-4 shadow-sm flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
             >
               {/* Card Label */}
               <div className="flex justify-between items-start gap-1">
@@ -678,7 +660,10 @@ export default function PagesPage() {
               </div>
 
               {/* Value */}
-              <div className="text-3xl font-black text-slate-800 tracking-tight mt-2.5 mb-2">
+              <div 
+                className="text-xl sm:text-2xl md:text-3xl xl:text-base 2xl:text-xl font-black text-slate-800 tracking-tighter mt-2.5 mb-2 truncate"
+                title={kpi.value}
+              >
                 {kpi.value}
               </div>
 
