@@ -286,9 +286,10 @@ export default function PagesPage() {
     const type = getPageType(p.pageName, i);
 
     // Remaining parameters are mockups for now (Sapo orders not integrated yet)
-    const responseRate = p.enabled ? `${90 + (i % 3) * 3}%` : '0%';
-    const closeRate = p.enabled ? `${25 + (i % 4) * 2}%` : '0%';
-    const revenue = p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '0đ';
+    const hasMsgs = stats.msgs > 0;
+    const responseRate = hasMsgs && p.enabled ? `${90 + (i % 3) * 3}%` : '—';
+    const closeRate = hasMsgs && p.enabled ? `${25 + (i % 4) * 2}%` : '—';
+    const revenue = hasMsgs && p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '—';
     const trend = i % 3 === 0 ? '↑' : i % 3 === 1 ? '→' : '↓';
 
     return {
@@ -307,22 +308,24 @@ export default function PagesPage() {
 
   // Dynamic KPIs calculations
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
+  const auditedPerformance = performance.filter(p => p.quality !== null);
+
   const avgResponseRate = pages.length > 0 
-    ? `${Math.round(performance.reduce((sum, p) => sum + parseFloat(p.responseRate), 0) / pages.length)}%` 
+    ? `${Math.round(performance.reduce((sum, p) => sum + (p.responseRate !== '—' ? parseFloat(p.responseRate) : 0), 0) / pages.length)}%` 
     : '0%';
-  const avgCloseRate = pages.length > 0 
-    ? `${(performance.reduce((sum, p) => sum + parseFloat(p.closeRate), 0) / pages.length).toFixed(1)}%` 
-    : '0%';
+  const avgCloseRate = auditedPerformance.length > 0 
+    ? `${(auditedPerformance.reduce((sum, p) => sum + (p.closeRate !== '—' ? parseFloat(p.closeRate) : 0), 0) / auditedPerformance.length).toFixed(1)}%` 
+    : 'Chưa có';
   
-  const validScores = performance.filter(p => p.quality !== null).map(p => p.quality);
+  const validScores = auditedPerformance.map(p => p.quality).filter(q => q !== null);
   const avgQuality = validScores.length > 0 
     ? Math.round(validScores.reduce((sum, s) => sum + s, 0) / validScores.length)
     : null;
   const avgCsat = avgQuality !== null ? `${(avgQuality / 20).toFixed(1)}/5` : null;
 
-  const totalRevenue = pages.length > 0 
-    ? performance.reduce((sum, p) => {
-        const val = parseInt(p.revenue.replace(/[^0-9]/g, '')) || 0;
+  const totalRevenue = auditedPerformance.length > 0 
+    ? auditedPerformance.reduce((sum, p) => {
+        const val = p.revenue !== '—' ? (parseInt(p.revenue.replace(/[^0-9]/g, '')) || 0) : 0;
         return sum + val;
       }, 0)
     : 0;
@@ -352,13 +355,15 @@ export default function PagesPage() {
       label: 'Tỷ lệ chốt TB', 
       value: avgCloseRate, 
       sub: 'Cần kết nối Sapo', 
-      isReal: false 
+      isReal: false,
+      hasAudits: auditedPerformance.length > 0
     },
     { 
       label: 'Doanh thu từ chat', 
-      value: `${totalRevenue.toLocaleString('vi-VN')}đ`, 
+      value: auditedPerformance.length > 0 ? `${totalRevenue.toLocaleString('vi-VN')}đ` : 'Chưa có', 
       sub: 'Cần kết nối Sapo', 
-      isReal: false 
+      isReal: false,
+      hasAudits: auditedPerformance.length > 0
     },
   ];
 
@@ -853,7 +858,7 @@ export default function PagesPage() {
 
           <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
             {displayPerformanceList.map((p, i) => {
-              const val = parseFloat(p.closeRate) || 0;
+              const val = p.closeRate !== '—' ? (parseFloat(p.closeRate) || 0) : 0;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
                   {/* Tooltip */}
