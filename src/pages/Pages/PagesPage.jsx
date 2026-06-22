@@ -18,7 +18,6 @@ import {
 import { toast } from 'sonner';
 import { 
   fetchCskhPages, 
-  fetchInboxConversations, 
   fetchCskhAudits, 
   runAudit, 
   fetchRunningCskhJob, 
@@ -128,11 +127,16 @@ export default function PagesPage() {
     enabled: !!runningJobId,
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (data && (data.status === 'completed' || data.status === 'failed')) {
+      if (data && (data.status === 'done' || data.status === 'completed' || data.status === 'failed')) {
         setRunningJobId(null);
         queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
         queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
-        toast.success('Tiến trình chấm điểm AI đã hoàn thành!', { id: 'audit-run' });
+        queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+        if (data.status === 'failed') {
+          toast.error('Tiến trình chấm điểm AI gặp lỗi!', { id: 'audit-run' });
+        } else {
+          toast.success('Tiến trình chấm điểm AI đã hoàn thành!', { id: 'audit-run' });
+        }
         return false;
       }
       return 3000;
@@ -201,15 +205,20 @@ export default function PagesPage() {
     return <FacebookLogo size={18} weight="fill" className="text-blue-600" />;
   };
 
-  // Group audits by pageId to calculate real average score per page
+  // Group audits by pageId to calculate real metrics per page
   const auditsByPage = (audits || []).reduce((acc, audit) => {
     const pageId = audit.metadata?.pageId;
     if (pageId) {
       if (!acc[pageId]) {
-        acc[pageId] = { totalScore: 0, count: 0 };
+        acc[pageId] = { totalScore: 0, count: 0, replied: 0, noReply: 0 };
       }
       acc[pageId].totalScore += audit.score;
       acc[pageId].count += 1;
+      if (audit.metadata?.noReply) {
+        acc[pageId].noReply += 1;
+      } else {
+        acc[pageId].replied += 1;
+      }
     }
     return acc;
   }, {});
@@ -259,7 +268,7 @@ export default function PagesPage() {
     { key: 'other', label: `Khác ${otherCount}` },
   ];
 
-  // Dynamic performance list
+  // Dynamic performance list — only real data, no mockups
   const performance = pages.map((p, i) => {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
@@ -267,12 +276,14 @@ export default function PagesPage() {
     const type = getPageType(p.pageName, i);
 
     const msgs = p.conversationCount || 0;
-    // Remaining parameters are mockups for now (Sapo orders not integrated yet)
-    const hasMsgs = msgs > 0;
-    const responseRate = hasMsgs && p.enabled ? `${90 + (i % 3) * 3}%` : '—';
-    const closeRate = hasMsgs && p.enabled ? `${25 + (i % 4) * 2}%` : '—';
-    const revenue = hasMsgs && p.enabled ? `${((120 + i * 50) * 100000).toLocaleString('vi-VN')}đ` : '—';
-    const trend = i % 3 === 0 ? '↑' : i % 3 === 1 ? '→' : '↓';
+    // Real response rate from audit noReply data
+    const responseRate = pageAudit && pageAudit.count > 0
+      ? `${Math.round((pageAudit.replied / pageAudit.count) * 100)}%`
+      : '—';
+    // Close rate and revenue require Sapo integration — show dash
+    const closeRate = '—';
+    const revenue = '—';
+    const trend = pageAudit ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
 
     return {
       name: p.pageName || `Trang #${p.pageId}`,
@@ -288,15 +299,16 @@ export default function PagesPage() {
     };
   });
 
-  // Dynamic KPIs calculations
+  // Dynamic KPIs calculations — only real data
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
   const auditedPerformance = performance.filter(p => p.quality !== null);
 
-  const avgResponseRate = pages.length > 0 
-    ? `${Math.round(performance.reduce((sum, p) => sum + (p.responseRate !== '—' ? parseFloat(p.responseRate) : 0), 0) / pages.length)}%` 
-    : '0%';
-  const avgCloseRate = auditedPerformance.length > 0 
-    ? `${(auditedPerformance.reduce((sum, p) => sum + (p.closeRate !== '—' ? parseFloat(p.closeRate) : 0), 0) / auditedPerformance.length).toFixed(1)}%` 
+  // Real average response rate from audit data
+  const allAudits = audits || [];
+  const totalAuditCount = allAudits.length;
+  const totalReplied = allAudits.filter(a => !a.metadata?.noReply).length;
+  const avgResponseRate = totalAuditCount > 0
+    ? `${Math.round((totalReplied / totalAuditCount) * 100)}%`
     : 'Chưa có';
   
   const validScores = auditedPerformance.map(p => p.quality).filter(q => q !== null);
@@ -304,13 +316,6 @@ export default function PagesPage() {
     ? Math.round(validScores.reduce((sum, s) => sum + s, 0) / validScores.length)
     : null;
   const avgCsat = avgQuality !== null ? `${(avgQuality / 20).toFixed(1)}/5` : null;
-
-  const totalRevenue = auditedPerformance.length > 0 
-    ? auditedPerformance.reduce((sum, p) => {
-        const val = p.revenue !== '—' ? (parseInt(p.revenue.replace(/[^0-9]/g, '')) || 0) : 0;
-        return sum + val;
-      }, 0)
-    : 0;
 
   const dynamicKPIs = [
     { 
@@ -322,7 +327,7 @@ export default function PagesPage() {
     { 
       label: 'Chất lượng AI TB', 
       value: avgQuality !== null ? `${avgQuality}/100` : 'Chưa có', 
-      sub: 'Tính từ các audit', 
+      sub: `Từ ${totalAuditCount} cuộc hội thoại`, 
       isReal: true,
       hasAudits: avgQuality !== null
     },
@@ -334,18 +339,18 @@ export default function PagesPage() {
       hasAudits: avgCsat !== null
     },
     { 
-      label: 'Tỷ lệ chốt TB', 
-      value: avgCloseRate, 
-      sub: 'Cần kết nối Sapo', 
-      isReal: false,
-      hasAudits: auditedPerformance.length > 0
+      label: 'Tỷ lệ phản hồi TB', 
+      value: avgResponseRate, 
+      sub: totalAuditCount > 0 ? `Đã phản hồi ${totalReplied}/${totalAuditCount}` : 'Chờ quét AI', 
+      isReal: true,
+      hasAudits: totalAuditCount > 0
     },
     { 
       label: 'Doanh thu từ chat', 
-      value: auditedPerformance.length > 0 ? `${totalRevenue.toLocaleString('vi-VN')}đ` : 'Chưa có', 
+      value: 'Chưa có', 
       sub: 'Cần kết nối Sapo', 
       isReal: false,
-      hasAudits: auditedPerformance.length > 0
+      hasAudits: false
     },
   ];
 
@@ -831,45 +836,57 @@ export default function PagesPage() {
           </div>
         </div>
 
-        {/* Comparison Chart Card */}
+        {/* Comparison Chart Card — AI Quality Score */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-slate-800 text-base">So sánh hiệu suất</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Biểu đồ so sánh tỷ lệ chốt đơn giả lập của các trang.</p>
+              <h3 className="font-bold text-slate-800 text-base">So sánh điểm chất lượng AI</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Biểu đồ so sánh điểm chất lượng AI của các trang đã được quét.</p>
             </div>
-            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Chọn chỉ số: Tỷ lệ chốt</span>
+            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Chỉ số: Điểm AI</span>
           </div>
 
           <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
-            {displayPerformanceList.map((p, i) => {
-              const val = p.closeRate !== '—' ? (parseFloat(p.closeRate) || 0) : 0;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
-                    {p.closeRate} (Giả lập)
+            {displayPerformanceList.filter(p => p.quality !== null).length > 0 ? (
+              displayPerformanceList.map((p, i) => {
+                const val = p.quality !== null ? p.quality : 0;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
+                      {p.quality !== null ? `${p.quality}/100` : 'Chưa quét'}
+                    </div>
+                    
+                    {/* Label Value on Top */}
+                    <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.quality !== null ? p.quality : '—'}</span>
+                    
+                    {/* Bar */}
+                    <div 
+                      className={`w-full max-w-[40px] rounded-t-lg transition-all duration-1000 ease-out shadow-sm ${
+                        p.quality !== null
+                          ? p.quality >= 75 ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-emerald-100' 
+                            : p.quality >= 50 ? 'bg-gradient-to-t from-amber-500 to-amber-300 shadow-amber-100'
+                            : 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-orange-100'
+                          : 'bg-slate-200'
+                      }`}
+                      style={{ 
+                        height: anim ? `${val * 1.5}px` : 0, 
+                        transitionDelay: `${i * 60}ms` 
+                      }} 
+                    />
+                    
+                    {/* Label Page Name */}
+                    <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px] select-none mt-1">
+                      {p.name.split(' ').slice(0, 2).join(' ')}
+                    </span>
                   </div>
-                  
-                  {/* Label Value on Top */}
-                  <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.closeRate}</span>
-                  
-                  {/* Bar */}
-                  <div 
-                    className="w-full max-w-[40px] bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg transition-all duration-1000 ease-out shadow-sm shadow-indigo-100 group-hover:from-indigo-500 group-hover:to-indigo-300"
-                    style={{ 
-                      height: anim ? `${val * 3.5}px` : 0, 
-                      transitionDelay: `${i * 60}ms` 
-                    }} 
-                  />
-                  
-                  {/* Label Page Name */}
-                  <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px] select-none mt-1">
-                    {p.name.split(' ').slice(0, 2).join(' ')}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-8">
+                Chưa có trang nào được quét AI. Hãy bấm "Chạy quét & Chấm điểm AI" ở trên.
+              </div>
+            )}
           </div>
         </div>
       </div>
