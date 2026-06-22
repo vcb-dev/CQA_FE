@@ -37,12 +37,19 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string>('')
   const typingTimeoutRef = useRef<any>(null)
+  const lastConversationIdRef = useRef<string>('')
+  const hasScrolledForConvRef = useRef<boolean>(false)
+
+  if (lastConversationIdRef.current !== conversation.id) {
+    lastConversationIdRef.current = conversation.id
+    hasScrolledForConvRef.current = false
+  }
   const qc = useQueryClient()
 
   // Fetch messages
   const { data: messagesData, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
-    queryFn: () => fetchInboxMessages(conversation.id),
+    queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
     refetchInterval: connected ? 25000 : 4000, // Fast 4s fallback if SSE is disconnected
   })
 
@@ -154,20 +161,32 @@ export function ChatPanel({
 
   // Auto-scroll to bottom when new messages arrive or when typing starts
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (scrollRef.current) {
-        setTimeout(() => {
-          scrollRef.current?.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth',
-          })
-        }, 0)
-      }
+    if (messages.length === 0 && !isCustomerTyping) return
+
+    const lastMsgId = messages[messages.length - 1]?.id ?? ''
+    const isNewMessage = lastMsgId !== lastMessageIdRef.current
+    const isInitialLoad = !hasScrolledForConvRef.current
+
+    // Only scroll if:
+    // 1. It is the first scroll for this conversation (instant scroll)
+    // 2. A new message arrived (smooth scroll)
+    // 3. Customer started typing (smooth scroll)
+    const shouldScroll = isInitialLoad || isNewMessage || isCustomerTyping
+
+    if (shouldScroll && scrollRef.current) {
+      const behavior = isInitialLoad ? 'auto' : 'smooth'
+      setTimeout(() => {
+        if (!scrollRef.current) return
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior,
+        })
+        hasScrolledForConvRef.current = true
+      }, 0)
     }
 
-    scrollToBottom()
-    lastMessageIdRef.current = messages[messages.length - 1]?.id ?? ''
-  }, [messages, isCustomerTyping])
+    lastMessageIdRef.current = lastMsgId
+  }, [messages, isCustomerTyping, conversation.id])
 
   const displayMessages = useMemo(() => {
     return messages

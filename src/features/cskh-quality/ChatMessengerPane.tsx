@@ -93,7 +93,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const { data: intent, isLoading: isLoadingIntent } = useQuery({
     queryKey: ['cskh', 'inbox', 'intent', selectedConversation?.id],
-    queryFn: () => selectedConversation ? fetchCustomerIntent(selectedConversation.id) : null,
+    queryFn: ({ signal }) => selectedConversation ? fetchCustomerIntent(selectedConversation.id, undefined, signal) : null,
     enabled: !!selectedConversation,
   })
 

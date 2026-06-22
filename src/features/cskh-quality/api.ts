@@ -189,6 +189,7 @@ export interface CskhCustomerIntent {
   suggestedFocus: string
   suggestedReply?: string
   analyzedAt: string
+  isStale?: boolean
 }
 
 export function getCskhOAuthStartUrl(returnUrl?: string): string {
@@ -370,11 +371,15 @@ export async function fetchAuditScoreHistory(auditId: string): Promise<AuditScor
 
 export async function fetchCustomerIntent(
   conversationId: string,
-  auditId?: string
+  auditId?: string,
+  signal?: AbortSignal
 ): Promise<CskhCustomerIntent> {
   const { data } = await apiClient.get<CskhCustomerIntent>(
     `/cskh/inbox/conversations/${conversationId}/intent`,
-    { params: auditId ? { auditId } : undefined }
+    {
+      params: auditId ? { auditId } : undefined,
+      signal
+    }
   )
   return {
     summary: data.summary,
@@ -387,7 +392,9 @@ export async function fetchCustomerIntent(
     urgency: data.urgency ?? 'normal',
     suggestedFocus:
       data.suggestedFocus ?? (data as { suggested_focus?: string }).suggested_focus ?? '',
+    suggestedReply: data.suggestedReply ?? (data as { suggested_reply?: string }).suggested_reply ?? '',
     analyzedAt: data.analyzedAt ?? (data as { analyzed_at?: string }).analyzed_at ?? '',
+    isStale: data.isStale,
   }
 }
 
@@ -465,7 +472,8 @@ export async function fetchInboxConversations(pageId?: string): Promise<CskhInbo
 
 export async function fetchInboxMessages(
   conversationId: string,
-  opts?: { since?: string; refresh?: boolean; limit?: number }
+  opts?: { since?: string; refresh?: boolean; limit?: number },
+  signal?: AbortSignal
 ): Promise<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }> {
   const params: Record<string, string> = {}
   if (opts?.since) params.since = opts.since
@@ -476,6 +484,7 @@ export async function fetchInboxMessages(
     messages: CskhInboxMessage[]
   }>(`/cskh/inbox/conversations/${conversationId}/messages`, {
     params: Object.keys(params).length ? params : undefined,
+    signal,
   })
   return data
 }

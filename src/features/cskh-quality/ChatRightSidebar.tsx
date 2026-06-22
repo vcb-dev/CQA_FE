@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, Sparkles, User, Megaphone, FileText, MessageSquare, Zap } from 'lucide-react'
+import { Copy, Check, Sparkles, User, Megaphone, FileText, MessageSquare, Zap, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhInboxConversation, CskhCustomerIntent } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -138,9 +138,15 @@ export function ChatRightSidebar({
 
       {/* AI Intent Analysis */}
       <div className="px-5 py-4 space-y-3">
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5 w-full">
           <Sparkles className="w-3 h-3" />
           AI phân tích ý định
+          {intent?.isStale && (
+            <span className="ml-auto flex items-center gap-1 text-[9px] text-violet-400 normal-case font-medium animate-pulse">
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              Đang cập nhật...
+            </span>
+          )}
         </h4>
 
         {isLoadingIntent ? (
@@ -239,9 +245,15 @@ export function ChatRightSidebar({
 
       {/* AI Suggested Response */}
       <div className="px-5 py-4 space-y-3">
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-500 flex items-center gap-1.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-500 flex items-center gap-1.5 w-full">
           <MessageSquare className="w-3 h-3" />
           AI gợi ý trả lời
+          {intent?.isStale && (
+            <span className="ml-auto flex items-center gap-1 text-[9px] text-blue-400 normal-case font-medium animate-pulse">
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              Đang cập nhật...
+            </span>
+          )}
         </h4>
 
         {isLoadingIntent ? (
@@ -276,15 +288,17 @@ export function ChatRightSidebar({
 
             <div className="flex gap-2">
               <button
+                disabled={!intent.analyzedAt}
                 onClick={() => handleCopy(intent.suggestedReply || intent.suggestedFocus)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200/60 rounded-xl hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-200 shadow-sm cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200/60 rounded-xl hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-200 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                 Sao chép
               </button>
               <button
+                disabled={!intent.analyzedAt}
                 onClick={() => onApplySuggestedReply(intent.suggestedReply || intent.suggestedFocus)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200/50 cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap className="w-3.5 h-3.5" />
                 Áp dụng
