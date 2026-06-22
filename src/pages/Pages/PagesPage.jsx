@@ -77,7 +77,7 @@ export default function PagesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [anim, setAnim] = useState(false);
-  const [activeChannel, setActiveChannel] = useState(0);
+  const [activeChannelId, setActiveChannelId] = useState(null);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [performanceFilter, setPerformanceFilter] = useState('all');
@@ -160,24 +160,36 @@ export default function PagesPage() {
     }
   });
 
-  const handleStartAudit = () => {
-    const activePage = channels[activeChannel];
-    if (!activePage) return;
-
-    toast.loading(`Đang khởi chạy AI quét trang "${activePage.name}"...`, { id: 'audit-run' });
-
+  const handleStartAudit = (targetPageId) => {
+    const pageId = typeof targetPageId === 'string' ? targetPageId : undefined;
+    
     const today = new Date();
     const past30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
     const dateFrom = past30Days.toISOString().split('T')[0];
     const dateTo = today.toISOString().split('T')[0];
 
-    auditMutation.mutate({
-      pageId: activePage.id,
-      auditDateFrom: dateFrom,
-      auditDateTo: dateTo,
-      maxConversations: 20,
-      force: true
-    });
+    if (pageId) {
+      const activePage = channels.find(ch => ch.id === pageId) || channels[0];
+      if (!activePage) return;
+      toast.loading(`Đang khởi chạy AI quét trang "${activePage.name}"...`, { id: 'audit-run' });
+
+      auditMutation.mutate({
+        pageId,
+        auditDateFrom: dateFrom,
+        auditDateTo: dateTo,
+        maxConversations: 20,
+        force: true
+      });
+    } else {
+      toast.loading(`Đang khởi chạy AI quét toàn bộ các trang...`, { id: 'audit-run' });
+
+      auditMutation.mutate({
+        auditDateFrom: dateFrom,
+        auditDateTo: dateTo,
+        maxConversations: 20,
+        force: true
+      });
+    }
   };
 
   // Detect channel type from page name. All pages default to Facebook Page
@@ -594,9 +606,9 @@ export default function PagesPage() {
           {filteredChannels.map((ch, i) => (
             <div 
               key={ch.id} 
-              onClick={() => setActiveChannel(i)}
+              onClick={() => setActiveChannelId(ch.id)}
               className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all duration-200 ${
-                activeChannel === i 
+                (activeChannelId === ch.id || (!activeChannelId && i === 0))
                   ? 'bg-indigo-50/50 border-indigo-200/70 shadow-sm shadow-indigo-50' 
                   : 'bg-transparent border-transparent hover:bg-slate-50'
               }`}
@@ -718,7 +730,7 @@ export default function PagesPage() {
                 <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
                 {/* Trigger AI Evaluation button */}
                 <button 
-                  onClick={handleStartAudit}
+                  onClick={() => handleStartAudit()}
                   disabled={isJobRunning || auditMutation.isPending}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
                     isJobRunning
@@ -778,7 +790,7 @@ export default function PagesPage() {
                 <span>Có {countUnauditedPages} trang chưa quét chấm điểm AI. Điểm Chất lượng & CSAT của các trang này đang trống.</span>
               </span>
               <button 
-                onClick={handleStartAudit}
+                onClick={() => handleStartAudit(activeChannelId || channels[0]?.id)}
                 className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
               >
                 Nhấn để Chạy quét AI trang chọn
