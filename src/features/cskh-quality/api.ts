@@ -223,7 +223,8 @@ export function getCskhOAuthStartUrl(returnUrl?: string): string {
   return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}${tokenQuery}`
 }
 
-export async function fetchCskhPages(month?: string): Promise<CskhPagesResponse> {
+export async function fetchCskhPages(options?: { month?: string }): Promise<CskhPagesResponse> {
+  const month = options?.month?.trim()
   const { data } = await apiClient.get<CskhPagesResponse>('/cskh/pages', {
     params: month ? { month } : undefined,
   })

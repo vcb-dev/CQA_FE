@@ -14,7 +14,8 @@ import {
   TrendUp,
   CaretRight,
   Plus,
-  Pause
+  Pause,
+  CalendarBlank,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { 
@@ -208,7 +209,7 @@ export default function PagesPage() {
   // Một API duy nhất — pages + thống kê audit gom sẵn (không tải 500 audits)
   const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
     queryKey: ['cskh', 'pages', selectedMonth],
-    queryFn: () => fetchCskhPages(selectedMonth),
+    queryFn: () => fetchCskhPages({ month: selectedMonth }),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
@@ -419,20 +420,22 @@ export default function PagesPage() {
     ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
   const totalAuditCount = auditSummary?.totalAudits ?? 0;
-  const totalReplied = auditSummary?.repliedCount ?? 0;
-  const avgResponseRate = totalAuditCount > 0
-    ? `${Math.round((totalReplied / totalAuditCount) * 100)}%`
-    : 'Chưa có';
-  
   const avgQuality = auditSummary?.avgScore ?? null;
-  const avgCsat = avgQuality !== null ? `${(avgQuality / 20).toFixed(1)}/5` : null;
 
   const dynamicKPIs = [
     { 
       label: 'Tổng tin nhắn', 
       value: totalMsgs.toLocaleString(), 
       sub: 'Từ khi kết nối', 
-      isReal: true 
+      isReal: true,
+      hasAudits: true,
+    },
+    { 
+      label: 'Tin nhắn mới đến', 
+      value: totalNewInbound.toLocaleString(), 
+      sub: selectedMonthLabel, 
+      isReal: true,
+      hasAudits: true,
     },
     { 
       label: 'Chất lượng AI TB', 
@@ -440,20 +443,6 @@ export default function PagesPage() {
       sub: `Từ ${totalAuditCount} cuộc hội thoại`, 
       isReal: true,
       hasAudits: avgQuality !== null
-    },
-    { 
-      label: 'CSAT trung bình', 
-      value: avgCsat || 'Chưa có', 
-      sub: 'Quy đổi từ điểm AI', 
-      isReal: true,
-      hasAudits: avgCsat !== null
-    },
-    { 
-      label: 'Tỷ lệ phản hồi TB', 
-      value: avgResponseRate, 
-      sub: totalAuditCount > 0 ? `Đã phản hồi ${totalReplied}/${totalAuditCount}` : 'Chờ quét AI', 
-      isReal: true,
-      hasAudits: totalAuditCount > 0
     },
     { 
       label: 'Doanh thu từ chat', 
@@ -720,7 +709,36 @@ export default function PagesPage() {
         )}
 
         {/* KPIs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <CalendarBlank size={20} className="text-indigo-600 shrink-0" weight="duotone" />
+              <h3 className="font-bold text-slate-800">Thống kê tin nhắn theo tháng</h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Chọn tháng để xem cột «Tin nhắn mới đến» — mỗi tin khách gửi đến page trong tháng đó (kể cả khách cũ nhắn lại).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <label className="flex items-center gap-2 rounded-xl border-2 border-indigo-200 bg-indigo-50/40 px-3 py-2 cursor-pointer">
+              <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Tháng</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+                className="text-sm font-bold text-slate-800 bg-transparent border-none outline-none cursor-pointer"
+              />
+            </label>
+            <div className="text-right px-3 py-1">
+              <div className="text-2xl font-black text-indigo-600 leading-none">
+                {isFetchingPages && !isLoadingPages ? '…' : totalNewInbound.toLocaleString()}
+              </div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">{selectedMonthLabel}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {dynamicKPIs.map((kpi, i) => (
             <div 
               key={i} 
@@ -819,27 +837,13 @@ export default function PagesPage() {
                 {isJobRunning && jobSummary?.currentPage ? (
                   <> Đang xử lý: <strong className="text-slate-500">{jobSummary.currentPage}</strong>.</>
                 ) : null}
-                {' '}
-                Cột «Tin nhắn mới đến» đếm tin khách gửi trong{' '}
-                <strong className="text-slate-500">{selectedMonthLabel}</strong>
-                {' '}(tổng <strong className="text-indigo-600">{totalNewInbound.toLocaleString()}</strong>).
               </p>
             </div>
             
-            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none flex items-center gap-2">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <span className="text-slate-400 font-semibold">Tháng</span>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-                  className="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-md px-1.5 py-0.5 cursor-pointer"
-                />
-              </label>
-              <span className="text-slate-300">|</span>
-              <span>{filteredPerformance.length}/{performance.length} trang</span>
+            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
+              {filteredPerformance.length}/{performance.length} trang
               {isFetchingPages && !isLoadingPages ? (
-                <span className="text-indigo-500 font-semibold">Đang tải...</span>
+                <span className="text-indigo-500 font-semibold ml-2">Đang tải...</span>
               ) : null}
             </span>
           </div>

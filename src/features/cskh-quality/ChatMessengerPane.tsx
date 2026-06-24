@@ -53,7 +53,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const { data: pagesData } = useQuery({
     queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+    queryFn: () => fetchCskhPages(),
   })
 
   // Fetch all conversations for counting stats

@@ -49,7 +49,8 @@ import {
   setCskhPageEnabled,
   syncInboxFromGraph,
   type CskhPage,
-} from './api'
+  type CskhPagesResponse,
+} from '@/features/cskh-quality/api'
 import { AuditMessengerView } from './AuditMessengerView'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { CskhGlassPanel, CskhPageShell, CskhPageAvatar } from './cskhUi'
@@ -1838,9 +1839,9 @@ function OverviewTab() {
 
 function ConfigTab() {
   const qc = useQueryClient()
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch } = useQuery<CskhPagesResponse>({
     queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+    queryFn: () => fetchCskhPages(),
   })
 
   const refreshMut = useMutation({
@@ -2105,9 +2106,9 @@ function FbPageTab() {
   const [activeTimeframe, setActiveTimeframe] = useState<'day' | 'week' | 'month'>('day')
   const [visiblePageCount, setVisiblePageCount] = useState(FB_PAGE_LIST_PAGE_SIZE)
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<CskhPagesResponse>({
     queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+    queryFn: () => fetchCskhPages(),
   })
 
   const connectedPages = data?.pages ?? []

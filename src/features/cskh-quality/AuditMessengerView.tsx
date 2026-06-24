@@ -727,7 +727,7 @@ export function AuditMessengerView({
 
   const { data: pagesData } = useQuery({
     queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+    queryFn: () => fetchCskhPages(),
     staleTime: 60_000,
   })
 

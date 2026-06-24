@@ -52,7 +52,7 @@ Các tiêu chí cần đánh giá:
   // Fetch real channels/pages
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
     queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+    queryFn: () => fetchCskhPages(),
   });
 
   // Toggle active/inactive status
