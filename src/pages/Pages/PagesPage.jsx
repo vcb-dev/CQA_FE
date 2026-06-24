@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -23,11 +23,15 @@ import {
   fetchRunningCskhJob, 
   fetchCskhJob,
   pauseAuditJob,
-  fetchAuditDayStats,
 } from '@/features/cskh-quality/api';
 
 const AUDIT_LOOKBACK_DAYS = 30;
 const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
+
+/** Tin nhắn inbox hoặc số cuộc đã quét AI — tránh hiển thị "Chưa có" khi đã có audit. */
+function pageMessageCount(p) {
+  return Math.max(p.conversationCount || 0, p.auditCount || 0);
+}
 
 function getAuditDateRange() {
   const today = new Date();
@@ -207,16 +211,6 @@ export default function PagesPage() {
 
   const isJobRunning = Boolean(runningJobId);
 
-  const { data: channelDayStats } = useQuery({
-    queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
-    queryFn: () => fetchAuditDayStats(auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId),
-    enabled: Boolean(activeChannelId) && !isJobRunning,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    placeholderData: keepPreviousData,
-  });
-
   // Chỉ kiểm tra job đang chạy khi mount — không poll liên tục
   const { data: activeRunningJob } = useQuery({
     queryKey: ['cskh', 'running-job'],
@@ -248,12 +242,7 @@ export default function PagesPage() {
 
   const refreshAuditResults = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
-    if (activeChannelId) {
-      queryClient.invalidateQueries({
-        queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
-      });
-    }
-  }, [queryClient, activeChannelId, auditDateRange.auditDateFrom, auditDateRange.auditDateTo]);
+  }, [queryClient]);
 
   // Kết thúc job — một lần duy nhất, không reset guard gây loop
   useEffect(() => {
@@ -281,9 +270,13 @@ export default function PagesPage() {
         { id: 'audit-run', duration: 6000 }
       );
     } else if (summary?.allAlreadyAudited) {
-      toast.success('Kênh này đã được quét đủ số cuộc trong khoảng ngày.', { id: 'audit-run' });
+      toast.success('Tất cả kênh đã được quét đủ số cuộc trong khoảng ngày.', { id: 'audit-run' });
     } else {
-      toast.success(`Hoàn thành — đã chấm ${audited} cuộc hội thoại.`, { id: 'audit-run' });
+      const pagesDone = summary?.pagesProcessed ?? summary?.pagesTotal;
+      const msg = summary?.scanAllPages && pagesDone
+        ? `Hoàn thành — đã chấm ${audited} cuộc trên ${pagesDone} kênh.`
+        : `Hoàn thành — đã chấm ${audited} cuộc hội thoại.`;
+      toast.success(msg, { id: 'audit-run' });
     }
   }, [auditJob, runningJobId, queryClient, refreshAuditResults]);
 
@@ -327,7 +320,7 @@ export default function PagesPage() {
     name: p.pageName || `Trang #${p.pageId}`,
     type: getPageType(p.pageName),
     score: p.avgScore ?? null,
-    msgs: p.conversationCount || 0,
+    msgs: pageMessageCount(p),
     processing: p.unreadConversationCount || 0,
     enabled: p.enabled,
     pictureUrl: p.pagePictureUrl,
@@ -346,47 +339,30 @@ export default function PagesPage() {
     });
   }, [channels, tab, deferredSearchQuery]);
 
-  const selectedAuditChannel =
-    channels.find((ch) => ch.id === activeChannelId) ||
-    filteredChannels[0] ||
-    channels[0] ||
-    null;
-
-  const resolveAuditTargetPage = (targetPageId) => {
-    const pageId =
-      typeof targetPageId === 'string'
-        ? targetPageId
-        : activeChannelId || filteredChannels[0]?.id || channels[0]?.id;
-    const activePage = channels.find((ch) => ch.id === pageId);
-    return { pageId, activePage };
-  };
-
-  const handleStartAudit = useCallback((targetPageId) => {
-    const { pageId, activePage } = resolveAuditTargetPage(targetPageId);
-
-    if (!pageId || !activePage) {
+  const handleStartAudit = useCallback(() => {
+    if (!pages.length) {
       toast.error('Chưa có kênh nào để quét. Hãy kết nối Facebook trước.', { id: 'audit-run' });
       return;
     }
 
-    const alreadyScored = channelDayStats?.total ?? 0;
-    const remaining = Math.max(0, auditConversationLimit - alreadyScored);
+    const pagesBelowLimit = pages.filter((p) => (p.auditCount ?? 0) < auditConversationLimit).length;
+    const hasPartialScan = pages.some((p) => (p.auditCount ?? 0) > 0);
 
     toast.loading(
-      alreadyScored > 0
-        ? `Tiếp tục quét ${remaining} cuộc còn lại cho "${activePage.name}"...`
-        : `Đang quét ${auditConversationLimit} cuộc hội thoại cho "${activePage.name}"...`,
+      hasPartialScan
+        ? `Tiếp tục quét — còn ${pagesBelowLimit} kênh chưa đủ ${auditConversationLimit} cuộc/kênh...`
+        : `Đang quét ${auditConversationLimit} cuộc/kênh cho tất cả ${pages.length} kênh...`,
       { id: 'audit-run' }
     );
 
     auditMutation.mutate({
-      pageId,
+      scanAllChannels: true,
       auditDateFrom: auditDateRange.auditDateFrom,
       auditDateTo: auditDateRange.auditDateTo,
       maxConversations: auditConversationLimit,
       force: false,
     });
-  }, [auditConversationLimit, auditDateRange, auditMutation, channelDayStats?.total]);
+  }, [auditConversationLimit, auditDateRange, auditMutation, pages]);
 
   const facebookCount = channels.filter(c => c.type === 'Facebook Page').length;
   const instagramCount = channels.filter(c => c.type === 'Instagram').length;
@@ -416,7 +392,7 @@ export default function PagesPage() {
       pageId: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
       type,
-      msgs: p.conversationCount || 0,
+      msgs: pageMessageCount(p),
       responseRate,
       closeRate: '—',
       csat,
@@ -477,9 +453,9 @@ export default function PagesPage() {
 
   // Group pages by channel type to prevent list congestion in right panel legend
   const typeMap = {};
-  pages.forEach((p, i) => {
+  pages.forEach((p) => {
     const type = getPageType(p.pageName);
-    const msgs = p.conversationCount || 0;
+    const msgs = pageMessageCount(p);
     if (!typeMap[type]) {
       typeMap[type] = 0;
     }
@@ -602,28 +578,34 @@ export default function PagesPage() {
     );
   }
 
-  const selectedChannelScored = channelDayStats?.total ?? 0;
-  const hasReachedScanLimit = selectedChannelScored >= auditConversationLimit;
+  const pagesBelowScanLimit = pages.filter((p) => (p.auditCount ?? 0) < auditConversationLimit).length;
+  const pagesFullyScored = pages.length - pagesBelowScanLimit;
+  const hasPartialScan = pages.some((p) => (p.auditCount ?? 0) > 0);
   const canResumeAudit =
-    !isJobRunning && selectedChannelScored > 0 && !hasReachedScanLimit;
+    !isJobRunning && hasPartialScan && pagesBelowScanLimit > 0;
   const isPausing =
     Boolean(auditJob?.summary?.pauseRequested) || pauseMutation.isPending;
 
+  const jobSummary = auditJob?.summary;
+  const pagesProcessed = jobSummary?.pagesProcessed ?? 0;
+  const pagesTotal = jobSummary?.pagesTotal ?? pages.length;
   const totalConvs =
-    auditJob?.summary?.total ||
-    auditJob?.summary?.totalConversations ||
-    auditJob?.summary?.fetched ||
+    jobSummary?.total ||
+    jobSummary?.totalConversations ||
+    jobSummary?.fetched ||
     auditConversationLimit;
   const jobProgress = totalConvs
-    ? Math.round(((auditJob?.summary?.audited || 0) / totalConvs) * 100)
+    ? Math.round(((jobSummary?.audited || 0) / totalConvs) * 100)
     : 0;
 
   const runAuditButtonLabel = isJobRunning
     ? isPausing
       ? 'Đang tạm dừng...'
-      : `AI đang chấm... ${jobProgress}%`
+      : jobSummary?.scanAllPages
+        ? `AI đang chấm... ${pagesProcessed}/${pagesTotal} kênh`
+        : `AI đang chấm... ${jobProgress}%`
     : canResumeAudit
-      ? `Tiếp tục quét (${selectedChannelScored}/${auditConversationLimit})`
+      ? `Tiếp tục quét (${pagesFullyScored}/${pages.length} kênh xong)`
       : 'Chạy quét & Chấm điểm AI';
 
   const keywordItems = [
@@ -800,7 +782,7 @@ export default function PagesPage() {
                 {/* Trigger AI Evaluation button */}
                 <button 
                   onClick={() => handleStartAudit()}
-                  disabled={isJobRunning || auditMutation.isPending || !selectedAuditChannel}
+                  disabled={isJobRunning || auditMutation.isPending || pages.length === 0}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
                     isJobRunning
                       ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -814,19 +796,16 @@ export default function PagesPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                {selectedAuditChannel ? (
-                  <>
-                    Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc</strong> cho kênh{' '}
-                    <strong className="text-indigo-600">{selectedAuditChannel.name}</strong> ({AUDIT_LOOKBACK_DAYS} ngày gần nhất).
-                    {selectedChannelScored > 0 && !isJobRunning ? (
-                      <> Đã chấm <strong className="text-emerald-600">{Math.min(selectedChannelScored, auditConversationLimit)}</strong>/{auditConversationLimit} — tạm dừng để lưu, quét tiếp bỏ qua cuộc đã chấm.</>
-                    ) : (
-                      <> Tạm dừng sẽ lưu kết quả đã quét vào DB.</>
-                    )}
-                  </>
+                Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc/kênh</strong> cho{' '}
+                <strong className="text-indigo-600">tất cả {pages.length} kênh</strong> ({AUDIT_LOOKBACK_DAYS} ngày gần nhất).
+                {canResumeAudit && !isJobRunning ? (
+                  <> Đã xong {pagesFullyScored}/{pages.length} kênh — tạm dừng để lưu, quét tiếp bỏ qua cuộc đã chấm.</>
                 ) : (
-                  'Chọn kênh bên trái rồi bấm quét AI. Cron tự quét lại toàn bộ 30 cuộc/kênh lúc 2:00 AM.'
+                  <> Kênh không đủ cuộc sẽ quét hết số có. Tạm dừng sẽ lưu kết quả đã quét vào DB.</>
                 )}
+                {isJobRunning && jobSummary?.currentPage ? (
+                  <> Đang xử lý: <strong className="text-slate-500">{jobSummary.currentPage}</strong>.</>
+                ) : null}
               </p>
             </div>
             
@@ -873,17 +852,15 @@ export default function PagesPage() {
               <span className="flex items-center gap-1.5">
                 <Warning size={14} className="text-amber-500 shrink-0" />
                 <span>
-                  Có {countUnauditedPages} trang chưa quét chấm điểm AI. Chọn từng kênh bên trái, chọn số cuộc (30/60/100) rồi bấm quét.
+                  Có {countUnauditedPages} trang chưa quét chấm điểm AI. Chọn số cuộc (30/60/100) rồi bấm «Chạy quét & Chấm điểm AI» để quét tất cả kênh.
                 </span>
               </span>
-              {selectedAuditChannel && (
-                <button 
-                  onClick={() => handleStartAudit(selectedAuditChannel.id)}
-                  className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
-                >
-                  Quét ngay «{selectedAuditChannel.name}» ({auditConversationLimit} cuộc)
-                </button>
-              )}
+              <button 
+                onClick={() => handleStartAudit()}
+                className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
+              >
+                Quét ngay tất cả ({auditConversationLimit} cuộc/kênh)
+              </button>
             </div>
           )}
           

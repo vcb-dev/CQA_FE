@@ -269,8 +269,10 @@ export async function runAudit(params: {
   auditDateFrom: string
   auditDateTo: string
   force?: boolean
-  /** Kênh cần quét — bắt buộc. */
-  pageId: string
+  /** Một kênh — bỏ qua nếu scanAllChannels. */
+  pageId?: string
+  /** Quét tất cả kênh, mỗi kênh tối đa maxConversations cuộc. */
+  scanAllChannels?: boolean
   /** Chỉ chấm tối đa N cuộc chưa chấm (bỏ qua đã chấm trong khoảng ngày). */
   maxConversations?: number
 }): Promise<{
@@ -278,6 +280,7 @@ export async function runAudit(params: {
   status: string
   alreadyRunning?: boolean
 }> {
+  const scanAllChannels = Boolean(params.scanAllChannels) || !params.pageId
   const { data } = await apiClient.post<{
     jobId: string
     status: string
@@ -287,7 +290,8 @@ export async function runAudit(params: {
     auditDateTo: params.auditDateTo,
     auditDate: params.auditDateFrom,
     force: params.force,
-    pageId: params.pageId,
+    pageId: scanAllChannels ? undefined : params.pageId,
+    scanAllChannels,
     maxConversations: params.maxConversations,
   })
   return data
