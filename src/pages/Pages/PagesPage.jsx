@@ -187,6 +187,17 @@ export default function PagesPage() {
   const inboundMonthSummary = pagesData?.inboundMonth;
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
   const apiBase = import.meta.env.VITE_API_URL || '(chưa cấu hình VITE_API_URL)';
+  const isRailwayApi = /railway\.app/i.test(apiBase);
+  const deployHint = isRailwayApi
+    ? `1. Commit & push code BE (cskh.controller.ts, cskh.service.ts) lên branch Railway đang theo dõi
+2. Railway Dashboard → service cqa-be → Deployments → Redeploy
+   (Build Docker Hub viejhaf/cqa-be KHÔNG ảnh hưởng Railway trừ khi Railway cấu hình pull image đó)
+3. Sau deploy, mở ${apiBase.replace(/\/$/, '')}/docs — GET /cskh/pages phải có query ?month=`
+    : `cd CQA_BE
+docker build -t viejhaf/cqa-be:latest .
+docker push viejhaf/cqa-be:latest
+# Trên server:
+docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
   const monthStatsReady =
     inboundMonthSummary?.month === selectedMonth ||
     pagesData?.statsMeta?.requestedMonth === selectedMonth ||
@@ -490,17 +501,23 @@ export default function PagesPage() {
                 <strong>{selectedMonthLabel}</strong>.
               </p>
               <p className="text-amber-800/90">
-                Push Git <strong>không đủ</strong> — cần <strong>build lại Docker image</strong> và restart container:
+                {isRailwayApi ? (
+                  <>
+                    FE đang gọi <strong>Railway</strong> — build Docker Hub <strong>không cập nhật</strong> server này.
+                    Cần push code BE lên Git và redeploy trên Railway:
+                  </>
+                ) : (
+                  <>
+                    Push Git <strong>không đủ</strong> — cần <strong>build lại Docker image</strong> và restart container:
+                  </>
+                )}
               </p>
-              <pre className="text-[10px] bg-amber-100/80 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap">{`cd CQA_BE
-docker build -t viejhaf/cqa-be:latest .
-docker push viejhaf/cqa-be:latest
-# Trên server:
-docker pull viejhaf/cqa-be:latest && docker restart cqa-be`}</pre>
+              <pre className="text-[10px] bg-amber-100/80 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap">{deployHint}</pre>
               <p className="text-amber-800/90">
-                Kiểm tra: mở DevTools → Network → request <code className="text-[11px] bg-amber-100 px-1 rounded">pages?month={selectedMonth}</code> → response phải có{' '}
-                <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code> và <code className="text-[11px] bg-amber-100 px-1 rounded">statsMeta.buildTag</code>.
-                API hiện tại: <code className="text-[11px] bg-amber-100 px-1 rounded break-all">{apiBase}</code>
+                Kiểm tra: DevTools → Network → <code className="text-[11px] bg-amber-100 px-1 rounded">pages?month={selectedMonth}</code> → response phải có{' '}
+                <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code>.
+                Hiện tại Railway chưa có endpoint <code className="text-[11px] bg-amber-100 px-1 rounded">/cskh/features</code> — dấu hiệu bản cũ.
+                API: <code className="text-[11px] bg-amber-100 px-1 rounded break-all">{apiBase}</code>
               </p>
             </div>
           </div>
