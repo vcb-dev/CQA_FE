@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -22,7 +22,7 @@ import {
   fetchCskhAudits, 
   runAudit, 
   fetchRunningCskhJob, 
-  fetchAuditProgress,
+  fetchCskhJob,
   pauseAuditJob,
   fetchAuditDayStats,
 } from '@/features/cskh-quality/api';
@@ -37,6 +37,18 @@ function getAuditDateRange() {
     auditDateFrom: from.toISOString().split('T')[0],
     auditDateTo: today.toISOString().split('T')[0],
   };
+}
+
+function isTerminalAuditJob(job) {
+  if (!job) return false;
+  if (job.status === 'done' || job.status === 'failed') return true;
+  const summary = job.summary;
+  if (job.status !== 'running' || !summary) return false;
+  const target = Number(summary.total ?? summary.fetched ?? 0);
+  if (target <= 0) return false;
+  const audited = Number(summary.audited ?? 0);
+  const processed = Number(summary.processed ?? 0);
+  return summary.phase === 'audit' && audited >= target && processed >= target;
 }
 
 const Sparkles = ({ size = 14, className = "" }) => (
@@ -91,19 +103,15 @@ function DonutChart({ data, total, size = 150 }) {
 export default function PagesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [anim, setAnim] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [runningJobId, setRunningJobId] = useState(null);
   const [auditConversationLimit, setAuditConversationLimit] = useState(60);
-  const completionHandledRef = useRef(null);
+  const finishedJobIdsRef = useRef(new Set());
+  const hasRestoredRunningJobRef = useRef(false);
   const auditDateRange = useMemo(() => getAuditDateRange(), []);
-
-  useEffect(() => { 
-    setTimeout(() => setAnim(true), 200); 
-  }, []);
 
   // Fetch real pages list
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
@@ -121,13 +129,15 @@ export default function PagesPage() {
 
   // Fetch real conversations query removed as message counts are fetched directly with pages list
 
-  // Fetch real audits — cache lâu, chỉ refetch khi job xong
+  // Fetch real audits — giữ data cũ khi refetch để tránh giật bảng
   const { data: audits } = useQuery({
     queryKey: ['cskh', 'audits-all'],
     queryFn: () => fetchCskhAudits({ limit: 500 }),
     enabled: pages.length > 0,
-    staleTime: 60_000,
+    staleTime: 120_000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    placeholderData: keepPreviousData,
   });
 
   const isJobRunning = Boolean(runningJobId);
@@ -136,53 +146,69 @@ export default function PagesPage() {
     queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
     queryFn: () => fetchAuditDayStats(auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId),
     enabled: Boolean(activeChannelId) && !isJobRunning,
-    staleTime: 30_000,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    placeholderData: keepPreviousData,
   });
 
-  // Poll running job — chỉ nhanh khi đang chạy
+  // Chỉ kiểm tra job đang chạy khi mount — không poll liên tục
   const { data: activeRunningJob } = useQuery({
     queryKey: ['cskh', 'running-job'],
     queryFn: () => fetchRunningCskhJob('audit'),
-    refetchInterval: (query) => (query.state.data?.status === 'running' || runningJobId ? 5000 : false),
-    staleTime: 10_000,
+    enabled: !runningJobId,
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
-    if (activeRunningJob?.status === 'running' && activeRunningJob.id !== runningJobId) {
+    if (hasRestoredRunningJobRef.current || runningJobId) return;
+    if (activeRunningJob?.status === 'running') {
+      hasRestoredRunningJobRef.current = true;
       setRunningJobId(activeRunningJob.id);
     }
   }, [activeRunningJob, runningJobId]);
 
-  const { data: auditJobProgress } = useQuery({
-    queryKey: ['cskh', 'audit-progress', runningJobId],
-    queryFn: () => fetchAuditProgress(runningJobId),
+  // Poll nhẹ — chỉ summary job, không tải 500 audits
+  const { data: auditJob } = useQuery({
+    queryKey: ['cskh', 'audit-job', runningJobId],
+    queryFn: () => fetchCskhJob(runningJobId),
     enabled: !!runningJobId,
-    refetchInterval: runningJobId ? 5000 : false,
-    staleTime: 3000,
+    refetchInterval: runningJobId ? 6000 : false,
+    staleTime: 5000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
-  // Xử lý khi job kết thúc — tránh side-effect trong refetchInterval (gây nhảy UI)
+  const refreshAuditResults = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
+    if (activeChannelId) {
+      queryClient.invalidateQueries({
+        queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
+      });
+    }
+  }, [queryClient, activeChannelId, auditDateRange.auditDateFrom, auditDateRange.auditDateTo]);
+
+  // Kết thúc job — một lần duy nhất, không reset guard gây loop
   useEffect(() => {
-    if (!runningJobId || !auditJobProgress) return;
-    if (auditJobProgress.id !== runningJobId) return;
+    if (!runningJobId || !auditJob) return;
+    if (auditJob.id !== runningJobId) return;
+    if (!isTerminalAuditJob(auditJob)) return;
+    if (finishedJobIdsRef.current.has(runningJobId)) return;
 
-    const terminal = ['done', 'completed', 'failed'].includes(auditJobProgress.status);
-    if (!terminal) return;
-    if (completionHandledRef.current === runningJobId) return;
-
-    completionHandledRef.current = runningJobId;
-    const summary = auditJobProgress.summary;
+    finishedJobIdsRef.current.add(runningJobId);
+    const summary = auditJob.summary;
     const audited = summary?.audited ?? 0;
+    const finishedId = runningJobId;
 
     setRunningJobId(null);
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
+    queryClient.setQueryData(['cskh', 'running-job'], null);
+    queryClient.removeQueries({ queryKey: ['cskh', 'audit-job', finishedId] });
 
-    if (auditJobProgress.status === 'failed') {
+    window.setTimeout(() => refreshAuditResults(), 500);
+
+    if (auditJob.status === 'failed') {
       toast.error('Tiến trình chấm điểm AI gặp lỗi!', { id: 'audit-run' });
     } else if (summary?.paused || summary?.partial) {
       toast.info(
@@ -194,13 +220,7 @@ export default function PagesPage() {
     } else {
       toast.success(`Hoàn thành — đã chấm ${audited} cuộc hội thoại.`, { id: 'audit-run' });
     }
-  }, [auditJobProgress, runningJobId, queryClient]);
-
-  useEffect(() => {
-    if (!runningJobId) {
-      completionHandledRef.current = null;
-    }
-  }, [runningJobId]);
+  }, [auditJob, runningJobId, queryClient, refreshAuditResults]);
 
   const pauseMutation = useMutation({
     mutationFn: pauseAuditJob,
@@ -223,7 +243,8 @@ export default function PagesPage() {
       if (res.alreadyRunning) {
         toast.warning('Có tiến trình chấm điểm đang chạy rồi!', { id: 'audit-run' });
       } else {
-        completionHandledRef.current = null;
+        finishedJobIdsRef.current.delete(res.jobId);
+        hasRestoredRunningJobRef.current = true;
         setRunningJobId(res.jobId);
         toast.loading('Đang quét và chấm điểm AI...', { id: 'audit-run' });
       }
@@ -361,24 +382,23 @@ export default function PagesPage() {
     { key: 'other', label: `Khác ${otherCount}` },
   ];
 
-  // Dynamic performance list — only real data, no mockups
-  const performance = pages.map((p, i) => {
+  // Dynamic performance list — memoized để tránh re-render bảng khi poll job
+  const performance = useMemo(() => pages.map((p) => {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
     const type = getPageType(p.pageName);
 
     const msgs = p.conversationCount || 0;
-    // Real response rate from audit noReply data
     const responseRate = pageAudit && pageAudit.count > 0
       ? `${Math.round((pageAudit.replied / pageAudit.count) * 100)}%`
       : '—';
-    // Close rate and revenue require Sapo integration — show dash
     const closeRate = '—';
     const revenue = '—';
     const trend = pageAudit ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
 
     return {
+      pageId: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
       type,
       msgs,
@@ -390,7 +410,7 @@ export default function PagesPage() {
       trend,
       pictureUrl: p.pagePictureUrl
     };
-  });
+  }), [pages, auditsByPage]);
 
   // Dynamic KPIs calculations — only real data
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
@@ -636,18 +656,19 @@ export default function PagesPage() {
   const insights = generateRealAIInsights();
 
   const selectedChannelScored = channelDayStats?.total ?? 0;
+  const hasReachedScanLimit = selectedChannelScored >= auditConversationLimit;
   const canResumeAudit =
-    selectedChannelScored > 0 && selectedChannelScored < auditConversationLimit;
+    !isJobRunning && selectedChannelScored > 0 && !hasReachedScanLimit;
   const isPausing =
-    Boolean(auditJobProgress?.summary?.pauseRequested) || pauseMutation.isPending;
+    Boolean(auditJob?.summary?.pauseRequested) || pauseMutation.isPending;
 
   const totalConvs =
-    auditJobProgress?.summary?.total ||
-    auditJobProgress?.summary?.totalConversations ||
-    auditJobProgress?.summary?.fetched ||
+    auditJob?.summary?.total ||
+    auditJob?.summary?.totalConversations ||
+    auditJob?.summary?.fetched ||
     auditConversationLimit;
   const jobProgress = totalConvs
-    ? Math.round(((auditJobProgress?.summary?.audited || 0) / totalConvs) * 100)
+    ? Math.round(((auditJob?.summary?.audited || 0) / totalConvs) * 100)
     : 0;
 
   const runAuditButtonLabel = isJobRunning
@@ -769,11 +790,11 @@ export default function PagesPage() {
             <div className="flex items-center gap-2 text-sm font-bold min-w-0">
               <Sparkles size={18} className="animate-spin text-indigo-600 shrink-0" />
               <span className="truncate">
-                {auditJobProgress?.summary?.phase === 'fetch'
-                  ? `Đang thu thập hội thoại... (${auditJobProgress?.summary?.fetched || 0} cuộc)`
+                {auditJob?.summary?.phase === 'fetch'
+                  ? `Đang thu thập hội thoại... (${auditJob?.summary?.fetched || 0} cuộc)`
                   : isPausing
-                    ? `Đang tạm dừng — đã lưu ${auditJobProgress?.summary?.audited || 0} cuộc`
-                    : `AI đang chấm điểm... ${auditJobProgress?.summary?.audited || 0}/${totalConvs} (${jobProgress}%)`
+                    ? `Đang tạm dừng — đã lưu ${auditJob?.summary?.audited || 0} cuộc`
+                    : `AI đang chấm điểm... ${auditJob?.summary?.audited || 0}/${totalConvs} (${jobProgress}%)`
                 }
               </span>
             </div>
@@ -883,8 +904,8 @@ export default function PagesPage() {
                   <>
                     Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc</strong> cho kênh{' '}
                     <strong className="text-indigo-600">{selectedAuditChannel.name}</strong> ({AUDIT_LOOKBACK_DAYS} ngày gần nhất).
-                    {selectedChannelScored > 0 ? (
-                      <> Đã chấm <strong className="text-emerald-600">{selectedChannelScored}</strong> — bấm tạm dừng để lưu, quét tiếp sẽ bỏ qua cuộc đã chấm.</>
+                    {selectedChannelScored > 0 && !isJobRunning ? (
+                      <> Đã chấm <strong className="text-emerald-600">{Math.min(selectedChannelScored, auditConversationLimit)}</strong>/{auditConversationLimit} — tạm dừng để lưu, quét tiếp bỏ qua cuộc đã chấm.</>
                     ) : (
                       <> Tạm dừng sẽ lưu kết quả đã quét vào DB.</>
                     )}
@@ -972,8 +993,8 @@ export default function PagesPage() {
                     </td>
                   </tr>
                 )}
-                {displayPerformanceList.map((p, i) => (
-                  <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                {displayPerformanceList.map((p) => (
+                  <tr key={p.pageId} className="hover:bg-slate-50/30 transition-colors">
                     {/* Page Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
@@ -1046,31 +1067,23 @@ export default function PagesPage() {
 
           <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
             {displayPerformanceList.filter(p => p.quality !== null).length > 0 ? (
-              displayPerformanceList.map((p, i) => {
+              displayPerformanceList.map((p) => {
                 const val = p.quality !== null ? p.quality : 0;
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
+                  <div key={p.pageId} className="flex-1 flex flex-col items-center gap-2 group relative">
+                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
                       {p.quality !== null ? `${p.quality}/100` : 'Chưa quét'}
                     </div>
-                    
-                    {/* Label Value on Top */}
                     <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.quality !== null ? p.quality : '—'}</span>
-                    
-                    {/* Bar */}
                     <div 
-                      className={`w-full max-w-[40px] rounded-t-lg transition-all duration-1000 ease-out shadow-sm ${
+                      className={`w-full max-w-[40px] rounded-t-lg shadow-sm ${
                         p.quality !== null
                           ? p.quality >= 75 ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-emerald-100' 
                             : p.quality >= 50 ? 'bg-gradient-to-t from-amber-500 to-amber-300 shadow-amber-100'
                             : 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-orange-100'
                           : 'bg-slate-200'
                       }`}
-                      style={{ 
-                        height: anim ? `${val * 1.5}px` : 0, 
-                        transitionDelay: `${i * 60}ms` 
-                      }} 
+                      style={{ height: `${val * 1.5}px` }} 
                     />
                     
                     {/* Label Page Name */}
