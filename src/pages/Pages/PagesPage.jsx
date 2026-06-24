@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, memo } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -12,22 +12,10 @@ import {
   Globe,
   Warning,
   TrendUp,
-  CaretRight,
   Plus,
-  Pause,
   CalendarBlank,
 } from '@phosphor-icons/react';
-import { toast } from 'sonner';
-import { 
-  fetchCskhPages, 
-  runAudit, 
-  fetchRunningCskhJob, 
-  fetchCskhJob,
-  pauseAuditJob,
-} from '@/features/cskh-quality/api';
-
-const AUDIT_LOOKBACK_DAYS = 30;
-const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
+import { fetchCskhPages } from '@/features/cskh-quality/api';
 
 function getVNMonthValue(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en', {
@@ -45,44 +33,9 @@ function formatMonthLabel(monthValue) {
   return `Tháng ${parseInt(month, 10)}/${year}`;
 }
 
-/** Tin nhắn inbox hoặc số cuộc đã quét AI — tránh hiển thị "Chưa có" khi đã có audit. */
 function pageMessageCount(p) {
   return Math.max(p.conversationCount || 0, p.auditCount || 0);
 }
-
-function getAuditDateRange() {
-  const today = new Date();
-  const from = new Date(today.getTime() - AUDIT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  return {
-    auditDateFrom: from.toISOString().split('T')[0],
-    auditDateTo: today.toISOString().split('T')[0],
-  };
-}
-
-function isTerminalAuditJob(job) {
-  if (!job) return false;
-  if (job.status === 'done' || job.status === 'failed') return true;
-  const summary = job.summary;
-  if (job.status !== 'running' || !summary) return false;
-  const target = Number(summary.total ?? summary.fetched ?? 0);
-  if (target <= 0) return false;
-  const audited = Number(summary.audited ?? 0);
-  const processed = Number(summary.processed ?? 0);
-  return summary.phase === 'audit' && audited >= target && processed >= target;
-}
-
-const Sparkles = ({ size = 14, className = "" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="currentColor" 
-    className={className}
-  >
-    <path d="M12 2l2.4 4.9L19.3 7.7l-3.6 3.5.9 5.3-4.6-2.4-4.6 2.4.9-5.3-3.6-3.5 4.9-.8L12 2zm6 13l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1 1-2.2zM6 6l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8.8-1.8z" />
-  </svg>
-);
 
 function DonutChart({ data, total, size = 150 }) {
   const r = (size / 2) - 14;
@@ -146,13 +99,6 @@ function PageTypeIcon({ type, size = 18 }) {
   return <Icon size={size} />;
 }
 
-function getScoreColor(s) {
-  if (s === null || s === undefined) return 'text-slate-500 bg-slate-100 border-slate-200';
-  if (s >= 85) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-  if (s >= 75) return 'text-amber-700 bg-amber-50 border-amber-200';
-  return 'text-orange-700 bg-orange-50 border-orange-200';
-}
-
 const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
   return (
     <div
@@ -178,9 +124,6 @@ const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
           <span className="text-sm font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">
             {channel.name}
           </span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-md border shrink-0 ${getScoreColor(channel.score)}`}>
-            {channel.score !== null ? `${channel.score}` : '-'}
-          </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
           <span className="font-semibold text-slate-500">{channel.type}</span>
@@ -194,19 +137,12 @@ const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
 
 export default function PagesPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [performanceFilter, setPerformanceFilter] = useState('all');
-  const [runningJobId, setRunningJobId] = useState(null);
-  const [auditConversationLimit, setAuditConversationLimit] = useState(60);
   const [selectedMonth, setSelectedMonth] = useState(() => getVNMonthValue());
-  const finishedJobIdsRef = useRef(new Set());
-  const hasRestoredRunningJobRef = useRef(false);
-  const auditDateRange = useMemo(() => getAuditDateRange(), []);
 
-  // Một API duy nhất — pages + thống kê audit gom sẵn (không tải 500 audits)
   const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
     queryKey: ['cskh', 'pages', selectedMonth],
     queryFn: () => fetchCskhPages({ month: selectedMonth }),
@@ -217,7 +153,6 @@ export default function PagesPage() {
   });
 
   const pages = pagesData?.pages || [];
-  const auditSummary = pagesData?.auditSummary;
   const inboundMonthSummary = pagesData?.inboundMonth;
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
 
@@ -227,119 +162,12 @@ export default function PagesPage() {
     }
   }, [activeChannelId, pages]);
 
-  // Fetch real conversations query removed as message counts are fetched directly with pages list
-
-  const isJobRunning = Boolean(runningJobId);
-
-  // Chỉ kiểm tra job đang chạy khi mount — không poll liên tục
-  const { data: activeRunningJob } = useQuery({
-    queryKey: ['cskh', 'running-job'],
-    queryFn: () => fetchRunningCskhJob('audit'),
-    enabled: !runningJobId,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-
-  useEffect(() => {
-    if (hasRestoredRunningJobRef.current || runningJobId) return;
-    if (activeRunningJob?.status === 'running') {
-      hasRestoredRunningJobRef.current = true;
-      setRunningJobId(activeRunningJob.id);
-    }
-  }, [activeRunningJob, runningJobId]);
-
-  // Poll nhẹ — chỉ summary job, không tải 500 audits
-  const { data: auditJob } = useQuery({
-    queryKey: ['cskh', 'audit-job', runningJobId],
-    queryFn: () => fetchCskhJob(runningJobId),
-    enabled: !!runningJobId,
-    refetchInterval: runningJobId ? 6000 : false,
-    staleTime: 5000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-
-  const refreshAuditResults = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'pages', selectedMonth] });
-  }, [queryClient, selectedMonth]);
-
-  // Kết thúc job — một lần duy nhất, không reset guard gây loop
-  useEffect(() => {
-    if (!runningJobId || !auditJob) return;
-    if (auditJob.id !== runningJobId) return;
-    if (!isTerminalAuditJob(auditJob)) return;
-    if (finishedJobIdsRef.current.has(runningJobId)) return;
-
-    finishedJobIdsRef.current.add(runningJobId);
-    const summary = auditJob.summary;
-    const audited = summary?.audited ?? 0;
-    const finishedId = runningJobId;
-
-    setRunningJobId(null);
-    queryClient.setQueryData(['cskh', 'running-job'], null);
-    queryClient.removeQueries({ queryKey: ['cskh', 'audit-job', finishedId] });
-
-    window.setTimeout(() => refreshAuditResults(), 500);
-
-    if (auditJob.status === 'failed') {
-      toast.error('Tiến trình chấm điểm AI gặp lỗi!', { id: 'audit-run' });
-    } else if (summary?.paused || summary?.partial) {
-      toast.info(
-        `Đã tạm dừng — lưu ${audited} cuộc vào DB. Bấm "Tiếp tục quét" để quét nốt.`,
-        { id: 'audit-run', duration: 6000 }
-      );
-    } else if (summary?.allAlreadyAudited) {
-      toast.success('Tất cả kênh đã được quét đủ số cuộc trong khoảng ngày.', { id: 'audit-run' });
-    } else {
-      const pagesDone = summary?.pagesProcessed ?? summary?.pagesTotal;
-      const msg = summary?.scanAllPages && pagesDone
-        ? `Hoàn thành — đã chấm ${audited} cuộc trên ${pagesDone} kênh.`
-        : `Hoàn thành — đã chấm ${audited} cuộc hội thoại.`;
-      toast.success(msg, { id: 'audit-run' });
-    }
-  }, [auditJob, runningJobId, queryClient, refreshAuditResults]);
-
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const pauseMutation = useMutation({
-    mutationFn: pauseAuditJob,
-    onSuccess: (res) => {
-      if (res.paused) {
-        toast.info('Đang tạm dừng — giữ lại kết quả đã chấm vào DB...', { id: 'audit-run' });
-      } else {
-        toast.warning(res.message || 'Không có tiến trình đang chạy.', { id: 'audit-run' });
-      }
-    },
-    onError: (err) => {
-      toast.error('Không thể tạm dừng: ' + err.message, { id: 'audit-run' });
-    },
-  });
-
-  // Audit trigger mutation
-  const auditMutation = useMutation({
-    mutationFn: (params) => runAudit(params),
-    onSuccess: (res) => {
-      if (res.alreadyRunning) {
-        toast.warning('Có tiến trình chấm điểm đang chạy rồi!', { id: 'audit-run' });
-      } else {
-        finishedJobIdsRef.current.delete(res.jobId);
-        hasRestoredRunningJobRef.current = true;
-        setRunningJobId(res.jobId);
-        toast.loading('Đang quét và chấm điểm AI...', { id: 'audit-run' });
-      }
-    },
-    onError: (err) => {
-      toast.error('Lỗi khi kích hoạt AI: ' + err.message, { id: 'audit-run' });
-    }
-  });
-
-  // Construct dynamic channels list — dùng avgScore từ BE, không xử lý audits client-side
   const channels = useMemo(() => pages.map((p) => ({
     id: p.pageId,
     name: p.pageName || `Trang #${p.pageId}`,
     type: getPageType(p.pageName),
-    score: p.avgScore ?? null,
     msgs: pageMessageCount(p),
     processing: p.unreadConversationCount || 0,
     enabled: p.enabled,
@@ -359,37 +187,11 @@ export default function PagesPage() {
     });
   }, [channels, tab, deferredSearchQuery]);
 
-  const handleStartAudit = useCallback(() => {
-    if (!pages.length) {
-      toast.error('Chưa có kênh nào để quét. Hãy kết nối Facebook trước.', { id: 'audit-run' });
-      return;
-    }
-
-    const pagesBelowLimit = pages.filter((p) => (p.auditCount ?? 0) < auditConversationLimit).length;
-    const hasPartialScan = pages.some((p) => (p.auditCount ?? 0) > 0);
-
-    toast.loading(
-      hasPartialScan
-        ? `Tiếp tục quét — còn ${pagesBelowLimit} kênh chưa đủ ${auditConversationLimit} cuộc/kênh...`
-        : `Đang quét ${auditConversationLimit} cuộc/kênh cho tất cả ${pages.length} kênh...`,
-      { id: 'audit-run' }
-    );
-
-    auditMutation.mutate({
-      scanAllChannels: true,
-      auditDateFrom: auditDateRange.auditDateFrom,
-      auditDateTo: auditDateRange.auditDateTo,
-      maxConversations: auditConversationLimit,
-      force: false,
-    });
-  }, [auditConversationLimit, auditDateRange, auditMutation, pages]);
-
   const facebookCount = channels.filter(c => c.type === 'Facebook Page').length;
   const instagramCount = channels.filter(c => c.type === 'Instagram').length;
   const zaloCount = channels.filter(c => c.type === 'Zalo').length;
   const otherCount = channels.length - facebookCount - instagramCount - zaloCount;
 
-  // Dynamic tabs label counts
   const tabs = [
     { key: 'all', label: `Tất cả ${channels.length}` },
     { key: 'facebook', label: `Facebook ${facebookCount}` },
@@ -398,29 +200,18 @@ export default function PagesPage() {
     { key: 'other', label: `Khác ${otherCount}` },
   ];
 
-  // Dynamic performance list — memoized, dữ liệu từ pages API
-  const performance = useMemo(() => pages.map((p) => {
-    const realScore = p.avgScore ?? null;
-    const type = getPageType(p.pageName);
-    const trend = realScore !== null ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
-
-    return {
-      pageId: p.pageId,
-      name: p.pageName || `Trang #${p.pageId}`,
-      type,
-      msgs: pageMessageCount(p),
-      newInbound: p.inboundMessageCount ?? 0,
-      quality: realScore,
-      trend,
-      pictureUrl: p.pagePictureUrl,
-    };
-  }), [pages]);
+  const performance = useMemo(() => pages.map((p) => ({
+    pageId: p.pageId,
+    name: p.pageName || `Trang #${p.pageId}`,
+    type: getPageType(p.pageName),
+    msgs: pageMessageCount(p),
+    newInbound: p.inboundMessageCount ?? 0,
+    pictureUrl: p.pagePictureUrl,
+  })), [pages]);
 
   const totalNewInbound = inboundMonthSummary?.totalInbound
     ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
-  const totalAuditCount = auditSummary?.totalAudits ?? 0;
-  const avgQuality = auditSummary?.avgScore ?? null;
 
   const dynamicKPIs = [
     { 
@@ -428,104 +219,67 @@ export default function PagesPage() {
       value: totalMsgs.toLocaleString(), 
       sub: 'Từ khi kết nối', 
       isReal: true,
-      hasAudits: true,
     },
     { 
       label: 'Tin nhắn mới đến', 
       value: totalNewInbound.toLocaleString(), 
       sub: selectedMonthLabel, 
       isReal: true,
-      hasAudits: true,
     },
     { 
-      label: 'Chất lượng AI TB', 
-      value: avgQuality !== null ? `${avgQuality}/100` : 'Chưa có', 
-      sub: `Từ ${totalAuditCount} cuộc hội thoại`, 
+      label: 'Số kênh đang hoạt động', 
+      value: pages.filter((p) => p.enabled).length.toLocaleString(), 
+      sub: `Trên ${pages.length} kênh`, 
       isReal: true,
-      hasAudits: avgQuality !== null
     },
     { 
       label: 'Doanh thu từ chat', 
       value: 'Chưa có', 
       sub: 'Cần kết nối Sapo', 
       isReal: false,
-      hasAudits: false
     },
   ];
 
-  // Group pages by channel type to prevent list congestion in right panel legend
   const typeMap = {};
   pages.forEach((p) => {
     const type = getPageType(p.pageName);
     const msgs = pageMessageCount(p);
-    if (!typeMap[type]) {
-      typeMap[type] = 0;
-    }
+    if (!typeMap[type]) typeMap[type] = 0;
     typeMap[type] += msgs;
   });
 
   const totalTypeMsgs = Object.values(typeMap).reduce((a, b) => a + b, 0);
 
   const channelColors = {
-    'Facebook Page': '#3b82f6', // Blue
-    'Instagram': '#ec4899', // Pink
-    'TikTok': '#111827', // Black/Slate
-    'Zalo': '#0ea5e9', // Sky/Light Blue
-    'Shopee': '#f97316', // Orange
-    'Lazada': '#6366f1', // Indigo
-    'Website': '#10b981', // Emerald
-    'Khác': '#64748b' // Slate
+    'Facebook Page': '#3b82f6',
+    'Instagram': '#ec4899',
+    'TikTok': '#111827',
+    'Zalo': '#0ea5e9',
+    'Shopee': '#f97316',
+    'Lazada': '#6366f1',
+    'Website': '#10b981',
+    'Khác': '#64748b',
   };
 
   const dynamicDistribution = Object.keys(typeMap).map(type => {
     const value = typeMap[type];
     const pct = totalTypeMsgs > 0 ? Math.round((value / totalTypeMsgs) * 100) : 0;
-    return {
-      label: type,
-      pct,
-      value,
-      color: channelColors[type] || '#94a3b8'
-    };
+    return { label: type, pct, value, color: channelColors[type] || '#94a3b8' };
   }).sort((a, b) => b.value - a.value);
-
-  const getTrendIcon = (t) => {
-    if (t === '↑') return <span className="text-emerald-500 font-bold">↑</span>;
-    if (t === '↓') return <span className="text-rose-500 font-bold">↓</span>;
-    if (t === '—') return <span className="text-slate-300 font-normal">—</span>;
-    return <span className="text-slate-400 font-bold">→</span>;
-  };
 
   const insights = useMemo(() => {
     const primaryPageName = pages[0]?.pageName || 'Facebook Page';
-    if (!auditSummary?.totalAudits) {
-      return [
-        `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
-        'Chưa có dữ liệu đánh giá chất lượng AI. Hãy bấm "Chạy quét & Chấm điểm AI" để AI phân tích.',
-        'Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ doanh thu thực tế.',
-      ];
-    }
+    const topInbound = [...performance].sort((a, b) => b.newInbound - a.newInbound)[0];
     const list = [
-      `Kênh "${primaryPageName}" hoạt động ổn định, đồng bộ dữ liệu thời gian thực.`,
+      `Kênh "${primaryPageName}" và ${pages.length - 1} kênh khác đang đồng bộ dữ liệu tin nhắn.`,
+      `Trong ${selectedMonthLabel}, hệ thống ghi nhận ${totalNewInbound.toLocaleString()} tin khách gửi đến.`,
     ];
-    const avg = auditSummary.avgScore;
-    if (avg != null) {
-      list.push(
-        `Điểm chất lượng AI trung bình toàn hệ thống đạt ${avg}/100 (CSAT ${(avg / 20).toFixed(1)}/5) từ ${auditSummary.totalAudits} cuộc hội thoại.`
-      );
+    if (topInbound?.newInbound > 0) {
+      list.push(`Kênh "${topInbound.name}" nhận nhiều tin mới nhất (${topInbound.newInbound.toLocaleString()} tin).`);
     }
-    if (auditSummary.bestPage) {
-      list.push(`Trang "${auditSummary.bestPage.pageName}" dẫn đầu với ${auditSummary.bestPage.avgScore}/100.`);
-    }
-    if (auditSummary.worstPage && auditSummary.worstPage.avgScore < 75) {
-      list.push(`Trang "${auditSummary.worstPage.pageName}" cần cải thiện (${auditSummary.worstPage.avgScore}/100).`);
-    }
-    if (auditSummary.noReplyCount > 0) {
-      list.push(`Phát hiện ${auditSummary.noReplyCount} cuộc hội thoại bị bỏ sót, chưa phản hồi khách.`);
-    } else if (auditSummary.totalAudits > 0) {
-      list.push('Tỷ lệ phản hồi tốt — các cuộc đã quét đều được nhân viên trả lời.');
-    }
-    return list.slice(0, 5);
-  }, [pages, auditSummary]);
+    list.push('Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ doanh thu thực tế.');
+    return list.slice(0, 4);
+  }, [pages, performance, selectedMonthLabel, totalNewInbound]);
 
   const filteredPerformance = useMemo(() => performance.filter(p => {
     if (performanceFilter === 'all') return true;
@@ -538,16 +292,18 @@ export default function PagesPage() {
     if (performanceFilter === 'website' && p.type === 'Website') return true;
     return false;
   }), [performance, performanceFilter]);
-  const displayPerformanceList = filteredPerformance;
 
-  const countUnauditedPages = useMemo(
-    () => performance.filter((p) => p.quality === null).length,
-    [performance]
-  );
   const platformTypes = useMemo(
     () => [...new Set(performance.map((p) => p.type))].sort(),
     [performance]
   );
+
+  const chartPages = useMemo(
+    () => [...filteredPerformance].sort((a, b) => b.newInbound - a.newInbound).slice(0, 12),
+    [filteredPerformance]
+  );
+
+  const maxInbound = Math.max(...chartPages.map((p) => p.newInbound), 1);
 
   if (isLoadingPages) {
     return (
@@ -567,7 +323,7 @@ export default function PagesPage() {
         <div>
           <h3 className="text-xl font-bold text-slate-800">Chưa kết nối Page / Kênh</h3>
           <p className="text-sm text-slate-500 mt-2 max-w-md">
-            Kết nối tài khoản Facebook Fanpage của bạn trong phần Cài đặt để đồng bộ hội thoại và bắt đầu chấm điểm chất lượng CSKH tự động.
+            Kết nối tài khoản Facebook Fanpage của bạn trong phần Cài đặt để đồng bộ hội thoại và theo dõi tin nhắn theo từng kênh.
           </p>
         </div>
         <button 
@@ -580,40 +336,10 @@ export default function PagesPage() {
     );
   }
 
-  const pagesBelowScanLimit = pages.filter((p) => (p.auditCount ?? 0) < auditConversationLimit).length;
-  const pagesFullyScored = pages.length - pagesBelowScanLimit;
-  const hasPartialScan = pages.some((p) => (p.auditCount ?? 0) > 0);
-  const canResumeAudit =
-    !isJobRunning && hasPartialScan && pagesBelowScanLimit > 0;
-  const isPausing =
-    Boolean(auditJob?.summary?.pauseRequested) || pauseMutation.isPending;
-
-  const jobSummary = auditJob?.summary;
-  const pagesProcessed = jobSummary?.pagesProcessed ?? 0;
-  const pagesTotal = jobSummary?.pagesTotal ?? pages.length;
-  const totalConvs =
-    jobSummary?.total ||
-    jobSummary?.totalConversations ||
-    jobSummary?.fetched ||
-    auditConversationLimit;
-  const jobProgress = totalConvs
-    ? Math.round(((jobSummary?.audited || 0) / totalConvs) * 100)
-    : 0;
-
-  const runAuditButtonLabel = isJobRunning
-    ? isPausing
-      ? 'Đang tạm dừng...'
-      : jobSummary?.scanAllPages
-        ? `AI đang chấm... ${pagesProcessed}/${pagesTotal} kênh`
-        : `AI đang chấm... ${jobProgress}%`
-    : canResumeAudit
-      ? `Tiếp tục quét (${pagesFullyScored}/${pages.length} kênh xong)`
-      : 'Chạy quét & Chấm điểm AI';
-
   const keywordItems = [
     { type: 'Facebook Page', keywords: 'nhẫn bạc, size, giá, bảo hành, giao hàng' },
     { type: 'Instagram', keywords: 'dây chuyền, mẫu mới, giá, có sẵn không' },
-    { type: 'TikTok', keywords: 'review, chất liệu, đeo có đen không, giá' }
+    { type: 'TikTok', keywords: 'review, chất liệu, đeo có đen không, giá' },
   ];
 
   return (
@@ -626,7 +352,6 @@ export default function PagesPage() {
           <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full font-bold">{filteredChannels.length} trang</span>
         </div>
         
-        {/* Search */}
         <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 mb-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-100 transition-all duration-200">
           <MagnifyingGlass size={18} className="text-slate-400" />
           <input 
@@ -637,7 +362,6 @@ export default function PagesPage() {
           />
         </div>
 
-        {/* Tab Filters */}
         <div className="flex gap-1 overflow-x-auto pb-2 mb-3 no-scrollbar shrink-0">
           {tabs.map(t => (
             <button 
@@ -654,7 +378,6 @@ export default function PagesPage() {
           ))}
         </div>
 
-        {/* Channels List */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 no-scrollbar">
           {filteredChannels.map((ch) => (
             <ChannelRow
@@ -669,7 +392,6 @@ export default function PagesPage() {
           )}
         </div>
 
-        {/* Add Channel Button */}
         <button 
           onClick={() => navigate('/settings?tab=channel')}
           className="mt-3 w-full py-2.5 border border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
@@ -679,36 +401,9 @@ export default function PagesPage() {
         </button>
       </div>
 
-      {/* Center Column - Main Dashboard Panel */}
+      {/* Center Column */}
       <div className="flex-1 flex flex-col gap-6 min-w-0">
-        
-        {/* Progress bar banner for active AI Scan */}
-        {isJobRunning && (
-          <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-2 text-sm font-bold min-w-0">
-              <Sparkles size={18} className="animate-spin text-indigo-600 shrink-0" />
-              <span className="truncate">
-                {auditJob?.summary?.phase === 'fetch'
-                  ? `Đang thu thập hội thoại... (${auditJob?.summary?.fetched || 0} cuộc)`
-                  : isPausing
-                    ? `Đang tạm dừng — đã lưu ${auditJob?.summary?.audited || 0} cuộc`
-                    : `AI đang chấm điểm... ${auditJob?.summary?.audited || 0}/${totalConvs} (${jobProgress}%)`
-                }
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => pauseMutation.mutate()}
-              disabled={isPausing || pauseMutation.isPending}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 cursor-pointer shrink-0"
-            >
-              <Pause size={14} weight="fill" />
-              Tạm dừng
-            </button>
-          </div>
-        )}
 
-        {/* KPIs Grid */}
         <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -716,7 +411,7 @@ export default function PagesPage() {
               <h3 className="font-bold text-slate-800">Thống kê tin nhắn theo tháng</h3>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Chọn tháng để xem cột «Tin nhắn mới đến» — mỗi tin khách gửi đến page trong tháng đó (kể cả khách cũ nhắn lại).
+              Chọn tháng để xem số tin khách gửi đến từng kênh (kể cả khách cũ nhắn lại).
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -742,9 +437,8 @@ export default function PagesPage() {
           {dynamicKPIs.map((kpi, i) => (
             <div 
               key={i} 
-              className="bg-white rounded-2xl border border-slate-100 p-4 xl:p-3 2xl:p-4 shadow-sm flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+              className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
             >
-              {/* Card Label */}
               <div className="flex justify-between items-start gap-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
                 {kpi.isReal ? (
@@ -753,31 +447,19 @@ export default function PagesPage() {
                   <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">Giả lập</span>
                 )}
               </div>
-
-              {/* Value */}
-              <div 
-                className="text-xl sm:text-2xl md:text-3xl xl:text-base 2xl:text-xl font-black text-slate-800 tracking-tighter mt-2.5 mb-2 truncate"
-                title={kpi.value}
-              >
+              <div className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter mt-2.5 mb-2 truncate" title={kpi.value}>
                 {kpi.value}
               </div>
-
-              {/* Indicator & Subtext */}
               <div className="flex items-center gap-1.5 mt-auto">
-                {!kpi.isReal ? (
-                  <div className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5 shrink-0">
-                    <Warning size={12} weight="fill" />
-                    <span>Cần Sapo</span>
-                  </div>
-                ) : kpi.hasAudits === false ? (
-                  <div className="text-[10px] text-indigo-500 font-semibold flex items-center gap-0.5 shrink-0">
-                    <Sparkles size={11} weight="fill" />
-                    <span>Chờ quét AI</span>
-                  </div>
-                ) : (
+                {kpi.isReal ? (
                   <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5 shrink-0">
                     <TrendUp size={12} weight="bold" />
                     <span>Tin cậy</span>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5 shrink-0">
+                    <Warning size={12} weight="fill" />
+                    <span>Cần Sapo</span>
                   </div>
                 )}
                 <span className="text-[10px] text-slate-400 truncate">— {kpi.sub}</span>
@@ -786,60 +468,15 @@ export default function PagesPage() {
           ))}
         </div>
 
-        {/* Performance Table Card */}
+        {/* Performance Table */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
-                {/* Số cuộc hội thoại cần quét */}
-                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                  {AUDIT_LIMIT_OPTIONS.map((limit) => (
-                    <button
-                      key={limit}
-                      type="button"
-                      onClick={() => setAuditConversationLimit(limit)}
-                      disabled={isJobRunning || auditMutation.isPending}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                        auditConversationLimit === limit
-                          ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {limit} cuộc
-                    </button>
-                  ))}
-                </div>
-                {/* Trigger AI Evaluation button */}
-                <button 
-                  onClick={() => handleStartAudit()}
-                  disabled={isJobRunning || auditMutation.isPending || pages.length === 0}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
-                    isJobRunning
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : canResumeAudit
-                        ? 'bg-emerald-50 hover:bg-emerald-100/70 text-emerald-700 border-emerald-200 shadow-sm'
-                        : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  <Sparkles size={14} weight="fill" className={isJobRunning ? "animate-spin" : ""} />
-                  <span>{runAuditButtonLabel}</span>
-                </button>
-              </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc/kênh</strong> cho{' '}
-                <strong className="text-indigo-600">tất cả {pages.length} kênh</strong> ({AUDIT_LOOKBACK_DAYS} ngày gần nhất).
-                {canResumeAudit && !isJobRunning ? (
-                  <> Đã xong {pagesFullyScored}/{pages.length} kênh — tạm dừng để lưu, quét tiếp bỏ qua cuộc đã chấm.</>
-                ) : (
-                  <> Kênh không đủ cuộc sẽ quét hết số có. Tạm dừng sẽ lưu kết quả đã quét vào DB.</>
-                )}
-                {isJobRunning && jobSummary?.currentPage ? (
-                  <> Đang xử lý: <strong className="text-slate-500">{jobSummary.currentPage}</strong>.</>
-                ) : null}
+                Theo dõi tổng tin nhắn và tin mới đến trong {selectedMonthLabel}.
               </p>
             </div>
-            
             <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
               {filteredPerformance.length}/{performance.length} trang
               {isFetchingPages && !isLoadingPages ? (
@@ -848,7 +485,6 @@ export default function PagesPage() {
             </span>
           </div>
 
-          {/* Platform Filter Tabs */}
           <div className="flex gap-1.5 overflow-x-auto px-5 py-3 border-b border-slate-100 no-scrollbar shrink-0">
             <button
               onClick={() => setPerformanceFilter('all')}
@@ -879,27 +515,9 @@ export default function PagesPage() {
               );
             })}
           </div>
-
-          {/* Banner notification if some pages are not audited */}
-          {!isJobRunning && countUnauditedPages > 0 && (
-            <div className="bg-amber-50 border-b border-amber-100 px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-800 font-medium">
-              <span className="flex items-center gap-1.5">
-                <Warning size={14} className="text-amber-500 shrink-0" />
-                <span>
-                  Có {countUnauditedPages} trang chưa quét chấm điểm AI. Chọn số cuộc (30/60/100) rồi bấm «Chạy quét & Chấm điểm AI» để quét tất cả kênh.
-                </span>
-              </span>
-              <button 
-                onClick={() => handleStartAudit()}
-                className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
-              >
-                Quét ngay tất cả ({auditConversationLimit} cuộc/kênh)
-              </button>
-            </div>
-          )}
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
                   <th className="px-5 py-3.5">Page / Kênh</th>
@@ -908,21 +526,18 @@ export default function PagesPage() {
                     <div>Tin nhắn mới đến</div>
                     <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedMonthLabel}</div>
                   </th>
-                  <th className="px-4 py-3.5 text-center">Chất lượng (AI)</th>
-                  <th className="px-5 py-3.5 text-center">Xu hướng</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                {displayPerformanceList.length === 0 && (
+                {filteredPerformance.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                    <td colSpan={3} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
                       Không có trang nào thuộc nền tảng này.
                     </td>
                   </tr>
                 )}
-                {displayPerformanceList.map((p) => (
+                {filteredPerformance.map((p) => (
                   <tr key={p.pageId} className="hover:bg-slate-50/30 transition-colors">
-                    {/* Page Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8 rounded-full bg-slate-50 border border-slate-200/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -938,33 +553,15 @@ export default function PagesPage() {
                         </div>
                       </div>
                     </td>
-                    
-                    {/* Messages */}
                     <td className="px-4 py-3.5 text-center font-bold text-slate-700">
                       {p.msgs > 0 ? p.msgs.toLocaleString() : (
                         <span className="text-slate-300 font-normal text-xs">Chưa có</span>
                       )}
                     </td>
-
-                    {/* New inbound messages in selected month */}
                     <td className="px-4 py-3.5 text-center font-bold text-slate-700">
-                      {p.newInbound > 0 ? (
-                        p.newInbound.toLocaleString()
-                      ) : (
+                      {p.newInbound > 0 ? p.newInbound.toLocaleString() : (
                         <span className="text-slate-300 font-normal text-xs">0</span>
                       )}
-                    </td>
-
-                    {/* AI Score */}
-                    <td className="px-4 py-3.5 text-center">
-                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full border font-bold text-xs ${getScoreColor(p.quality)}`}>
-                        {p.quality !== null ? p.quality : '-'}
-                      </span>
-                    </td>
-
-                    {/* Trend */}
-                    <td className="px-5 py-3.5 text-center text-lg select-none">
-                      {getTrendIcon(p.trend)}
                     </td>
                   </tr>
                 ))}
@@ -973,38 +570,30 @@ export default function PagesPage() {
           </div>
         </div>
 
-        {/* Comparison Chart Card — AI Quality Score */}
+        {/* Inbound messages chart */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-slate-800 text-base">So sánh điểm chất lượng AI</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Biểu đồ so sánh điểm chất lượng AI của các trang đã được quét.</p>
+              <h3 className="font-bold text-slate-800 text-base">So sánh tin nhắn mới đến</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Top kênh nhận nhiều tin khách nhất trong {selectedMonthLabel}.</p>
             </div>
-            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Chỉ số: Điểm AI</span>
+            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Tin inbound</span>
           </div>
 
-          <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100">
-            {displayPerformanceList.filter(p => p.quality !== null).length > 0 ? (
-              displayPerformanceList.map((p) => {
-                const val = p.quality !== null ? p.quality : 0;
+          <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100 overflow-x-auto">
+            {chartPages.some((p) => p.newInbound > 0) ? (
+              chartPages.map((p) => {
+                const heightPct = maxInbound > 0 ? (p.newInbound / maxInbound) * 100 : 0;
                 return (
-                  <div key={p.pageId} className="flex-1 flex flex-col items-center gap-2 group relative">
+                  <div key={p.pageId} className="flex-1 min-w-[48px] flex flex-col items-center gap-2 group relative">
                     <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
-                      {p.quality !== null ? `${p.quality}/100` : 'Chưa quét'}
+                      {p.newInbound.toLocaleString()} tin
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.quality !== null ? p.quality : '—'}</span>
+                    <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.newInbound}</span>
                     <div 
-                      className={`w-full max-w-[40px] rounded-t-lg shadow-sm ${
-                        p.quality !== null
-                          ? p.quality >= 75 ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-emerald-100' 
-                            : p.quality >= 50 ? 'bg-gradient-to-t from-amber-500 to-amber-300 shadow-amber-100'
-                            : 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-orange-100'
-                          : 'bg-slate-200'
-                      }`}
-                      style={{ height: `${val * 1.5}px` }} 
+                      className="w-full max-w-[40px] rounded-t-lg shadow-sm bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-indigo-100"
+                      style={{ height: `${Math.max(heightPct * 1.5, p.newInbound > 0 ? 8 : 0)}px` }} 
                     />
-                    
-                    {/* Label Page Name */}
                     <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px] select-none mt-1">
                       {p.name.split(' ').slice(0, 2).join(' ')}
                     </span>
@@ -1013,17 +602,15 @@ export default function PagesPage() {
               })
             ) : (
               <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-8">
-                Chưa có trang nào được quét AI. Hãy bấm "Chạy quét & Chấm điểm AI" ở trên.
+                Chưa có tin nhắn mới đến trong {selectedMonthLabel}.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Right Column - Distribution + Insights */}
+      {/* Right Column */}
       <div className="w-full xl:w-80 flex flex-col gap-6 shrink-0 pb-6 pr-0.5">
-        
-        {/* Distribution Card - Grouped by Channel Type to avoid congestion */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Phân bổ tin nhắn theo kênh</h3>
           <div className="flex flex-col items-center gap-5">
@@ -1048,13 +635,11 @@ export default function PagesPage() {
           </div>
         </div>
 
-        {/* AI Insight Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-            <h3 className="font-bold text-slate-800 text-sm">AI Insight về page & kênh</h3>
+            <h3 className="font-bold text-slate-800 text-sm">Insight về page & kênh</h3>
           </div>
-          
           <div className="space-y-3">
             {insights.map((text, i) => (
               <div 
@@ -1068,7 +653,6 @@ export default function PagesPage() {
           </div>
         </div>
 
-        {/* Top Keywords Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <h3 className="font-bold text-slate-800 text-sm mb-3">Top từ khóa khách hàng theo kênh</h3>
           <div className="space-y-3.5">
