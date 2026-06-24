@@ -14,6 +14,7 @@ import {
   TrendUp,
   Plus,
   CalendarBlank,
+  ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { fetchCskhPages } from '@/features/cskh-quality/api';
 
@@ -31,6 +32,36 @@ function getVNMonthValue(date = new Date()) {
 function formatMonthLabel(monthValue) {
   const [year, month] = monthValue.split('-');
   return `Tháng ${parseInt(month, 10)}/${year}`;
+}
+
+/** Thanh tiến trình indeterminate — API đếm DB, không có % từ server. */
+function MonthStatsProgress({ active, monthLabel }) {
+  if (!active) return null;
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 shadow-sm animate-in fade-in duration-200">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-indigo-900">
+          Đang thống kê tin nhắn mới đến — <span className="text-indigo-600">{monthLabel}</span>
+        </p>
+        <Globe size={15} className="animate-spin text-indigo-600 shrink-0" />
+      </div>
+      <div className="relative h-2 overflow-hidden rounded-full bg-indigo-100">
+        <div
+          className="absolute top-0 bottom-0 w-2/5 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600"
+          style={{ animation: 'monthStatsBar 1.15s ease-in-out infinite' }}
+        />
+      </div>
+      <p className="mt-2 text-[10px] font-medium text-indigo-700/70">
+        Đọc từ inbox đã đồng bộ — thường hoàn tất trong vài giây, không cần quét Facebook.
+      </p>
+      <style>{`
+        @keyframes monthStatsBar {
+          0% { left: -40%; }
+          100% { left: 100%; }
+        }
+      `}</style>
+    </div>
+  );
 }
 
 function pageMessageCount(p) {
@@ -143,10 +174,10 @@ export default function PagesPage() {
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(() => getVNMonthValue());
 
-  const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
+  const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages, refetch, isError } = useQuery({
     queryKey: ['cskh', 'pages', selectedMonth],
     queryFn: () => fetchCskhPages({ month: selectedMonth }),
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -155,6 +186,9 @@ export default function PagesPage() {
   const pages = pagesData?.pages || [];
   const inboundMonthSummary = pagesData?.inboundMonth;
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
+  const monthStatsReady = inboundMonthSummary?.month === selectedMonth;
+  const monthStatsUnavailable =
+    !isLoadingPages && !isFetchingPages && !isError && pages.length > 0 && !monthStatsReady;
 
   useEffect(() => {
     if (!activeChannelId && pages.length > 0) {
@@ -411,7 +445,8 @@ export default function PagesPage() {
               <h3 className="font-bold text-slate-800">Thống kê tin nhắn theo tháng</h3>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Chọn tháng để xem số tin khách gửi đến từng kênh (kể cả khách cũ nhắn lại).
+              Chọn tháng — hệ thống <strong className="text-slate-600">tự tải</strong> số tin khách gửi đến từ inbox đã đồng bộ.
+              Không cần bấm quét; dữ liệu đọc trực tiếp từ DB.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -424,7 +459,16 @@ export default function PagesPage() {
                 className="text-sm font-bold text-slate-800 bg-transparent border-none outline-none cursor-pointer"
               />
             </label>
-            <div className="text-right px-3 py-1">
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetchingPages}
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 cursor-pointer"
+            >
+              <ArrowsClockwise size={14} className={isFetchingPages ? 'animate-spin' : ''} />
+              {isFetchingPages ? 'Đang tải...' : 'Tải lại'}
+            </button>
+            <div className="text-right px-3 py-1 min-w-[72px]">
               <div className="text-2xl font-black text-indigo-600 leading-none">
                 {isFetchingPages && !isLoadingPages ? '…' : totalNewInbound.toLocaleString()}
               </div>
@@ -433,7 +477,25 @@ export default function PagesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {monthStatsUnavailable && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2">
+            <Warning size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>
+              Server chưa trả thống kê theo tháng cho <strong>{selectedMonthLabel}</strong>.
+              Hãy <strong>deploy bản BE mới nhất</strong> (API <code className="text-[11px] bg-amber-100 px-1 rounded">GET /cskh/pages?month=YYYY-MM</code>) rồi bấm «Tải lại».
+            </span>
+          </div>
+        )}
+
+        {isError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl text-xs font-medium">
+            Không tải được dữ liệu. Kiểm tra kết nối API và thử «Tải lại».
+          </div>
+        )}
+
+        <MonthStatsProgress active={isFetchingPages} monthLabel={selectedMonthLabel} />
+
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
           {dynamicKPIs.map((kpi, i) => (
             <div 
               key={i} 
@@ -469,12 +531,14 @@ export default function PagesPage() {
         </div>
 
         {/* Performance Table */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
             <div>
               <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Theo dõi tổng tin nhắn và tin mới đến trong {selectedMonthLabel}.
+                {isFetchingPages
+                  ? `Đang cập nhật số liệu ${selectedMonthLabel}...`
+                  : `Theo dõi tổng tin nhắn và tin mới đến trong ${selectedMonthLabel}.`}
               </p>
             </div>
             <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
