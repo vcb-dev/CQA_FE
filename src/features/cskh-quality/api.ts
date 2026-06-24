@@ -7,6 +7,8 @@ export interface CskhPage {
   enabled: boolean
   updatedAt: string
   conversationCount?: number
+  /** Tổng số tin nhắn (mọi chiều, mọi thời điểm) trong kênh. */
+  messageCount?: number
   unreadConversationCount?: number
   /** Tin nhắn khách gửi đến trong tháng đã chọn (inbound). */
   inboundMessageCount?: number
