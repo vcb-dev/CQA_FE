@@ -347,13 +347,6 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     [performance]
   );
 
-  const chartPages = useMemo(
-    () => [...filteredPerformance].sort((a, b) => b.newInbound - a.newInbound).slice(0, 12),
-    [filteredPerformance]
-  );
-
-  const maxInbound = Math.max(...chartPages.map((p) => p.newInbound), 1);
-
   if (isLoadingPages) {
     return (
       <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4 py-20">
@@ -567,7 +560,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
         </div>
 
         {/* Performance Table */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
+        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden flex-1 min-h-0 transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
             <div>
               <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
@@ -616,7 +609,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             })}
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1 min-h-0">
             <table className="w-full text-left border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
@@ -667,44 +660,6 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* Inbound messages chart */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-slate-800 text-base">So sánh tin nhắn mới đến</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Top kênh nhận nhiều tin khách nhất trong {selectedMonthLabel}.</p>
-            </div>
-            <span className="text-xs bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1 rounded-lg font-bold">Tin inbound</span>
-          </div>
-
-          <div className="flex items-end gap-5 h-44 px-4 pb-2 border-b border-slate-100 overflow-x-auto">
-            {chartPages.some((p) => p.newInbound > 0) ? (
-              chartPages.map((p) => {
-                const heightPct = maxInbound > 0 ? (p.newInbound / maxInbound) * 100 : 0;
-                return (
-                  <div key={p.pageId} className="flex-1 min-w-[48px] flex flex-col items-center gap-2 group relative">
-                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md pointer-events-none z-10 whitespace-nowrap">
-                      {p.newInbound.toLocaleString()} tin
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 mb-1 select-none">{p.newInbound}</span>
-                    <div 
-                      className="w-full max-w-[40px] rounded-t-lg shadow-sm bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-indigo-100"
-                      style={{ height: `${Math.max(heightPct * 1.5, p.newInbound > 0 ? 8 : 0)}px` }} 
-                    />
-                    <span className="text-[10px] font-semibold text-slate-500 truncate w-full text-center max-w-[64px] select-none mt-1">
-                      {p.name.split(' ').slice(0, 2).join(' ')}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-8">
-                Chưa có tin nhắn mới đến trong {selectedMonthLabel}.
-              </div>
-            )}
           </div>
         </div>
       </div>
