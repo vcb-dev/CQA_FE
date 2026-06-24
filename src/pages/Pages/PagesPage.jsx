@@ -34,7 +34,7 @@ function formatMonthLabel(monthValue) {
 }
 
 function pageMessageCount(p) {
-  return Math.max(p.conversationCount || 0, p.auditCount || 0);
+  return p.conversationCount || 0;
 }
 
 function DonutChart({ data, total, size = 150 }) {

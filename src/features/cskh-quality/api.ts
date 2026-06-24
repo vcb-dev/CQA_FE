@@ -8,10 +8,6 @@ export interface CskhPage {
   updatedAt: string
   conversationCount?: number
   unreadConversationCount?: number
-  auditCount?: number
-  avgScore?: number | null
-  noReplyCount?: number
-  repliedCount?: number
   /** Tin nhắn khách gửi đến trong tháng đã chọn (inbound). */
   inboundMessageCount?: number
 }
@@ -21,18 +17,8 @@ export interface CskhPagesInboundSummary {
   totalInbound: number
 }
 
-export interface CskhPagesAuditSummary {
-  totalAudits: number
-  avgScore: number | null
-  noReplyCount: number
-  repliedCount: number
-  bestPage?: { pageId: string; pageName: string; avgScore: number } | null
-  worstPage?: { pageId: string; pageName: string; avgScore: number } | null
-}
-
 export interface CskhPagesResponse {
   pages: CskhPage[]
-  auditSummary?: CskhPagesAuditSummary
   inboundMonth?: CskhPagesInboundSummary
   oauthConnected: boolean
   oauthUser: string | null
