@@ -28,6 +28,22 @@ import {
 const AUDIT_LOOKBACK_DAYS = 30;
 const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
 
+function getVNMonthValue(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  return `${year}-${month}`;
+}
+
+function formatMonthLabel(monthValue) {
+  const [year, month] = monthValue.split('-');
+  return `Tháng ${parseInt(month, 10)}/${year}`;
+}
+
 /** Tin nhắn inbox hoặc số cuộc đã quét AI — tránh hiển thị "Chưa có" khi đã có audit. */
 function pageMessageCount(p) {
   return Math.max(p.conversationCount || 0, p.auditCount || 0);
@@ -184,14 +200,15 @@ export default function PagesPage() {
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [runningJobId, setRunningJobId] = useState(null);
   const [auditConversationLimit, setAuditConversationLimit] = useState(60);
+  const [selectedMonth, setSelectedMonth] = useState(() => getVNMonthValue());
   const finishedJobIdsRef = useRef(new Set());
   const hasRestoredRunningJobRef = useRef(false);
   const auditDateRange = useMemo(() => getAuditDateRange(), []);
 
   // Một API duy nhất — pages + thống kê audit gom sẵn (không tải 500 audits)
-  const { data: pagesData, isLoading: isLoadingPages } = useQuery({
-    queryKey: ['cskh', 'pages'],
-    queryFn: fetchCskhPages,
+  const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
+    queryKey: ['cskh', 'pages', selectedMonth],
+    queryFn: () => fetchCskhPages(selectedMonth),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
@@ -200,6 +217,8 @@ export default function PagesPage() {
 
   const pages = pagesData?.pages || [];
   const auditSummary = pagesData?.auditSummary;
+  const inboundMonthSummary = pagesData?.inboundMonth;
+  const selectedMonthLabel = formatMonthLabel(selectedMonth);
 
   useEffect(() => {
     if (!activeChannelId && pages.length > 0) {
@@ -241,8 +260,8 @@ export default function PagesPage() {
   });
 
   const refreshAuditResults = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
-  }, [queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'pages', selectedMonth] });
+  }, [queryClient, selectedMonth]);
 
   // Kết thúc job — một lần duy nhất, không reset guard gây loop
   useEffect(() => {
@@ -381,11 +400,7 @@ export default function PagesPage() {
   // Dynamic performance list — memoized, dữ liệu từ pages API
   const performance = useMemo(() => pages.map((p) => {
     const realScore = p.avgScore ?? null;
-    const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
     const type = getPageType(p.pageName);
-    const auditCount = p.auditCount ?? 0;
-    const replied = p.repliedCount ?? 0;
-    const responseRate = auditCount > 0 ? `${Math.round((replied / auditCount) * 100)}%` : '—';
     const trend = realScore !== null ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
 
     return {
@@ -393,17 +408,15 @@ export default function PagesPage() {
       name: p.pageName || `Trang #${p.pageId}`,
       type,
       msgs: pageMessageCount(p),
-      responseRate,
-      closeRate: '—',
-      csat,
-      revenue: '—',
+      newInbound: p.inboundMessageCount ?? 0,
       quality: realScore,
       trend,
       pictureUrl: p.pagePictureUrl,
     };
   }), [pages]);
 
-  // Dynamic KPIs calculations — only real data
+  const totalNewInbound = inboundMonthSummary?.totalInbound
+    ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
   const totalAuditCount = auditSummary?.totalAudits ?? 0;
   const totalReplied = auditSummary?.repliedCount ?? 0;
@@ -806,11 +819,28 @@ export default function PagesPage() {
                 {isJobRunning && jobSummary?.currentPage ? (
                   <> Đang xử lý: <strong className="text-slate-500">{jobSummary.currentPage}</strong>.</>
                 ) : null}
+                {' '}
+                Cột «Tin nhắn mới đến» đếm tin khách gửi trong{' '}
+                <strong className="text-slate-500">{selectedMonthLabel}</strong>
+                {' '}(tổng <strong className="text-indigo-600">{totalNewInbound.toLocaleString()}</strong>).
               </p>
             </div>
             
-            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
-              {filteredPerformance.length}/{performance.length} trang
+            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <span className="text-slate-400 font-semibold">Tháng</span>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+                  className="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-md px-1.5 py-0.5 cursor-pointer"
+                />
+              </label>
+              <span className="text-slate-300">|</span>
+              <span>{filteredPerformance.length}/{performance.length} trang</span>
+              {isFetchingPages && !isLoadingPages ? (
+                <span className="text-indigo-500 font-semibold">Đang tải...</span>
+              ) : null}
             </span>
           </div>
 
@@ -870,8 +900,10 @@ export default function PagesPage() {
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
                   <th className="px-5 py-3.5">Page / Kênh</th>
                   <th className="px-4 py-3.5 text-center">Tin nhắn</th>
-                  <th className="px-4 py-3.5 text-center">Tỷ lệ phản hồi</th>
-                  <th className="px-4 py-3.5 text-center">CSAT (Hài lòng)</th>
+                  <th className="px-4 py-3.5 text-center">
+                    <div>Tin nhắn mới đến</div>
+                    <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedMonthLabel}</div>
+                  </th>
                   <th className="px-4 py-3.5 text-center">Chất lượng (AI)</th>
                   <th className="px-5 py-3.5 text-center">Xu hướng</th>
                 </tr>
@@ -879,7 +911,7 @@ export default function PagesPage() {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
                 {displayPerformanceList.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                    <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
                       Không có trang nào thuộc nền tảng này.
                     </td>
                   </tr>
@@ -910,21 +942,12 @@ export default function PagesPage() {
                       )}
                     </td>
 
-                    {/* Response Rate */}
-                    <td className="px-4 py-3.5 text-center font-medium text-slate-500">
-                      {p.responseRate !== '—' ? (
-                        <span className="text-slate-700 font-bold">{p.responseRate}</span>
+                    {/* New inbound messages in selected month */}
+                    <td className="px-4 py-3.5 text-center font-bold text-slate-700">
+                      {p.newInbound > 0 ? (
+                        p.newInbound.toLocaleString()
                       ) : (
-                        <span className="text-slate-300 font-normal">—</span>
-                      )}
-                    </td>
-
-                    {/* CSAT */}
-                    <td className="px-4 py-3.5 text-center font-semibold">
-                      {p.csat !== null ? (
-                        <span className="text-slate-700 font-bold">{p.csat}</span>
-                      ) : (
-                        <span className="text-slate-300 font-normal">—</span>
+                        <span className="text-slate-300 font-normal text-xs">0</span>
                       )}
                     </td>
 

@@ -12,6 +12,13 @@ export interface CskhPage {
   avgScore?: number | null
   noReplyCount?: number
   repliedCount?: number
+  /** Tin nhắn khách gửi đến trong tháng đã chọn (inbound). */
+  inboundMessageCount?: number
+}
+
+export interface CskhPagesInboundSummary {
+  month: string
+  totalInbound: number
 }
 
 export interface CskhPagesAuditSummary {
@@ -26,6 +33,7 @@ export interface CskhPagesAuditSummary {
 export interface CskhPagesResponse {
   pages: CskhPage[]
   auditSummary?: CskhPagesAuditSummary
+  inboundMonth?: CskhPagesInboundSummary
   oauthConnected: boolean
   oauthUser: string | null
   oauthUpdatedAt: string | null
@@ -215,8 +223,10 @@ export function getCskhOAuthStartUrl(returnUrl?: string): string {
   return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}${tokenQuery}`
 }
 
-export async function fetchCskhPages(): Promise<CskhPagesResponse> {
-  const { data } = await apiClient.get<CskhPagesResponse>('/cskh/pages')
+export async function fetchCskhPages(month?: string): Promise<CskhPagesResponse> {
+  const { data } = await apiClient.get<CskhPagesResponse>('/cskh/pages', {
+    params: month ? { month } : undefined,
+  })
   return data
 }
 
