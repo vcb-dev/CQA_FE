@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -13,7 +13,8 @@ import {
   Warning,
   TrendUp,
   CaretRight,
-  Plus
+  Plus,
+  Pause
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { 
@@ -21,8 +22,22 @@ import {
   fetchCskhAudits, 
   runAudit, 
   fetchRunningCskhJob, 
-  fetchAuditProgress 
+  fetchAuditProgress,
+  pauseAuditJob,
+  fetchAuditDayStats,
 } from '@/features/cskh-quality/api';
+
+const AUDIT_LOOKBACK_DAYS = 30;
+const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
+
+function getAuditDateRange() {
+  const today = new Date();
+  const from = new Date(today.getTime() - AUDIT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  return {
+    auditDateFrom: from.toISOString().split('T')[0],
+    auditDateTo: today.toISOString().split('T')[0],
+  };
+}
 
 const Sparkles = ({ size = 14, className = "" }) => (
   <svg 
@@ -83,8 +98,8 @@ export default function PagesPage() {
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [runningJobId, setRunningJobId] = useState(null);
   const [auditConversationLimit, setAuditConversationLimit] = useState(60);
-
-  const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
+  const completionHandledRef = useRef(null);
+  const auditDateRange = useMemo(() => getAuditDateRange(), []);
 
   useEffect(() => { 
     setTimeout(() => setAnim(true), 200); 
@@ -106,62 +121,111 @@ export default function PagesPage() {
 
   // Fetch real conversations query removed as message counts are fetched directly with pages list
 
-  // Fetch real audits to calculate average AI quality scores
+  // Fetch real audits — cache lâu, chỉ refetch khi job xong
   const { data: audits } = useQuery({
     queryKey: ['cskh', 'audits-all'],
-    queryFn: () => fetchCskhAudits({ limit: 1000 }),
-    enabled: pages.length > 0
+    queryFn: () => fetchCskhAudits({ limit: 500 }),
+    enabled: pages.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
-  // Poll running job on mount or trigger
+  const isJobRunning = Boolean(runningJobId);
+
+  const { data: channelDayStats } = useQuery({
+    queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
+    queryFn: () => fetchAuditDayStats(auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId),
+    enabled: Boolean(activeChannelId) && !isJobRunning,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Poll running job — chỉ nhanh khi đang chạy
   const { data: activeRunningJob } = useQuery({
     queryKey: ['cskh', 'running-job'],
     queryFn: () => fetchRunningCskhJob('audit'),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data && data.status === 'running') {
-        if (!runningJobId) {
-          setRunningJobId(data.id);
-        }
-        return 3000;
-      }
-      return false;
-    }
+    refetchInterval: (query) => (query.state.data?.status === 'running' || runningJobId ? 5000 : false),
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
   });
 
-  // Poll audit progress details when we have a runningJobId
+  useEffect(() => {
+    if (activeRunningJob?.status === 'running' && activeRunningJob.id !== runningJobId) {
+      setRunningJobId(activeRunningJob.id);
+    }
+  }, [activeRunningJob, runningJobId]);
+
   const { data: auditJobProgress } = useQuery({
     queryKey: ['cskh', 'audit-progress', runningJobId],
     queryFn: () => fetchAuditProgress(runningJobId),
     enabled: !!runningJobId,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data && (data.status === 'done' || data.status === 'completed' || data.status === 'failed')) {
-        setRunningJobId(null);
-        queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
-        queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
-        queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
-        if (data.status === 'failed') {
-          toast.error('Tiến trình chấm điểm AI gặp lỗi!', { id: 'audit-run' });
-        } else {
-          toast.success('Tiến trình chấm điểm AI đã hoàn thành!', { id: 'audit-run' });
-        }
-        return false;
-      }
-      return 3000;
+    refetchInterval: runningJobId ? 5000 : false,
+    staleTime: 3000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Xử lý khi job kết thúc — tránh side-effect trong refetchInterval (gây nhảy UI)
+  useEffect(() => {
+    if (!runningJobId || !auditJobProgress) return;
+    if (auditJobProgress.id !== runningJobId) return;
+
+    const terminal = ['done', 'completed', 'failed'].includes(auditJobProgress.status);
+    if (!terminal) return;
+    if (completionHandledRef.current === runningJobId) return;
+
+    completionHandledRef.current = runningJobId;
+    const summary = auditJobProgress.summary;
+    const audited = summary?.audited ?? 0;
+
+    setRunningJobId(null);
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
+
+    if (auditJobProgress.status === 'failed') {
+      toast.error('Tiến trình chấm điểm AI gặp lỗi!', { id: 'audit-run' });
+    } else if (summary?.paused || summary?.partial) {
+      toast.info(
+        `Đã tạm dừng — lưu ${audited} cuộc vào DB. Bấm "Tiếp tục quét" để quét nốt.`,
+        { id: 'audit-run', duration: 6000 }
+      );
+    } else if (summary?.allAlreadyAudited) {
+      toast.success('Kênh này đã được quét đủ số cuộc trong khoảng ngày.', { id: 'audit-run' });
+    } else {
+      toast.success(`Hoàn thành — đã chấm ${audited} cuộc hội thoại.`, { id: 'audit-run' });
     }
+  }, [auditJobProgress, runningJobId, queryClient]);
+
+  useEffect(() => {
+    if (!runningJobId) {
+      completionHandledRef.current = null;
+    }
+  }, [runningJobId]);
+
+  const pauseMutation = useMutation({
+    mutationFn: pauseAuditJob,
+    onSuccess: (res) => {
+      if (res.paused) {
+        toast.info('Đang tạm dừng — giữ lại kết quả đã chấm vào DB...', { id: 'audit-run' });
+      } else {
+        toast.warning(res.message || 'Không có tiến trình đang chạy.', { id: 'audit-run' });
+      }
+    },
+    onError: (err) => {
+      toast.error('Không thể tạm dừng: ' + err.message, { id: 'audit-run' });
+    },
   });
 
   // Audit trigger mutation
   const auditMutation = useMutation({
     mutationFn: (params) => runAudit(params),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['cskh', 'running-job'] });
       if (res.alreadyRunning) {
         toast.warning('Có tiến trình chấm điểm đang chạy rồi!', { id: 'audit-run' });
       } else {
-        toast.success('Đã kích hoạt quét AI thành công!', { id: 'audit-run' });
+        completionHandledRef.current = null;
         setRunningJobId(res.jobId);
+        toast.loading('Đang quét và chấm điểm AI...', { id: 'audit-run' });
       }
     },
     onError: (err) => {
@@ -193,7 +257,7 @@ export default function PagesPage() {
   };
 
   // Group audits by pageId to calculate real metrics per page
-  const auditsByPage = (audits || []).reduce((acc, audit) => {
+  const auditsByPage = useMemo(() => (audits || []).reduce((acc, audit) => {
     const pageId = audit.metadata?.pageId;
     if (pageId) {
       if (!acc[pageId]) {
@@ -208,10 +272,10 @@ export default function PagesPage() {
       }
     }
     return acc;
-  }, {});
+  }, {}), [audits]);
 
   // Construct dynamic channels list
-  const channels = pages.map((p, i) => {
+  const channels = useMemo(() => pages.map((p) => {
     const pageAudit = auditsByPage[p.pageId];
     const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
     const type = getPageType(p.pageName);
@@ -227,7 +291,7 @@ export default function PagesPage() {
       enabled: p.enabled,
       pictureUrl: p.pagePictureUrl
     };
-  });
+  }), [pages, auditsByPage]);
 
   // Filter channels based on tab and search query
   const filteredChannels = channels.filter(ch => {
@@ -256,7 +320,7 @@ export default function PagesPage() {
     return { pageId, activePage };
   };
 
-  const handleStartAudit = (targetPageId) => {
+  const handleStartAudit = useCallback((targetPageId) => {
     const { pageId, activePage } = resolveAuditTargetPage(targetPageId);
 
     if (!pageId || !activePage) {
@@ -264,24 +328,24 @@ export default function PagesPage() {
       return;
     }
 
-    const today = new Date();
-    const past30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const dateFrom = past30Days.toISOString().split('T')[0];
-    const dateTo = today.toISOString().split('T')[0];
+    const alreadyScored = channelDayStats?.total ?? 0;
+    const remaining = Math.max(0, auditConversationLimit - alreadyScored);
 
     toast.loading(
-      `Đang quét ${auditConversationLimit} cuộc hội thoại cho "${activePage.name}"...`,
+      alreadyScored > 0
+        ? `Tiếp tục quét ${remaining} cuộc còn lại cho "${activePage.name}"...`
+        : `Đang quét ${auditConversationLimit} cuộc hội thoại cho "${activePage.name}"...`,
       { id: 'audit-run' }
     );
 
     auditMutation.mutate({
       pageId,
-      auditDateFrom: dateFrom,
-      auditDateTo: dateTo,
+      auditDateFrom: auditDateRange.auditDateFrom,
+      auditDateTo: auditDateRange.auditDateTo,
       maxConversations: auditConversationLimit,
-      force: true,
+      force: false,
     });
-  };
+  }, [auditConversationLimit, auditDateRange, auditMutation, channelDayStats?.total]);
 
   const facebookCount = channels.filter(c => c.type === 'Facebook Page').length;
   const instagramCount = channels.filter(c => c.type === 'Instagram').length;
@@ -571,17 +635,34 @@ export default function PagesPage() {
 
   const insights = generateRealAIInsights();
 
+  const selectedChannelScored = channelDayStats?.total ?? 0;
+  const canResumeAudit =
+    selectedChannelScored > 0 && selectedChannelScored < auditConversationLimit;
+  const isPausing =
+    Boolean(auditJobProgress?.summary?.pauseRequested) || pauseMutation.isPending;
+
+  const totalConvs =
+    auditJobProgress?.summary?.total ||
+    auditJobProgress?.summary?.totalConversations ||
+    auditJobProgress?.summary?.fetched ||
+    auditConversationLimit;
+  const jobProgress = totalConvs
+    ? Math.round(((auditJobProgress?.summary?.audited || 0) / totalConvs) * 100)
+    : 0;
+
+  const runAuditButtonLabel = isJobRunning
+    ? isPausing
+      ? 'Đang tạm dừng...'
+      : `AI đang chấm... ${jobProgress}%`
+    : canResumeAudit
+      ? `Tiếp tục quét (${selectedChannelScored}/${auditConversationLimit})`
+      : 'Chạy quét & Chấm điểm AI';
+
   const keywordItems = [
     { type: 'Facebook Page', keywords: 'nhẫn bạc, size, giá, bảo hành, giao hàng' },
     { type: 'Instagram', keywords: 'dây chuyền, mẫu mới, giá, có sẵn không' },
     { type: 'TikTok', keywords: 'review, chất liệu, đeo có đen không, giá' }
   ];
-
-  const isJobRunning = !!runningJobId;
-  const totalConvs = auditJobProgress?.summary?.total || auditJobProgress?.summary?.totalConversations || auditJobProgress?.summary?.fetched || 10;
-  const jobProgress = totalConvs
-    ? Math.round(((auditJobProgress?.summary?.audited || 0) / totalConvs) * 100)
-    : 0;
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 p-4 bg-slate-50/50 min-h-screen text-slate-700">
@@ -684,17 +765,27 @@ export default function PagesPage() {
         
         {/* Progress bar banner for active AI Scan */}
         {isJobRunning && (
-          <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
-            <div className="flex items-center gap-2 text-sm font-bold">
-              <Sparkles size={18} className="animate-spin text-indigo-600" />
-              <span>
+          <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-bold min-w-0">
+              <Sparkles size={18} className="animate-spin text-indigo-600 shrink-0" />
+              <span className="truncate">
                 {auditJobProgress?.summary?.phase === 'fetch'
-                  ? `Đang tìm kiếm cuộc hội thoại từ Facebook... (Đã thu thập: ${auditJobProgress?.summary?.fetched || 0} cuộc)`
-                  : `AI đang chấm điểm hội thoại... (Tiến trình: ${jobProgress}% - Đã chấm ${auditJobProgress?.summary?.audited || 0}/${totalConvs})`
+                  ? `Đang thu thập hội thoại... (${auditJobProgress?.summary?.fetched || 0} cuộc)`
+                  : isPausing
+                    ? `Đang tạm dừng — đã lưu ${auditJobProgress?.summary?.audited || 0} cuộc`
+                    : `AI đang chấm điểm... ${auditJobProgress?.summary?.audited || 0}/${totalConvs} (${jobProgress}%)`
                 }
               </span>
             </div>
-            <span className="text-xs text-indigo-500 font-bold">Đang cập nhật thời gian thực</span>
+            <button
+              type="button"
+              onClick={() => pauseMutation.mutate()}
+              disabled={isPausing || pauseMutation.isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              <Pause size={14} weight="fill" />
+              Tạm dừng
+            </button>
           </div>
         )}
 
@@ -777,23 +868,29 @@ export default function PagesPage() {
                   disabled={isJobRunning || auditMutation.isPending || !selectedAuditChannel}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
                     isJobRunning
-                      ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
-                      : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : canResumeAudit
+                        ? 'bg-emerald-50 hover:bg-emerald-100/70 text-emerald-700 border-emerald-200 shadow-sm'
+                        : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
                   <Sparkles size={14} weight="fill" className={isJobRunning ? "animate-spin" : ""} />
-                  <span>{isJobRunning ? `AI đang chấm... ${jobProgress}%` : 'Chạy quét & Chấm điểm AI'}</span>
+                  <span>{runAuditButtonLabel}</span>
                 </button>
               </div>
               <p className="text-xs text-slate-400 mt-1">
                 {selectedAuditChannel ? (
                   <>
                     Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc</strong> cho kênh{' '}
-                    <strong className="text-indigo-600">{selectedAuditChannel.name}</strong> (30 ngày gần nhất).
-                    Chọn kênh khác ở danh sách bên trái.
+                    <strong className="text-indigo-600">{selectedAuditChannel.name}</strong> ({AUDIT_LOOKBACK_DAYS} ngày gần nhất).
+                    {selectedChannelScored > 0 ? (
+                      <> Đã chấm <strong className="text-emerald-600">{selectedChannelScored}</strong> — bấm tạm dừng để lưu, quét tiếp sẽ bỏ qua cuộc đã chấm.</>
+                    ) : (
+                      <> Tạm dừng sẽ lưu kết quả đã quét vào DB.</>
+                    )}
                   </>
                 ) : (
-                  'Chọn kênh bên trái rồi bấm quét AI. Cron tự quét 30 cuộc/kênh lúc 2:00 AM.'
+                  'Chọn kênh bên trái rồi bấm quét AI. Cron tự quét lại toàn bộ 30 cuộc/kênh lúc 2:00 AM.'
                 )}
               </p>
             </div>
