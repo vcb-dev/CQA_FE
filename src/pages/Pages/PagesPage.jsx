@@ -385,10 +385,10 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
   ];
 
   return (
-    <div className="flex flex-col xl:flex-row gap-4 2xl:gap-5 w-full h-full overflow-y-auto text-slate-700">
+    <div className="flex flex-col xl:flex-row gap-4 2xl:gap-5 w-full h-full overflow-y-auto xl:overflow-hidden text-slate-700">
       
       {/* Left Column - Channel List */}
-      <div className="w-full xl:w-64 2xl:w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-4 shrink-0 max-h-[700px] xl:max-h-[calc(100vh-7rem)] xl:sticky xl:top-0 overflow-hidden">
+      <div className="w-full xl:w-64 2xl:w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-4 shrink-0 max-h-[700px] xl:max-h-none xl:h-full overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold text-slate-800 text-lg">Danh sách Page & Kênh</div>
           <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full font-bold">{filteredChannels.length} trang</span>
@@ -444,7 +444,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
       </div>
 
       {/* Center Column */}
-      <div className="flex-1 flex flex-col gap-4 2xl:gap-5 min-w-0">
+      <div className="flex-1 flex flex-col gap-4 2xl:gap-5 min-w-0 xl:h-full xl:min-h-0 xl:overflow-hidden">
 
         <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="min-w-0">
@@ -665,7 +665,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
       </div>
 
       {/* Right Column */}
-      <div className="w-full xl:w-64 2xl:w-72 flex flex-col gap-4 2xl:gap-5 shrink-0 pb-6 pr-0.5">
+      <div className="w-full xl:w-64 2xl:w-72 flex flex-col gap-4 2xl:gap-5 shrink-0 pb-6 xl:pb-0 pr-0.5 xl:h-full xl:overflow-y-auto">
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Phân bổ tin nhắn theo kênh</h3>
           <div className="flex flex-col items-center gap-5">
