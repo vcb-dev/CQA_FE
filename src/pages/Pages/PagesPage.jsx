@@ -186,7 +186,11 @@ export default function PagesPage() {
   const pages = pagesData?.pages || [];
   const inboundMonthSummary = pagesData?.inboundMonth;
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
-  const monthStatsReady = inboundMonthSummary?.month === selectedMonth;
+  const apiBase = import.meta.env.VITE_API_URL || '(chưa cấu hình VITE_API_URL)';
+  const monthStatsReady =
+    inboundMonthSummary?.month === selectedMonth ||
+    pagesData?.statsMeta?.requestedMonth === selectedMonth ||
+    pages.some((p) => typeof p.inboundMessageCount === 'number');
   const monthStatsUnavailable =
     !isLoadingPages && !isFetchingPages && !isError && pages.length > 0 && !monthStatsReady;
 
@@ -480,10 +484,25 @@ export default function PagesPage() {
         {monthStatsUnavailable && (
           <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2">
             <Warning size={16} className="text-amber-500 shrink-0 mt-0.5" />
-            <span>
-              Server chưa trả thống kê theo tháng cho <strong>{selectedMonthLabel}</strong>.
-              Hãy <strong>deploy bản BE mới nhất</strong> (API <code className="text-[11px] bg-amber-100 px-1 rounded">GET /cskh/pages?month=YYYY-MM</code>) rồi bấm «Tải lại».
-            </span>
+            <div className="space-y-2">
+              <p>
+                API backend đang chạy <strong>bản cũ</strong> — không trả <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code> cho{' '}
+                <strong>{selectedMonthLabel}</strong>.
+              </p>
+              <p className="text-amber-800/90">
+                Push Git <strong>không đủ</strong> — cần <strong>build lại Docker image</strong> và restart container:
+              </p>
+              <pre className="text-[10px] bg-amber-100/80 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap">{`cd CQA_BE
+docker build -t viejhaf/cqa-be:latest .
+docker push viejhaf/cqa-be:latest
+# Trên server:
+docker pull viejhaf/cqa-be:latest && docker restart cqa-be`}</pre>
+              <p className="text-amber-800/90">
+                Kiểm tra: mở DevTools → Network → request <code className="text-[11px] bg-amber-100 px-1 rounded">pages?month={selectedMonth}</code> → response phải có{' '}
+                <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code> và <code className="text-[11px] bg-amber-100 px-1 rounded">statsMeta.buildTag</code>.
+                API hiện tại: <code className="text-[11px] bg-amber-100 px-1 rounded break-all">{apiBase}</code>
+              </p>
+            </div>
           </div>
         )}
 

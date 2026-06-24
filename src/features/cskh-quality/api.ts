@@ -17,9 +17,16 @@ export interface CskhPagesInboundSummary {
   totalInbound: number
 }
 
+export interface CskhPagesStatsMeta {
+  inboundMonthStats: true
+  requestedMonth: string
+  buildTag: string
+}
+
 export interface CskhPagesResponse {
   pages: CskhPage[]
   inboundMonth?: CskhPagesInboundSummary
+  statsMeta?: CskhPagesStatsMeta
   oauthConnected: boolean
   oauthUser: string | null
   oauthUpdatedAt: string | null
