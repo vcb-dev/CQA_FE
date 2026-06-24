@@ -254,6 +254,7 @@ export async function runAudit(params: {
   auditDateFrom: string
   auditDateTo: string
   force?: boolean
+  /** Kênh cần quét — bắt buộc. */
   pageId: string
   /** Chỉ chấm tối đa N cuộc chưa chấm (bỏ qua đã chấm trong khoảng ngày). */
   maxConversations?: number

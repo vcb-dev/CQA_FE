@@ -82,6 +82,9 @@ export default function PagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [runningJobId, setRunningJobId] = useState(null);
+  const [auditConversationLimit, setAuditConversationLimit] = useState(60);
+
+  const AUDIT_LIMIT_OPTIONS = [30, 60, 100];
 
   useEffect(() => { 
     setTimeout(() => setAnim(true), 200); 
@@ -94,6 +97,12 @@ export default function PagesPage() {
   });
 
   const pages = pagesData?.pages || [];
+
+  useEffect(() => {
+    if (!activeChannelId && pages.length > 0) {
+      setActiveChannelId(pages[0].pageId);
+    }
+  }, [activeChannelId, pages]);
 
   // Fetch real conversations query removed as message counts are fetched directly with pages list
 
@@ -159,38 +168,6 @@ export default function PagesPage() {
       toast.error('Lỗi khi kích hoạt AI: ' + err.message, { id: 'audit-run' });
     }
   });
-
-  const handleStartAudit = (targetPageId) => {
-    const pageId = typeof targetPageId === 'string' ? targetPageId : undefined;
-    
-    const today = new Date();
-    const past30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const dateFrom = past30Days.toISOString().split('T')[0];
-    const dateTo = today.toISOString().split('T')[0];
-
-    if (pageId) {
-      const activePage = channels.find(ch => ch.id === pageId) || channels[0];
-      if (!activePage) return;
-      toast.loading(`Đang khởi chạy AI quét trang "${activePage.name}"...`, { id: 'audit-run' });
-
-      auditMutation.mutate({
-        pageId,
-        auditDateFrom: dateFrom,
-        auditDateTo: dateTo,
-        maxConversations: 20,
-        force: true
-      });
-    } else {
-      toast.loading(`Đang khởi chạy AI quét toàn bộ các trang...`, { id: 'audit-run' });
-
-      auditMutation.mutate({
-        auditDateFrom: dateFrom,
-        auditDateTo: dateTo,
-        maxConversations: 20,
-        force: true
-      });
-    }
-  };
 
   // Detect channel type from page name. All pages default to Facebook Page
   // since they are connected via Facebook OAuth.
@@ -263,6 +240,48 @@ export default function PagesPage() {
     if (tab === 'other' && !['Facebook Page', 'Instagram', 'Zalo'].includes(ch.type)) return true;
     return false;
   });
+
+  const selectedAuditChannel =
+    channels.find((ch) => ch.id === activeChannelId) ||
+    filteredChannels[0] ||
+    channels[0] ||
+    null;
+
+  const resolveAuditTargetPage = (targetPageId) => {
+    const pageId =
+      typeof targetPageId === 'string'
+        ? targetPageId
+        : activeChannelId || filteredChannels[0]?.id || channels[0]?.id;
+    const activePage = channels.find((ch) => ch.id === pageId);
+    return { pageId, activePage };
+  };
+
+  const handleStartAudit = (targetPageId) => {
+    const { pageId, activePage } = resolveAuditTargetPage(targetPageId);
+
+    if (!pageId || !activePage) {
+      toast.error('Chưa có kênh nào để quét. Hãy kết nối Facebook trước.', { id: 'audit-run' });
+      return;
+    }
+
+    const today = new Date();
+    const past30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const dateFrom = past30Days.toISOString().split('T')[0];
+    const dateTo = today.toISOString().split('T')[0];
+
+    toast.loading(
+      `Đang quét ${auditConversationLimit} cuộc hội thoại cho "${activePage.name}"...`,
+      { id: 'audit-run' }
+    );
+
+    auditMutation.mutate({
+      pageId,
+      auditDateFrom: dateFrom,
+      auditDateTo: dateTo,
+      maxConversations: auditConversationLimit,
+      force: true,
+    });
+  };
 
   const facebookCount = channels.filter(c => c.type === 'Facebook Page').length;
   const instagramCount = channels.filter(c => c.type === 'Instagram').length;
@@ -731,24 +750,52 @@ export default function PagesPage() {
         {/* Performance Table Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
-            <div>
-              <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
+                {/* Số cuộc hội thoại cần quét */}
+                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                  {AUDIT_LIMIT_OPTIONS.map((limit) => (
+                    <button
+                      key={limit}
+                      type="button"
+                      onClick={() => setAuditConversationLimit(limit)}
+                      disabled={isJobRunning || auditMutation.isPending}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        auditConversationLimit === limit
+                          ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {limit} cuộc
+                    </button>
+                  ))}
+                </div>
                 {/* Trigger AI Evaluation button */}
                 <button 
                   onClick={() => handleStartAudit()}
-                  disabled={isJobRunning || auditMutation.isPending}
+                  disabled={isJobRunning || auditMutation.isPending || !selectedAuditChannel}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer ${
                     isJobRunning
                       ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
-                      : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm'
+                      : 'bg-indigo-50 hover:bg-indigo-100/70 text-indigo-700 border-indigo-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
                   <Sparkles size={14} weight="fill" className={isJobRunning ? "animate-spin" : ""} />
                   <span>{isJobRunning ? `AI đang chấm... ${jobProgress}%` : 'Chạy quét & Chấm điểm AI'}</span>
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">Thống kê chất lượng hội thoại từng trang. Hệ thống tự động quét AI ban đêm lúc 2:00 AM.</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {selectedAuditChannel ? (
+                  <>
+                    Quét tối đa <strong className="text-slate-500">{auditConversationLimit} cuộc</strong> cho kênh{' '}
+                    <strong className="text-indigo-600">{selectedAuditChannel.name}</strong> (30 ngày gần nhất).
+                    Chọn kênh khác ở danh sách bên trái.
+                  </>
+                ) : (
+                  'Chọn kênh bên trái rồi bấm quét AI. Cron tự quét 30 cuộc/kênh lúc 2:00 AM.'
+                )}
+              </p>
             </div>
             
             <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
@@ -790,17 +837,21 @@ export default function PagesPage() {
 
           {/* Banner notification if some pages are not audited */}
           {!isJobRunning && countUnauditedPages > 0 && (
-            <div className="bg-slate-50 border-b border-slate-100 px-5 py-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
+            <div className="bg-amber-50 border-b border-amber-100 px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-800 font-medium">
               <span className="flex items-center gap-1.5">
-                <Warning size={14} className="text-slate-400" />
-                <span>Có {countUnauditedPages} trang chưa quét chấm điểm AI. Điểm Chất lượng & CSAT của các trang này đang trống.</span>
+                <Warning size={14} className="text-amber-500 shrink-0" />
+                <span>
+                  Có {countUnauditedPages} trang chưa quét chấm điểm AI. Chọn từng kênh bên trái, chọn số cuộc (30/60/100) rồi bấm quét.
+                </span>
               </span>
-              <button 
-                onClick={() => handleStartAudit(activeChannelId || channels[0]?.id)}
-                className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
-              >
-                Nhấn để Chạy quét AI trang chọn
-              </button>
+              {selectedAuditChannel && (
+                <button 
+                  onClick={() => handleStartAudit(selectedAuditChannel.id)}
+                  className="text-indigo-600 hover:underline font-bold shrink-0 cursor-pointer"
+                >
+                  Quét ngay «{selectedAuditChannel.name}» ({auditConversationLimit} cuộc)
+                </button>
+              )}
             </div>
           )}
           
