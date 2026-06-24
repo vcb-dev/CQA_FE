@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { 
@@ -19,7 +19,6 @@ import {
 import { toast } from 'sonner';
 import { 
   fetchCskhPages, 
-  fetchCskhAudits, 
   runAudit, 
   fetchRunningCskhJob, 
   fetchCskhJob,
@@ -100,6 +99,78 @@ function DonutChart({ data, total, size = 150 }) {
   );
 }
 
+const PAGE_TYPE_ICONS = {
+  Instagram: (props) => <InstagramLogo {...props} weight="fill" className="text-pink-600" />,
+  TikTok: (props) => <TiktokLogo {...props} weight="fill" className="text-slate-800" />,
+  Zalo: (props) => <ChatCircleText {...props} weight="fill" className="text-blue-500" />,
+  Shopee: (props) => <ShoppingCart {...props} weight="fill" className="text-orange-500" />,
+  Lazada: (props) => <Storefront {...props} weight="fill" className="text-indigo-600" />,
+  Website: (props) => <Globe {...props} weight="fill" className="text-emerald-500" />,
+  'Facebook Page': (props) => <FacebookLogo {...props} weight="fill" className="text-blue-600" />,
+};
+
+function getPageType(name = '') {
+  const n = name.toLowerCase();
+  if (n.includes('instagram') || n.includes('ig ')) return 'Instagram';
+  if (n.includes('tiktok')) return 'TikTok';
+  if (n.includes('zalo')) return 'Zalo';
+  if (n.includes('shopee')) return 'Shopee';
+  if (n.includes('lazada')) return 'Lazada';
+  if (n.includes('web') || n.includes('live chat') || n.includes('chat widget')) return 'Website';
+  return 'Facebook Page';
+}
+
+function PageTypeIcon({ type, size = 18 }) {
+  const Icon = PAGE_TYPE_ICONS[type] || PAGE_TYPE_ICONS['Facebook Page'];
+  return <Icon size={size} />;
+}
+
+function getScoreColor(s) {
+  if (s === null || s === undefined) return 'text-slate-500 bg-slate-100 border-slate-200';
+  if (s >= 85) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  if (s >= 75) return 'text-amber-700 bg-amber-50 border-amber-200';
+  return 'text-orange-700 bg-orange-50 border-orange-200';
+}
+
+const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
+  return (
+    <div
+      onClick={() => onSelect(channel.id)}
+      className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-colors duration-150 ${
+        isActive
+          ? 'bg-indigo-50/50 border-indigo-200/70 shadow-sm shadow-indigo-50'
+          : 'bg-transparent border-transparent hover:bg-slate-50'
+      }`}
+    >
+      <div className="relative w-10 h-10 rounded-full bg-slate-50 border border-slate-200/60 overflow-hidden flex-shrink-0 flex items-center justify-center">
+        {channel.pictureUrl ? (
+          <img src={channel.pictureUrl} alt={channel.name} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <PageTypeIcon type={channel.type} size={18} />
+        )}
+        <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+          channel.enabled ? 'bg-emerald-500' : 'bg-slate-300'
+        }`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-sm font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">
+            {channel.name}
+          </span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-md border shrink-0 ${getScoreColor(channel.score)}`}>
+            {channel.score !== null ? `${channel.score}` : '-'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+          <span className="font-semibold text-slate-500">{channel.type}</span>
+          <span>•</span>
+          <span>Tin nhắn: <strong className="text-slate-600 font-bold">{channel.msgs}</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function PagesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -113,13 +184,18 @@ export default function PagesPage() {
   const hasRestoredRunningJobRef = useRef(false);
   const auditDateRange = useMemo(() => getAuditDateRange(), []);
 
-  // Fetch real pages list
+  // Một API duy nhất — pages + thống kê audit gom sẵn (không tải 500 audits)
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
     queryKey: ['cskh', 'pages'],
     queryFn: fetchCskhPages,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const pages = pagesData?.pages || [];
+  const auditSummary = pagesData?.auditSummary;
 
   useEffect(() => {
     if (!activeChannelId && pages.length > 0) {
@@ -128,17 +204,6 @@ export default function PagesPage() {
   }, [activeChannelId, pages]);
 
   // Fetch real conversations query removed as message counts are fetched directly with pages list
-
-  // Fetch real audits — giữ data cũ khi refetch để tránh giật bảng
-  const { data: audits } = useQuery({
-    queryKey: ['cskh', 'audits-all'],
-    queryFn: () => fetchCskhAudits({ limit: 500 }),
-    enabled: pages.length > 0,
-    staleTime: 120_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    placeholderData: keepPreviousData,
-  });
 
   const isJobRunning = Boolean(runningJobId);
 
@@ -182,7 +247,7 @@ export default function PagesPage() {
   });
 
   const refreshAuditResults = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['cskh', 'audits-all'] });
+    queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
     if (activeChannelId) {
       queryClient.invalidateQueries({
         queryKey: ['cskh', 'audit-day-stats', auditDateRange.auditDateFrom, auditDateRange.auditDateTo, activeChannelId],
@@ -222,6 +287,8 @@ export default function PagesPage() {
     }
   }, [auditJob, runningJobId, queryClient, refreshAuditResults]);
 
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   const pauseMutation = useMutation({
     mutationFn: pauseAuditJob,
     onSuccess: (res) => {
@@ -254,77 +321,30 @@ export default function PagesPage() {
     }
   });
 
-  // Detect channel type from page name. All pages default to Facebook Page
-  // since they are connected via Facebook OAuth.
-  const getPageType = (name = '') => {
-    const n = name.toLowerCase();
-    if (n.includes('instagram') || n.includes('ig ')) return 'Instagram';
-    if (n.includes('tiktok')) return 'TikTok';
-    if (n.includes('zalo')) return 'Zalo';
-    if (n.includes('shopee')) return 'Shopee';
-    if (n.includes('lazada')) return 'Lazada';
-    if (n.includes('web') || n.includes('live chat') || n.includes('chat widget')) return 'Website';
-    return 'Facebook Page';
-  };
+  // Construct dynamic channels list — dùng avgScore từ BE, không xử lý audits client-side
+  const channels = useMemo(() => pages.map((p) => ({
+    id: p.pageId,
+    name: p.pageName || `Trang #${p.pageId}`,
+    type: getPageType(p.pageName),
+    score: p.avgScore ?? null,
+    msgs: p.conversationCount || 0,
+    processing: p.unreadConversationCount || 0,
+    enabled: p.enabled,
+    pictureUrl: p.pagePictureUrl,
+  })), [pages]);
 
-  const getPageIcon = (type) => {
-    if (type === 'Instagram') return <InstagramLogo size={18} weight="fill" className="text-pink-600" />;
-    if (type === 'TikTok') return <TiktokLogo size={18} weight="fill" className="text-slate-800" />;
-    if (type === 'Zalo') return <ChatCircleText size={18} weight="fill" className="text-blue-500" />;
-    if (type === 'Shopee') return <ShoppingCart size={18} weight="fill" className="text-orange-500" />;
-    if (type === 'Lazada') return <Storefront size={18} weight="fill" className="text-indigo-600" />;
-    if (type === 'Website') return <Globe size={18} weight="fill" className="text-emerald-500" />;
-    return <FacebookLogo size={18} weight="fill" className="text-blue-600" />;
-  };
-
-  // Group audits by pageId to calculate real metrics per page
-  const auditsByPage = useMemo(() => (audits || []).reduce((acc, audit) => {
-    const pageId = audit.metadata?.pageId;
-    if (pageId) {
-      if (!acc[pageId]) {
-        acc[pageId] = { totalScore: 0, count: 0, replied: 0, noReply: 0 };
-      }
-      acc[pageId].totalScore += audit.score;
-      acc[pageId].count += 1;
-      if (audit.metadata?.noReply) {
-        acc[pageId].noReply += 1;
-      } else {
-        acc[pageId].replied += 1;
-      }
-    }
-    return acc;
-  }, {}), [audits]);
-
-  // Construct dynamic channels list
-  const channels = useMemo(() => pages.map((p) => {
-    const pageAudit = auditsByPage[p.pageId];
-    const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
-    const type = getPageType(p.pageName);
-    return {
-      id: p.pageId,
-      name: p.pageName || `Trang #${p.pageId}`,
-      type,
-      score: realScore,
-      msgs: p.conversationCount || 0,
-      processing: p.unreadConversationCount || 0,
-      avatar: getPageIcon(type),
-      color: '#1877f2',
-      enabled: p.enabled,
-      pictureUrl: p.pagePictureUrl
-    };
-  }), [pages, auditsByPage]);
-
-  // Filter channels based on tab and search query
-  const filteredChannels = channels.filter(ch => {
-    const matchesSearch = ch.name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-    if (tab === 'all') return true;
-    if (tab === 'facebook' && ch.type === 'Facebook Page') return true;
-    if (tab === 'instagram' && ch.type === 'Instagram') return true;
-    if (tab === 'zalo' && ch.type === 'Zalo') return true;
-    if (tab === 'other' && !['Facebook Page', 'Instagram', 'Zalo'].includes(ch.type)) return true;
-    return false;
-  });
+  const filteredChannels = useMemo(() => {
+    const q = deferredSearchQuery.trim().toLowerCase();
+    return channels.filter((ch) => {
+      if (q && !ch.name.toLowerCase().includes(q)) return false;
+      if (tab === 'all') return true;
+      if (tab === 'facebook' && ch.type === 'Facebook Page') return true;
+      if (tab === 'instagram' && ch.type === 'Instagram') return true;
+      if (tab === 'zalo' && ch.type === 'Zalo') return true;
+      if (tab === 'other' && !['Facebook Page', 'Instagram', 'Zalo'].includes(ch.type)) return true;
+      return false;
+    });
+  }, [channels, tab, deferredSearchQuery]);
 
   const selectedAuditChannel =
     channels.find((ch) => ch.id === activeChannelId) ||
@@ -382,52 +402,40 @@ export default function PagesPage() {
     { key: 'other', label: `Khác ${otherCount}` },
   ];
 
-  // Dynamic performance list — memoized để tránh re-render bảng khi poll job
+  // Dynamic performance list — memoized, dữ liệu từ pages API
   const performance = useMemo(() => pages.map((p) => {
-    const pageAudit = auditsByPage[p.pageId];
-    const realScore = pageAudit ? Math.round(pageAudit.totalScore / pageAudit.count) : null;
+    const realScore = p.avgScore ?? null;
     const csat = realScore !== null ? `${(realScore / 20).toFixed(1)}/5` : null;
     const type = getPageType(p.pageName);
-
-    const msgs = p.conversationCount || 0;
-    const responseRate = pageAudit && pageAudit.count > 0
-      ? `${Math.round((pageAudit.replied / pageAudit.count) * 100)}%`
-      : '—';
-    const closeRate = '—';
-    const revenue = '—';
-    const trend = pageAudit ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
+    const auditCount = p.auditCount ?? 0;
+    const replied = p.repliedCount ?? 0;
+    const responseRate = auditCount > 0 ? `${Math.round((replied / auditCount) * 100)}%` : '—';
+    const trend = realScore !== null ? (realScore >= 75 ? '↑' : realScore >= 50 ? '→' : '↓') : '—';
 
     return {
       pageId: p.pageId,
       name: p.pageName || `Trang #${p.pageId}`,
       type,
-      msgs,
+      msgs: p.conversationCount || 0,
       responseRate,
-      closeRate,
+      closeRate: '—',
       csat,
-      revenue,
+      revenue: '—',
       quality: realScore,
       trend,
-      pictureUrl: p.pagePictureUrl
+      pictureUrl: p.pagePictureUrl,
     };
-  }), [pages, auditsByPage]);
+  }), [pages]);
 
   // Dynamic KPIs calculations — only real data
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
-  const auditedPerformance = performance.filter(p => p.quality !== null);
-
-  // Real average response rate from audit data
-  const allAudits = audits || [];
-  const totalAuditCount = allAudits.length;
-  const totalReplied = allAudits.filter(a => !a.metadata?.noReply).length;
+  const totalAuditCount = auditSummary?.totalAudits ?? 0;
+  const totalReplied = auditSummary?.repliedCount ?? 0;
   const avgResponseRate = totalAuditCount > 0
     ? `${Math.round((totalReplied / totalAuditCount) * 100)}%`
     : 'Chưa có';
   
-  const validScores = auditedPerformance.map(p => p.quality).filter(q => q !== null);
-  const avgQuality = validScores.length > 0 
-    ? Math.round(validScores.reduce((sum, s) => sum + s, 0) / validScores.length)
-    : null;
+  const avgQuality = auditSummary?.avgScore ?? null;
   const avgCsat = avgQuality !== null ? `${(avgQuality / 20).toFixed(1)}/5` : null;
 
   const dynamicKPIs = [
@@ -502,13 +510,6 @@ export default function PagesPage() {
     };
   }).sort((a, b) => b.value - a.value);
 
-  const getScoreColor = (s) => {
-    if (s === null || s === undefined) return 'text-slate-500 bg-slate-100 border-slate-200';
-    if (s >= 85) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-    if (s >= 75) return 'text-amber-700 bg-amber-50 border-amber-200';
-    return 'text-orange-700 bg-orange-50 border-orange-200';
-  };
-
   const getTrendIcon = (t) => {
     if (t === '↑') return <span className="text-emerald-500 font-bold">↑</span>;
     if (t === '↓') return <span className="text-rose-500 font-bold">↓</span>;
@@ -516,8 +517,39 @@ export default function PagesPage() {
     return <span className="text-slate-400 font-bold">→</span>;
   };
 
-  // Filter performance list by platform
-  const filteredPerformance = performance.filter(p => {
+  const insights = useMemo(() => {
+    const primaryPageName = pages[0]?.pageName || 'Facebook Page';
+    if (!auditSummary?.totalAudits) {
+      return [
+        `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
+        'Chưa có dữ liệu đánh giá chất lượng AI. Hãy bấm "Chạy quét & Chấm điểm AI" để AI phân tích.',
+        'Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ doanh thu thực tế.',
+      ];
+    }
+    const list = [
+      `Kênh "${primaryPageName}" hoạt động ổn định, đồng bộ dữ liệu thời gian thực.`,
+    ];
+    const avg = auditSummary.avgScore;
+    if (avg != null) {
+      list.push(
+        `Điểm chất lượng AI trung bình toàn hệ thống đạt ${avg}/100 (CSAT ${(avg / 20).toFixed(1)}/5) từ ${auditSummary.totalAudits} cuộc hội thoại.`
+      );
+    }
+    if (auditSummary.bestPage) {
+      list.push(`Trang "${auditSummary.bestPage.pageName}" dẫn đầu với ${auditSummary.bestPage.avgScore}/100.`);
+    }
+    if (auditSummary.worstPage && auditSummary.worstPage.avgScore < 75) {
+      list.push(`Trang "${auditSummary.worstPage.pageName}" cần cải thiện (${auditSummary.worstPage.avgScore}/100).`);
+    }
+    if (auditSummary.noReplyCount > 0) {
+      list.push(`Phát hiện ${auditSummary.noReplyCount} cuộc hội thoại bị bỏ sót, chưa phản hồi khách.`);
+    } else if (auditSummary.totalAudits > 0) {
+      list.push('Tỷ lệ phản hồi tốt — các cuộc đã quét đều được nhân viên trả lời.');
+    }
+    return list.slice(0, 5);
+  }, [pages, auditSummary]);
+
+  const filteredPerformance = useMemo(() => performance.filter(p => {
     if (performanceFilter === 'all') return true;
     if (performanceFilter === 'facebook' && p.type === 'Facebook Page') return true;
     if (performanceFilter === 'instagram' && p.type === 'Instagram') return true;
@@ -527,20 +559,23 @@ export default function PagesPage() {
     if (performanceFilter === 'lazada' && p.type === 'Lazada') return true;
     if (performanceFilter === 'website' && p.type === 'Website') return true;
     return false;
-  });
+  }), [performance, performanceFilter]);
   const displayPerformanceList = filteredPerformance;
 
-  const hasAuditedPages = performance.some(p => p.quality !== null);
-  const countUnauditedPages = performance.filter(p => p.quality === null).length;
-
-  // Unique platform types for filter tabs
-  const platformTypes = [...new Set(performance.map(p => p.type))].sort();
+  const countUnauditedPages = useMemo(
+    () => performance.filter((p) => p.quality === null).length,
+    [performance]
+  );
+  const platformTypes = useMemo(
+    () => [...new Set(performance.map((p) => p.type))].sort(),
+    [performance]
+  );
 
   if (isLoadingPages) {
     return (
       <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4 py-20">
         <Globe size={44} className="animate-spin text-indigo-600" />
-        <span className="text-base font-bold tracking-wide animate-pulse">Đang tải thông tin trang & kênh...</span>
+        <span className="text-base font-bold tracking-wide">Đang tải thông tin trang & kênh...</span>
       </div>
     );
   }
@@ -566,94 +601,6 @@ export default function PagesPage() {
       </div>
     );
   }
-
-  const generateRealAIInsights = () => {
-    const primaryPageName = pages[0]?.pageName || 'Facebook Page';
-    if (!audits || audits.length === 0) {
-      return [
-        `Kênh "${primaryPageName}" hoạt động ổn định, dữ liệu đồng bộ theo thời gian thực.`,
-        'Chưa có dữ liệu đánh giá chất lượng AI. Hãy bấm nút "Chạy quét & Chấm điểm AI" ở trên để AI phân tích và đưa ra nhận xét.',
-        'Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.',
-        'Kênh TikTok và Zalo đang ghi nhận lượng tin nhắn mới tăng trưởng khá nhanh trong 7 ngày qua.'
-      ];
-    }
-
-    const insightsList = [];
-    
-    // 1. Connection status
-    insightsList.push(`Kênh "${primaryPageName}" hoạt động ổn định, đồng bộ dữ liệu thời gian thực.`);
-
-    // 2. Average quality score
-    const totalScore = audits.reduce((sum, a) => sum + a.score, 0);
-    const calculatedAvg = Math.round(totalScore / audits.length);
-    const csatScale = (calculatedAvg / 20).toFixed(1);
-    insightsList.push(`Điểm chất lượng AI trung bình toàn hệ thống đạt ${calculatedAvg}/100 (CSAT đạt ${csatScale}/5) dựa trên ${audits.length} cuộc hội thoại đã được AI đánh giá.`);
-
-    // 3. Page analysis
-    const pageScores = {};
-    audits.forEach(a => {
-      const pId = a.metadata?.pageId;
-      const pName = a.metadata?.pageName || pId;
-      if (pId) {
-        if (!pageScores[pId]) pageScores[pId] = { total: 0, count: 0, name: pName };
-        pageScores[pId].total += a.score;
-        pageScores[pId].count += 1;
-      }
-    });
-
-    const pageAverages = Object.values(pageScores).map(p => ({
-      name: p.name,
-      avg: Math.round(p.total / p.count)
-    })).sort((a, b) => b.avg - a.avg);
-
-    if (pageAverages.length > 0) {
-      const best = pageAverages[0];
-      insightsList.push(`Trang "${best.name}" đang dẫn đầu về chất lượng phục vụ với điểm trung bình ${best.avg}/100.`);
-      if (pageAverages.length > 1) {
-        const worst = pageAverages[pageAverages.length - 1];
-        if (worst.avg < 75) {
-          insightsList.push(`Trang "${worst.name}" có chất lượng phản hồi thấp hơn mặt bằng chung (${worst.avg}/100), cần cải thiện.`);
-        }
-      }
-    }
-
-    // 4. Missed replies (no reply) from audit metadata
-    const missedReplies = audits.filter(a => a.metadata?.noReply === true).length;
-    if (missedReplies > 0) {
-      insightsList.push(`Phát hiện ${missedReplies} cuộc hội thoại bị nhân viên bỏ sót, không phản hồi lại tin nhắn cuối của khách hàng.`);
-    } else {
-      insightsList.push(`Chỉ số trực tuyến rất tốt: 100% cuộc hội thoại được đánh giá đều được nhân viên phản hồi đầy đủ.`);
-    }
-
-    // 5. Response times from audit metadata
-    const responseTimes = audits
-      .map(a => a.metadata?.transcriptMetrics?.firstResponseSec)
-      .filter(t => typeof t === 'number' && t > 0);
-    if (responseTimes.length > 0) {
-      const avgResponseSec = Math.round(responseTimes.reduce((sum, t) => sum + t, 0) / responseTimes.length);
-      const timeLabel = avgResponseSec > 60 
-        ? `${Math.round(avgResponseSec / 60)} phút` 
-        : `${avgResponseSec} giây`;
-      insightsList.push(`Thời gian phản hồi khách hàng đầu tiên trung bình là khoảng ${timeLabel}.`);
-    }
-
-    // 6. Customer Sentiment analysis
-    const sentiments = audits.map(a => a.metadata?.sentiment?.tone).filter(Boolean);
-    if (sentiments.length > 0) {
-      const positiveCount = sentiments.filter(s => s === 'positive').length;
-      const positivePct = Math.round((positiveCount / sentiments.length) * 100);
-      if (positivePct > 0) {
-        insightsList.push(`Tỷ lệ hội thoại ghi nhận cảm xúc tích cực (Positive Sentiment) từ khách hàng đạt ${positivePct}%.`);
-      }
-    }
-
-    // 7. Sapo reminder
-    insightsList.push('Chỉ số Doanh thu & Tỷ lệ chốt hiển thị mockup. Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ hóa đơn chốt đơn thực tế.');
-
-    return insightsList.slice(0, 5); // Return top 5 insights
-  };
-
-  const insights = generateRealAIInsights();
 
   const selectedChannelScored = channelDayStats?.total ?? 0;
   const hasReachedScanLimit = selectedChannelScored >= auditConversationLimit;
@@ -725,46 +672,13 @@ export default function PagesPage() {
 
         {/* Channels List */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 no-scrollbar">
-          {filteredChannels.map((ch, i) => (
-            <div 
-              key={ch.id} 
-              onClick={() => setActiveChannelId(ch.id)}
-              className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all duration-200 ${
-                (activeChannelId === ch.id || (!activeChannelId && i === 0))
-                  ? 'bg-indigo-50/50 border-indigo-200/70 shadow-sm shadow-indigo-50' 
-                  : 'bg-transparent border-transparent hover:bg-slate-50'
-              }`}
-            >
-              {/* Page Avatar */}
-              <div className="relative w-10 h-10 rounded-full bg-slate-50 border border-slate-200/60 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                {ch.pictureUrl ? (
-                  <img src={ch.pictureUrl} alt={ch.name} className="w-full h-full object-cover" />
-                ) : (
-                  ch.avatar
-                )}
-                {/* Active Dot */}
-                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                  ch.enabled ? 'bg-emerald-500' : 'bg-slate-300'
-                }`} />
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-sm font-bold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">{ch.name}</span>
-                  {/* Score badge */}
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md border shrink-0 ${getScoreColor(ch.score)}`}>
-                    {ch.score !== null ? `${ch.score}` : '-'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
-                  <span className="font-semibold text-slate-500">{ch.type}</span>
-                  <span>•</span>
-                  <span>Tin nhắn: <strong className="text-slate-600 font-bold">{ch.msgs}</strong></span>
-                </div>
-              </div>
-            </div>
+          {filteredChannels.map((ch) => (
+            <ChannelRow
+              key={ch.id}
+              channel={ch}
+              isActive={activeChannelId === ch.id}
+              onSelect={setActiveChannelId}
+            />
           ))}
           {filteredChannels.length === 0 && (
             <div className="text-center py-8 text-sm text-slate-400">Không tìm thấy trang hoặc kênh nào</div>
@@ -946,7 +860,7 @@ export default function PagesPage() {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
                   }`}
                 >
-                  {getPageIcon(type)}
+                  <PageTypeIcon type={type} size={14} />
                   <span>{type === 'Facebook Page' ? 'Facebook' : type} {count}</span>
                 </button>
               );
@@ -1002,7 +916,7 @@ export default function PagesPage() {
                           {p.pictureUrl ? (
                             <img src={p.pictureUrl} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
-                            getPageIcon(p.type)
+                            <PageTypeIcon type={p.type} size={18} />
                           )}
                         </div>
                         <div>
@@ -1157,7 +1071,7 @@ export default function PagesPage() {
             {keywordItems.map((item, i) => (
               <div key={i} className="bg-slate-50/40 border border-slate-100 rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2.5">
-                  {getPageIcon(item.type)}
+                  <PageTypeIcon type={item.type} size={14} />
                   <span className="text-xs font-bold text-slate-700">{item.type}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">

@@ -6,11 +6,26 @@ export interface CskhPage {
   pagePictureUrl?: string | null
   enabled: boolean
   updatedAt: string
-  metadata?: unknown
+  conversationCount?: number
+  unreadConversationCount?: number
+  auditCount?: number
+  avgScore?: number | null
+  noReplyCount?: number
+  repliedCount?: number
+}
+
+export interface CskhPagesAuditSummary {
+  totalAudits: number
+  avgScore: number | null
+  noReplyCount: number
+  repliedCount: number
+  bestPage?: { pageId: string; pageName: string; avgScore: number } | null
+  worstPage?: { pageId: string; pageName: string; avgScore: number } | null
 }
 
 export interface CskhPagesResponse {
   pages: CskhPage[]
+  auditSummary?: CskhPagesAuditSummary
   oauthConnected: boolean
   oauthUser: string | null
   oauthUpdatedAt: string | null
