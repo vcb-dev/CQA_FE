@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, SlidersHorizontal, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { useOptionalAuditJob } from './AuditJobProvider'
 import {
   fetchCskhPages,
   syncInboxFromGraph,
@@ -30,6 +31,8 @@ type ChatMessengerPaneProps = {
 type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
 
 export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
+  const auditJob = useOptionalAuditJob()
+  const auditRunning = auditJob?.isRunning ?? false
   const [selectedConversation, setSelectedConversation] = useState<CskhInboxConversation | null>(null)
   const qc = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
@@ -60,7 +63,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const { data: allConversations } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
     queryFn: () => fetchInboxConversations(selectedPageId),
-    refetchInterval: connected ? false : 5000,
+    refetchInterval: connected ? false : auditRunning ? 15000 : 5000,
   })
 
   // Compute filter counts

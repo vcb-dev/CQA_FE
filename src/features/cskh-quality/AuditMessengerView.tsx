@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
 import { cn } from '@/lib/utils'
@@ -20,12 +20,10 @@ import {
   fetchCskhPages,
   pauseAuditJob,
   fetchAuditDayStats,
-  fetchAuditProgress,
   fetchCskhAudits,
   fetchCustomerIntent,
   fetchInboxConversations,
   fetchInboxMessages,
-  fetchRunningCskhJob,
   linkAuditInbox,
   resolveInboxMessageMedia,
   runAudit,
@@ -86,8 +84,8 @@ import {
 import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
+import { useAuditJob } from './AuditJobProvider'
 
-const AUDIT_JOB_KEY = 'cskh:audit-job-id'
 const AUDIT_INTENT_CACHE_KEY = 'cskh:audit-intent-cache:v1'
 /** ID toast tiến độ chấm điểm — dùng lại cho mọi cập nhật để không spam toast. */
 const AUDIT_TOAST_ID = 'cskh-audit-progress'
@@ -121,15 +119,6 @@ function cskhQueryRetry(failureCount: number, error: unknown): boolean {
 
 function cskhQueryRetryDelay(attempt: number): number {
   return Math.min(1000 * 2 ** attempt, 8000)
-}
-
-function storeJobId(jobId: string | null) {
-  try {
-    if (jobId) sessionStorage.setItem(AUDIT_JOB_KEY, jobId)
-    else sessionStorage.removeItem(AUDIT_JOB_KEY)
-  } catch {
-    /* ignore */
-  }
 }
 
 function normalizeName(value?: string | null): string {
@@ -441,7 +430,8 @@ export function AuditMessengerView({
 }: {
   onAuditJobActiveChange?: (active: boolean) => void
 }) {
-  const [jobId, setJobId] = useState<string | null>(null)
+  const auditJob = useAuditJob()
+  const [attachedJobId, setAttachedJobId] = useState<string | null>(() => auditJob.jobId)
   const [auditDateFrom, setAuditDateFrom] = useState('')
   const [auditDateTo, setAuditDateTo] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -458,7 +448,6 @@ export function AuditMessengerView({
     loadIntentCache()
   )
   const [dismissedErrorKey, setDismissedErrorKey] = useState<string | null>(null)
-  const [backgroundJobId, setBackgroundJobId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const chatScrollSigRef = useRef('')
   const refreshedConvRef = useRef<string | null>(null)
@@ -479,21 +468,14 @@ export function AuditMessengerView({
   }, [auditDateFrom, auditDateTo, selectedPageId])
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const running = await fetchRunningCskhJob('audit')
-        if (running?.status === 'running' && running.id !== jobId) {
-          setBackgroundJobId(running.id)
-        } else {
-          setBackgroundJobId(null)
-        }
-      } catch {
-        setBackgroundJobId(null)
-      }
-    })()
-  }, [jobId])
+    if (auditJob.isRunning && auditJob.jobId && !attachedJobId) {
+      setAttachedJobId(auditJob.jobId)
+    }
+  }, [auditJob.isRunning, auditJob.jobId, attachedJobId])
 
-
+  const jobId = attachedJobId
+  const progress = attachedJobId === auditJob.jobId ? auditJob.progress : undefined
+  const progressFetching = attachedJobId === auditJob.jobId ? auditJob.isFetching : false
 
   const runMut = useMutation({
     mutationFn: (opts: {
@@ -518,16 +500,12 @@ export function AuditMessengerView({
     },
     onSuccess: (res, vars) => {
       const cur = filtersRef.current
+      auditJob.setJobId(res.jobId)
       if (
         vars.auditDateFrom !== cur.auditDateFrom ||
         vars.auditDateTo !== cur.auditDateTo ||
         vars.pageId !== cur.selectedPageId
       ) {
-        void fetchRunningCskhJob('audit').then((running) => {
-          if (running?.status === 'running' && running.id === res.jobId) {
-            setBackgroundJobId(res.jobId)
-          }
-        })
         return
       }
       const cached =
@@ -539,8 +517,7 @@ export function AuditMessengerView({
           vars.auditDateTo,
           selectedPageId,
         ]) ?? stableAuditsRef.current
-      setJobId(res.jobId)
-      storeJobId(res.jobId)
+      setAttachedJobId(res.jobId)
       qc.setQueryData<CskhAuditProgress>(['cskh', 'audit-progress', res.jobId], {
         id: res.jobId,
         status: 'running',
@@ -567,8 +544,8 @@ export function AuditMessengerView({
     mutationFn: () => cancelAuditJob(),
     onMutate: () => {
       const detachedJobId = jobId
-      setJobId(null)
-      storeJobId(null)
+      setAttachedJobId(null)
+      auditJob.clearJobId()
       toast.dismiss(AUDIT_TOAST_ID)
       runMut.reset()
       if (detachedJobId) {
@@ -577,7 +554,6 @@ export function AuditMessengerView({
       return { detachedJobId }
     },
     onSuccess: (res) => {
-      setBackgroundJobId(null)
       if (res.cancelled > 0) {
         toast.info('Đã hủy tiến trình chấm điểm', { duration: 4000 })
       } else {
@@ -585,16 +561,10 @@ export function AuditMessengerView({
       }
       void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
       void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
+      void qc.invalidateQueries({ queryKey: ['cskh', 'running-audit-job'] })
     },
-    onError: (err, _vars, ctx) => {
+    onError: (err) => {
       toast.error(getApiErrorMessage(err) || 'Không hủy được tiến trình')
-      if (ctx?.detachedJobId) {
-        void fetchRunningCskhJob('audit').then((running) => {
-          if (running?.status === 'running' && running.id === ctx.detachedJobId) {
-            setBackgroundJobId(running.id)
-          }
-        })
-      }
     },
   })
 
@@ -608,26 +578,12 @@ export function AuditMessengerView({
     },
   })
 
-  const {
-    data: progress,
-    isError: progressError,
-    error: progressErr,
-    isFetching: progressFetching,
-    failureCount: progressFailureCount,
-  } = useQuery({
-    queryKey: ['cskh', 'audit-progress', jobId],
-    queryFn: () => fetchAuditProgress(jobId!),
-    enabled: !!jobId,
-    refetchInterval: (query) => (query.state.data?.status === 'running' ? 1500 : false),
-    placeholderData: keepPreviousData,
-    retry: cskhQueryRetry,
-    retryDelay: cskhQueryRetryDelay,
-  })
-
   const prevProgressStatusRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!progress || progress.status === 'running') return
+    if (prevProgressStatusRef.current === progress.status) return
+    prevProgressStatusRef.current = progress.status
 
     const persistAuditsForRange = (from?: string, to?: string) => {
       const rangeFrom = from || progress.summary?.auditDateFrom || progress.summary?.auditDate
@@ -649,42 +605,12 @@ export function AuditMessengerView({
     }
 
     if (progress.status === 'done') {
-      const count = progress.summary?.auditCount ?? progress.audits?.length ?? 0
-      const rangeFrom = progress.summary?.auditDateFrom || progress.summary?.auditDate
-      const rangeTo = progress.summary?.auditDateTo || rangeFrom
-      const rangeLabel = rangeFrom ? ` (${formatAuditRangeLabel(rangeFrom, rangeTo)})` : ''
-      if (progress.summary?.allAlreadyAudited) {
-        toast.info(
-          `Đã chấm hết ${progress.summary.skippedAlready ?? count} hội thoại${rangeLabel} — không còn hội thoại mới.`,
-          { id: AUDIT_TOAST_ID, duration: 7000 }
-        )
-      } else if (progress.summary?.paused || progress.summary?.partial) {
-        const remaining = progress.summary.remaining
-        toast.info(
-          `Tạm dừng — đã chấm ${count} hội thoại${rangeLabel}${
-            remaining ? ` · còn ~${remaining} trong batch này` : ''
-          }. Bấm «Tiếp tục quét và chấm điểm» cùng khoảng ngày để quét nốt.`,
-          { id: AUDIT_TOAST_ID, duration: 9000 }
-        )
-      } else if (count > 0) {
-        toast.success(`Hoàn tất ${count} hội thoại${rangeLabel}`, {
-          id: AUDIT_TOAST_ID,
-          duration: 6000,
-        })
-      } else {
-        toast.dismiss(AUDIT_TOAST_ID)
-      }
-      persistAuditsForRange(rangeFrom, rangeTo)
-      setJobId(null)
-      storeJobId(null)
-      void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
-      void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
-      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+      persistAuditsForRange(
+        progress.summary?.auditDateFrom || progress.summary?.auditDate,
+        progress.summary?.auditDateTo
+      )
+      setAttachedJobId(null)
       return
-    }
-
-    if (progress.status === 'failed') {
-      toast.dismiss(AUDIT_TOAST_ID)
     }
 
     const savedCount = progress.summary?.auditCount ?? progress.audits?.length ?? 0
@@ -693,23 +619,9 @@ export function AuditMessengerView({
         progress.summary?.auditDateFrom || progress.summary?.auditDate,
         progress.summary?.auditDateTo
       )
-      setJobId(null)
-      storeJobId(null)
-      void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
-      void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
-      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+      setAttachedJobId(null)
     }
-  }, [progress, qc, selectedPageFilter, selectedPageId, setJobId])
-
-  useEffect(() => {
-    if (!progressError || !jobId || progressFetching) return
-    if (progressFailureCount < 4 && isTransientInfraError(getApiErrorMessage(progressErr))) return
-    setJobId(null)
-    storeJobId(null)
-    toast.dismiss(AUDIT_TOAST_ID)
-    void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
-    void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
-  }, [progressError, progressErr, progressFetching, progressFailureCount, jobId, qc, setJobId])
+  }, [progress, qc, selectedPageFilter, selectedPageId])
 
   useEffect(() => {
     if (!jobId || progress?.status !== 'running') return
@@ -748,19 +660,10 @@ export function AuditMessengerView({
     setChatTab('chat')
 
     if (filtersChanged) {
-      setJobId((current) => {
-        if (current) {
-          storeJobId(null)
-          toast.dismiss(AUDIT_TOAST_ID)
-          qc.removeQueries({ queryKey: ['cskh', 'audit-progress', current] })
-        }
-        return null
-      })
+      setAttachedJobId(null)
+      toast.dismiss(AUDIT_TOAST_ID)
       runMut.reset()
       setDismissedErrorKey(null)
-      void fetchRunningCskhJob('audit').then((running) => {
-        setBackgroundJobId(running?.status === 'running' ? running.id : null)
-      })
     }
   }, [auditDateFrom, auditDateTo, selectedPageId, qc])
 
@@ -768,76 +671,16 @@ export function AuditMessengerView({
   const isAuditActive =
     runMut.isPending ||
     (!!jobId &&
+      attachedJobId === auditJob.jobId &&
       progress?.status !== 'failed' &&
       progress?.status !== 'done' &&
       (progress?.status === 'running' || progress === undefined))
   const isRunning = isAuditActive
+  const backgroundJobRunning = auditJob.isRunning && !isRunning
 
   useEffect(() => {
-    if (backgroundJobId && !jobId && !isRunning) {
-      toast.custom(
-        (t) => (
-          <div className="flex w-full max-w-sm flex-col gap-2.5 rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-bold text-slate-800 dark:text-white">
-                  Tiến trình đang chạy nền
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Hệ thống đang quét và chấm điểm trong nền.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  toast.dismiss(t)
-                  setBackgroundJobId(null)
-                }}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-                aria-label="Đóng"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  toast.dismiss(t)
-                  setJobId(backgroundJobId)
-                  storeJobId(backgroundJobId)
-                  setBackgroundJobId(null)
-                }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-md hover:bg-indigo-700 active:scale-95 transition-all"
-              >
-                <Play className="h-3 w-3" />
-                Theo dõi
-              </button>
-              <button
-                type="button"
-                disabled={cancelMut.isPending}
-                onClick={() => {
-                  toast.dismiss(t)
-                  setBackgroundJobId(null)
-                  cancelMut.mutate()
-                }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 active:scale-95 transition-all disabled:opacity-60 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400"
-              >
-                <Pause className="h-3 w-3" />
-                Huỷ tiến trình
-              </button>
-            </div>
-          </div>
-        ),
-        { id: 'background-job-toast', duration: Infinity }
-      )
-    } else {
-      toast.dismiss('background-job-toast')
-    }
-    return () => {
-      toast.dismiss('background-job-toast')
-    }
-  }, [backgroundJobId, jobId, isRunning, cancelMut])
+    onAuditJobActiveChange?.(auditJob.isRunning)
+  }, [auditJob.isRunning, onAuditJobActiveChange])
 
   const {
     data: dayStats,
@@ -874,16 +717,11 @@ export function AuditMessengerView({
     retryDelay: cskhQueryRetryDelay,
   })
 
-  useEffect(() => {
-    onAuditJobActiveChange?.(isRunning)
-  }, [isRunning, onAuditJobActiveChange])
   const isPausing = Boolean(summary?.pauseRequested) || pauseMut.isPending
   const isFailed = progress?.status === 'failed'
   const auditErrorMessage =
     toUserFacingError(
-      progress?.error ||
-        (progressErr ? getApiErrorMessage(progressErr) : '') ||
-        (runMut.error ? getApiErrorMessage(runMut.error) : '')
+      progress?.error || (runMut.error ? getApiErrorMessage(runMut.error) : '')
     ) || 'Không thể quét và chấm điểm. Vui lòng thử lại sau.'
   const isFetchPhase = isAuditActive && summary?.phase !== 'audit'
   const isAuditPhase = isAuditActive && summary?.phase === 'audit'
@@ -964,19 +802,13 @@ export function AuditMessengerView({
 
   const showTransientLoading =
     !showDayLoading &&
-    ((!isAuditActive &&
-      progressError &&
-      progressFetching &&
-      isTransientInfraError(auditErrorMessage)) ||
-      (recentLoading && !sortedAudits.length && !isAuditActive && !filtersReady))
+    ((recentLoading && !sortedAudits.length && !isAuditActive && !filtersReady))
 
   const errorKey = `${progress?.id ?? 'run'}-${auditErrorMessage}`
   const showAuditError =
     dismissedErrorKey !== errorKey &&
     !showTransientLoading &&
-    (runMut.isError ||
-      (!!jobId && isFailed && sortedAudits.length === 0) ||
-      (!!jobId && progressError && sortedAudits.length === 0 && !recentLoading && !progressFetching))
+    (runMut.isError || (!!jobId && isFailed && sortedAudits.length === 0))
 
   useEffect(() => {
     if (!sortedAudits.length) {
@@ -1382,7 +1214,7 @@ export function AuditMessengerView({
                 disabled={!canRun || runMut.isPending}
                 onClick={() => {
                   // Check if there's a background job running
-                  if (backgroundJobId) {
+                  if (auditJob.isRunning && !isRunning) {
                     toast.custom(
                       (toastId) => (
                         <div className="flex flex-col gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-lg">
@@ -1476,7 +1308,7 @@ export function AuditMessengerView({
                   </button>
                 </>
               )}
-              {(isFailed || progressError) && sortedAudits.length === 0 && (
+              {isFailed && sortedAudits.length === 0 && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1486,8 +1318,8 @@ export function AuditMessengerView({
                       summary?.auditDate ||
                       vietnamTodayIso()
                     const to = auditDateTo || summary?.auditDateTo || from
-                    setJobId(null)
-                    storeJobId(null)
+                    setAttachedJobId(null)
+                    auditJob.clearJobId()
                     setDismissedErrorKey(null)
                     if (selectedPageId) {
                       runMut.mutate({
@@ -1508,6 +1340,24 @@ export function AuditMessengerView({
           </div>
         </div>
       </CskhToolbar>
+
+      {backgroundJobRunning ? (
+        <CskhNoticeBanner
+          tone="info"
+          title="Chấm CSKH đang chạy ngầm"
+          message="Tiến trình vẫn chạy trên server. Bấm «Theo dõi» để xem tiến độ tại đây."
+          action={
+            <button
+              type="button"
+              onClick={() => auditJob.jobId && setAttachedJobId(auditJob.jobId)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-700"
+            >
+              <Play className="h-3 w-3" />
+              Theo dõi
+            </button>
+          }
+        />
+      ) : null}
 
       {showTransientLoading && (
         <CskhNoticeBanner
@@ -1531,8 +1381,8 @@ export function AuditMessengerView({
                   auditDateFrom || summary?.auditDateFrom || summary?.auditDate || vietnamTodayIso()
                 const to = auditDateTo || summary?.auditDateTo || from
                 setDismissedErrorKey(null)
-                setJobId(null)
-                storeJobId(null)
+                setAttachedJobId(null)
+                auditJob.clearJobId()
                 if (selectedPageId) {
                   runMut.mutate({
                     auditDateFrom: from,

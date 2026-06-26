@@ -45,7 +45,6 @@ import {
   fetchCskhPages,
   getCskhOAuthStartUrl,
   refreshCskhOAuth,
-  fetchRunningCskhJob,
   setCskhPageEnabled,
   syncInboxFromGraph,
   type CskhPage,
@@ -53,6 +52,7 @@ import {
 } from '@/features/cskh-quality/api'
 import { AuditMessengerView } from './AuditMessengerView'
 import { ChatMessengerPane } from './ChatMessengerPane'
+import { useOptionalAuditJob } from './AuditJobProvider'
 import { CskhGlassPanel, CskhPageShell, CskhPageAvatar } from './cskhUi'
 import { toast } from 'sonner'
 
@@ -75,8 +75,6 @@ function Facebook(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
-
-const AUDIT_JOB_KEY = 'cskh:audit-job-id'
 
 function formatNumber(value?: number | null) {
   if (value == null || Number.isNaN(value)) return '—'
@@ -3507,7 +3505,8 @@ export function CskhQualityPage() {
             : tabParam === 'chat'
               ? 'chat'
               : 'audit'
-  const [auditJobBusy, setAuditJobBusy] = useState(false)
+  const auditJob = useOptionalAuditJob()
+  const auditJobBusy = auditJob?.isRunning ?? false
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search)
@@ -3519,18 +3518,6 @@ export function CskhQualityPage() {
   }, [])
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const running = await fetchRunningCskhJob('audit')
-        setAuditJobBusy(running?.status === 'running')
-        if (running?.status !== 'running') {
-          sessionStorage.removeItem(AUDIT_JOB_KEY)
-        }
-      } catch {
-        setAuditJobBusy(false)
-        sessionStorage.removeItem(AUDIT_JOB_KEY)
-      }
-    })()
     const p = new URLSearchParams(window.location.search)
     if (p.get('fb_connected') || p.get('oauth_error')) {
       const url = new URL(window.location.href)
@@ -3587,7 +3574,7 @@ export function CskhQualityPage() {
               : 'hidden'
           }
         >
-          <AuditMessengerView onAuditJobActiveChange={setAuditJobBusy} />
+          <AuditMessengerView />
         </div>
         <div
           className={

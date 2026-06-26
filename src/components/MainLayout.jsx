@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { AuditJobProvider } from '@/features/cskh-quality/AuditJobProvider';
 
 export default function MainLayout() {
   const location = useLocation();
@@ -8,20 +9,22 @@ export default function MainLayout() {
   const isConversations = location.pathname.startsWith('/conversations');
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 h-screen">
-        {!hideHeader && <Header />}
-        <div className={`flex flex-1 flex-col overflow-hidden min-h-0 bg-slate-100 ${
-          hideHeader 
-            ? '!p-4 md:!p-6 !bg-slate-50/80' 
-            : isConversations 
-              ? 'p-2 sm:p-3' 
-              : 'p-4 sm:p-5'
-        }`}>
-          <Outlet />
+    <AuditJobProvider>
+      <div className="flex h-screen w-full overflow-hidden bg-slate-50">
+        <Sidebar />
+        <div className="flex flex-1 flex-col min-w-0 h-screen">
+          {!hideHeader && <Header />}
+          <div className={`flex flex-1 flex-col overflow-hidden min-h-0 bg-slate-100 ${
+            hideHeader 
+              ? '!p-4 md:!p-6 !bg-slate-50/80' 
+              : isConversations 
+                ? 'p-2 sm:p-3' 
+                : 'p-4 sm:p-5'
+          }`}>
+            <Outlet />
+          </div>
         </div>
       </div>
-    </div>
+    </AuditJobProvider>
   );
 }
