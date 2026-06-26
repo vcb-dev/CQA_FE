@@ -61,8 +61,8 @@ export default function Header() {
     queryFn: () => fetchInboxConversations(),
   });
 
-  const unreadCount = conversations 
-    ? conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) 
+  const unreadCount = conversations
+    ? conversations.filter((c) => (c.unreadCount || 0) > 0).length
     : 0;
 
   useEffect(() => {
