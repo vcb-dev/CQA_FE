@@ -935,7 +935,7 @@ export function CskhAuditProgressPanel({
   const percent = auditProgressPercent(summary)
 
   const statusLine = summary?.pauseRequested
-    ? 'Đang tạm dừng — chờ chấm xong hội thoại đang xử lý…'
+    ? 'Đang tạm dừng — lưu kết quả đã chấm…'
     : isFetch
       ? pagesTotal > 0
         ? `Đang quét Page ${pageCurrent}/${pagesTotal}${summary?.currentPage ? ` · ${summary.currentPage}` : ''}`

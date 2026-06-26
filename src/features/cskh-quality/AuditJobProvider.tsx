@@ -129,7 +129,13 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     queryKey: ['cskh', 'audit-progress', jobId],
     queryFn: () => fetchAuditProgress(jobId!),
     enabled: !!jobId,
-    refetchInterval: (query) => (query.state.data?.status === 'running' ? 2000 : false),
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.status === 'running') {
+        return data.summary?.pauseRequested ? 1000 : 2000
+      }
+      return false
+    },
     placeholderData: keepPreviousData,
     retry: cskhQueryRetry,
     retryDelay: cskhQueryRetryDelay,
@@ -147,14 +153,18 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
 
     const count = progress.summary?.auditCount ?? progress.audits?.length ?? 0
 
-    if (progress.status === 'done') {
+    if (progress.status === 'done' || progress.status === 'paused') {
       if (progress.summary?.allAlreadyAudited) {
         toast.info(`Đã chấm hết ${progress.summary.skippedAlready ?? count} hội thoại — không còn mới.`, {
           id: AUDIT_TOAST_ID,
           duration: 6000,
         })
-      } else if (progress.summary?.paused || progress.summary?.partial) {
-        toast.info(`Tạm dừng chấm CSKH — đã xử lý ${count} hội thoại.`, {
+      } else if (
+        progress.status === 'paused' ||
+        progress.summary?.paused ||
+        progress.summary?.partial
+      ) {
+        toast.info(`Tạm dừng chấm CSKH — đã lưu ${count} hội thoại.`, {
           id: AUDIT_TOAST_ID,
           duration: 7000,
         })

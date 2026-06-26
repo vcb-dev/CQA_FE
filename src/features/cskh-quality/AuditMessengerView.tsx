@@ -655,10 +655,15 @@ export function AuditMessengerView({
   const pauseMut = useMutation({
     mutationFn: () => pauseAuditJob(),
     onSuccess: (res) => {
-      if (!res.paused) return
+      if (!res.paused) {
+        toast.info(res.message || 'Không có tiến trình đang chạy', { duration: 3000 })
+        return
+      }
+      toast.info('Đang dừng — lưu kết quả đã chấm, không quét thêm…', { duration: 5000 })
       if (jobId) {
         void qc.invalidateQueries({ queryKey: ['cskh', 'audit-progress', jobId] })
       }
+      void qc.invalidateQueries({ queryKey: ['cskh', 'running-audit-job'] })
     },
   })
 
@@ -688,12 +693,13 @@ export function AuditMessengerView({
       qc.setQueryData(cacheKey, sortAuditsByCreatedDesc([...merged.values()]))
     }
 
-    if (progress.status === 'done') {
+    if (progress.status === 'done' || progress.status === 'paused') {
       persistAuditsForRange(
         progress.summary?.auditDateFrom || progress.summary?.auditDate,
         progress.summary?.auditDateTo
       )
       setAttachedJobId(null)
+      runMut.reset()
       return
     }
 
@@ -763,6 +769,7 @@ export function AuditMessengerView({
       attachedJobId === auditJob.jobId &&
       progress?.status !== 'failed' &&
       progress?.status !== 'done' &&
+      progress?.status !== 'paused' &&
       (progress?.status === 'running' || progress === undefined))
   const isRunning = isAuditActive
   const backgroundJobRunning = auditJob.isRunning && !isRunning
@@ -916,8 +923,8 @@ export function AuditMessengerView({
     prevProgressStatusRef.current = status
     const justPaused =
       prev === 'running' &&
-      status === 'done' &&
-      Boolean(progress?.summary?.paused || progress?.summary?.partial)
+      (status === 'paused' ||
+        (status === 'done' && Boolean(progress?.summary?.paused || progress?.summary?.partial)))
     if (!justPaused || !sortedAudits.length) return
     setSelectedId(sortedAudits[0]!.id)
     setWorkspacePane('list')
@@ -948,7 +955,7 @@ export function AuditMessengerView({
           ? 'AI đang chấm điểm'
           : 'Đang khởi động'
     const detail = summary?.pauseRequested
-      ? 'Chờ chấm xong hội thoại đang xử lý…'
+      ? 'Đang lưu kết quả đã chấm — không quét thêm…'
       : isFetchPhase
         ? pagesTotal > 0
           ? `Page ${Math.min(pagesDone + 1, pagesTotal)}/${pagesTotal}${
