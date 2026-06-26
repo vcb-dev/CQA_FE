@@ -565,22 +565,36 @@ export async function syncInboxFromGraph(
 
 export interface CskhBackfillStatus {
   running: boolean
+  paused?: boolean
   scope: 'empty' | 'all' | ''
   total: number
   done: number
   currentPage: string | null
   addedMessages: number
   okPages: number
-  errorPages: Array<{ page: string; error: string }>
+  errorPages: Array<{ page: string; error: string; pageId?: string }>
   startedAt: string | null
   finishedAt: string | null
+  jobId?: string | null
 }
 
-/** Bắt đầu quét đầy đủ chạy nền. scope='empty' chỉ quét kênh đang rỗng. */
+/** Bắt đầu / tiếp tục quét đầy đủ. force=true bỏ qua tiến độ cũ, quét lại từ đầu. */
 export async function startCskhBackfill(
-  scope: 'empty' | 'all' = 'empty'
+  scope: 'empty' | 'all' = 'all',
+  options?: { force?: boolean }
 ): Promise<CskhBackfillStatus> {
-  const { data } = await apiClient.post<CskhBackfillStatus>('/cskh/inbox/backfill', { scope })
+  const { data } = await apiClient.post<CskhBackfillStatus>('/cskh/inbox/backfill', {
+    scope,
+    force: options?.force === true,
+  })
+  return data
+}
+
+/** Tạm dừng quét — lưu tiến độ kênh đã quét vào DB. */
+export async function pauseCskhBackfill(): Promise<{ paused: boolean; message?: string }> {
+  const { data } = await apiClient.post<{ paused: boolean; message?: string }>(
+    '/cskh/inbox/backfill/pause'
+  )
   return data
 }
 

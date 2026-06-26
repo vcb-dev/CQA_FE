@@ -15,10 +15,12 @@ import {
   Plus,
   CalendarBlank,
   DownloadSimple,
+  Pause,
 } from '@phosphor-icons/react';
 import {
   fetchCskhPages,
   startCskhBackfill,
+  pauseCskhBackfill,
   fetchCskhBackfillStatus,
 } from '@/features/cskh-quality/api';
 
@@ -188,6 +190,7 @@ export default function PagesPage() {
   });
 
   const [startingBackfill, setStartingBackfill] = useState(false);
+  const [pausingBackfill, setPausingBackfill] = useState(false);
   const { data: backfillStatus, refetch: refetchBackfill } = useQuery({
     queryKey: ['cskh', 'backfill'],
     queryFn: fetchCskhBackfillStatus,
@@ -195,26 +198,38 @@ export default function PagesPage() {
     refetchOnWindowFocus: false,
   });
   const backfillRunning = Boolean(backfillStatus?.running);
+  const backfillPaused = Boolean(backfillStatus?.paused && !backfillRunning);
   const prevBackfillRunning = useRef(false);
 
   useEffect(() => {
-    // Khi quét vừa chuyển từ ĐANG CHẠY → XONG: tải lại số liệu kênh.
     if (prevBackfillRunning.current && !backfillRunning) {
       refetch();
+      setPausingBackfill(false);
     }
     prevBackfillRunning.current = backfillRunning;
   }, [backfillRunning, refetch]);
 
-  const handleStartBackfill = async (scope = 'empty') => {
+  const handleStartBackfill = async (force = false) => {
     if (backfillRunning || startingBackfill) return;
     setStartingBackfill(true);
     try {
-      await startCskhBackfill(scope);
+      await startCskhBackfill('all', { force });
       await refetchBackfill();
     } catch {
-      // lỗi sẽ hiện qua trạng thái; bỏ qua ở đây
+      // lỗi hiện qua trạng thái poll
     } finally {
       setStartingBackfill(false);
+    }
+  };
+
+  const handlePauseBackfill = async () => {
+    if (!backfillRunning || pausingBackfill) return;
+    setPausingBackfill(true);
+    try {
+      await pauseCskhBackfill();
+      await refetchBackfill();
+    } catch {
+      setPausingBackfill(false);
     }
   };
 
@@ -504,18 +519,32 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             </label>
             <button
               type="button"
-              onClick={() => handleStartBackfill('all')}
+              onClick={() => handleStartBackfill(false)}
               disabled={backfillRunning || startingBackfill}
-              title="Quét lại TOÀN BỘ kênh — kéo tin nhắn từ Facebook về (an toàn, không nhân đôi)"
+              title="Quét toàn bộ kênh từ Facebook — tự bỏ qua kênh đã quét nếu tạm dừng trước đó"
               className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
             >
               <DownloadSimple size={14} className={backfillRunning ? 'animate-bounce' : ''} />
               {backfillRunning
                 ? 'Đang quét...'
-                : startingBackfill
-                  ? 'Đang khởi động...'
-                  : 'Quét đầy đủ'}
+                : backfillPaused
+                  ? 'Tiếp tục quét'
+                  : startingBackfill
+                    ? 'Đang khởi động...'
+                    : 'Quét đầy đủ'}
             </button>
+            {backfillRunning && (
+              <button
+                type="button"
+                onClick={handlePauseBackfill}
+                disabled={pausingBackfill}
+                title="Tạm dừng sau khi xong kênh hiện tại — tiến độ được lưu vào DB"
+                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+              >
+                <Pause size={14} weight="fill" />
+                {pausingBackfill ? 'Đang dừng...' : 'Tạm dừng'}
+              </button>
+            )}
             <div className="text-right px-3 py-1 min-w-[72px]">
               <div className="text-2xl font-black text-indigo-600 leading-none">
                 {isFetchingPages && !isLoadingPages ? '…' : totalNewInbound.toLocaleString()}
@@ -525,19 +554,27 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
         </div>
 
-        {(backfillRunning || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
+        {(backfillRunning || backfillPaused || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
           <div className={`rounded-xl border px-4 py-3 shadow-sm ${
             backfillRunning
               ? 'border-indigo-200 bg-indigo-50/80'
-              : 'border-emerald-200 bg-emerald-50/80'
+              : backfillPaused
+                ? 'border-amber-200 bg-amber-50/80'
+                : 'border-emerald-200 bg-emerald-50/80'
           }`}>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className={`text-xs font-bold ${backfillRunning ? 'text-indigo-900' : 'text-emerald-900'}`}>
+              <p className={`text-xs font-bold ${
+                backfillRunning ? 'text-indigo-900' : backfillPaused ? 'text-amber-900' : 'text-emerald-900'
+              }`}>
                 {backfillRunning
                   ? 'Đang quét tin nhắn từ Facebook'
-                  : 'Đã quét xong'}
+                  : backfillPaused
+                    ? 'Đã tạm dừng — tiến độ đã lưu'
+                    : 'Đã quét xong'}
                 {' '}
-                <span className={backfillRunning ? 'text-indigo-600' : 'text-emerald-700'}>
+                <span className={
+                  backfillRunning ? 'text-indigo-600' : backfillPaused ? 'text-amber-700' : 'text-emerald-700'
+                }>
                   {backfillStatus.done}/{backfillStatus.total} kênh
                 </span>
               </p>
@@ -563,13 +600,24 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                 )}
               </p>
               {!backfillRunning && (
-                <button
-                  type="button"
-                  onClick={() => handleStartBackfill('all')}
-                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer shrink-0"
-                >
-                  Quét lại toàn bộ
-                </button>
+                <div className="flex items-center gap-3 shrink-0">
+                  {backfillPaused && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartBackfill(false)}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    >
+                      Tiếp tục quét
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleStartBackfill(true)}
+                    className="text-[10px] font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
+                  >
+                    Quét lại từ đầu
+                  </button>
+                </div>
               )}
             </div>
           </div>
