@@ -105,6 +105,14 @@ export function useCskhInboxStream({
             activeAuditDate ?? undefined,
             data.messages
           )
+          if (!data.conversation) {
+            const last = data.messages[data.messages.length - 1]
+            patchInboxConversationInCache(qc, {
+              id: data.conversationId,
+              lastMessage: last.text || undefined,
+              lastMessageAt: last.sentAt,
+            })
+          }
           if (data.conversationId === activeConversationId) {
             // Active conversation: automatically mark it as read on the backend
             markInboxAsRead(data.conversationId).catch((err: any) => {

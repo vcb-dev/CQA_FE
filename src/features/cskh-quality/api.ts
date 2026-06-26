@@ -71,6 +71,8 @@ export interface CskhJobRun {
     auditDate?: string
     auditDateFrom?: string
     auditDateTo?: string
+    pageId?: string | null
+    scanAllPages?: boolean
     scanned?: number
     maxConversations?: number | null
     paused?: boolean

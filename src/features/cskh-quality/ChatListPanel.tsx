@@ -65,7 +65,7 @@ export function ChatListPanel({
   const { data: conversations, isLoading } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', pageId],
     queryFn: () => fetchInboxConversations(pageId),
-    refetchInterval: connected ? false : 5000,
+    refetchInterval: connected ? 45000 : 5000,
   })
 
   const filteredConversations = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
@@ -85,6 +86,7 @@ import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
 import { useAuditJob } from './AuditJobProvider'
+import { loadAuditWorkspace, saveAuditWorkspace, firstNonEmpty } from './auditWorkspaceState'
 
 const AUDIT_INTENT_CACHE_KEY = 'cskh:audit-intent-cache:v1'
 /** ID toast tiến độ chấm điểm — dùng lại cho mọi cập nhật để không spam toast. */
@@ -430,20 +432,36 @@ export function AuditMessengerView({
 }: {
   onAuditJobActiveChange?: (active: boolean) => void
 }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const auditJob = useAuditJob()
+  const savedWorkspace = useMemo(() => loadAuditWorkspace(), [])
+  const jobPageId =
+    typeof auditJob.progress?.summary?.pageId === 'string'
+      ? auditJob.progress.summary.pageId
+      : ''
   const [attachedJobId, setAttachedJobId] = useState<string | null>(() => auditJob.jobId)
-  const [auditDateFrom, setAuditDateFrom] = useState('')
-  const [auditDateTo, setAuditDateTo] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [auditDateFrom, setAuditDateFrom] = useState(() =>
+    firstNonEmpty(searchParams.get('auditFrom'), savedWorkspace.auditDateFrom)
+  )
+  const [auditDateTo, setAuditDateTo] = useState(() =>
+    firstNonEmpty(searchParams.get('auditTo'), savedWorkspace.auditDateTo)
+  )
+  const [selectedId, setSelectedId] = useState<string | null>(savedWorkspace.selectedId ?? null)
   const [draft, setDraft] = useState('')
-  const [sidebarSearch, setSidebarSearch] = useState('')
-  const [listFilter, setListFilter] = useState<'all' | 'low' | 'ad'>('all')
-  const [sidebarSort, setSidebarSort] = useState<AuditSidebarSort>('newest')
-  const [selectedPageId, setSelectedPageId] = useState('')
+  const [sidebarSearch, setSidebarSearch] = useState(savedWorkspace.sidebarSearch ?? '')
+  const [listFilter, setListFilter] = useState<'all' | 'low' | 'ad'>(savedWorkspace.listFilter ?? 'all')
+  const [sidebarSort, setSidebarSort] = useState<AuditSidebarSort>(savedWorkspace.sidebarSort ?? 'newest')
+  const [selectedPageId, setSelectedPageId] = useState(() =>
+    firstNonEmpty(searchParams.get('auditPage'), savedWorkspace.selectedPageId, jobPageId)
+  )
   /** Số cuộc chấm mới mỗi lần chạy (để trống = không giới hạn). */
-  const [batchLimitInput, setBatchLimitInput] = useState('')
-  const [chatTab, setChatTab] = useState<'chat' | 'messenger' | 'timeline' | 'analysis'>('chat')
-  const [workspacePane, setWorkspacePane] = useState<MessengerWorkspacePane>('list')
+  const [batchLimitInput, setBatchLimitInput] = useState(savedWorkspace.batchLimitInput ?? '')
+  const [chatTab, setChatTab] = useState<'chat' | 'messenger' | 'timeline' | 'analysis'>(
+    savedWorkspace.chatTab ?? 'chat'
+  )
+  const [workspacePane, setWorkspacePane] = useState<MessengerWorkspacePane>(
+    savedWorkspace.workspacePane ?? 'list'
+  )
   const [intentByAuditId, setIntentByAuditId] = useState<Record<string, CskhCustomerIntent>>(() =>
     loadIntentCache()
   )
@@ -452,11 +470,21 @@ export function AuditMessengerView({
   const chatScrollSigRef = useRef('')
   const refreshedConvRef = useRef<string | null>(null)
   const stableAuditsRef = useRef<CskhAuditRow[]>([])
-  const filtersRef = useRef({ auditDateFrom: '', auditDateTo: '', selectedPageId: '' })
-  const prevFiltersRef = useRef({ from: '', to: '', page: '' })
+  const filtersRef = useRef({
+    auditDateFrom: savedWorkspace.auditDateFrom ?? '',
+    auditDateTo: savedWorkspace.auditDateTo ?? '',
+    selectedPageId: savedWorkspace.selectedPageId ?? '',
+  })
+  const prevFiltersRef = useRef({
+    from: savedWorkspace.auditDateFrom ?? '',
+    to: savedWorkspace.auditDateTo ?? '',
+    page: savedWorkspace.selectedPageId ?? '',
+  })
+  const skipInitialFilterResetRef = useRef(true)
   const qc = useQueryClient()
-  const selectedPageFilter = selectedPageId || undefined
-  const filtersReady = Boolean(auditDateFrom && auditDateTo && selectedPageId)
+  const effectivePageId = firstNonEmpty(selectedPageId, jobPageId)
+  const selectedPageFilter = effectivePageId || undefined
+  const filtersReady = Boolean(auditDateFrom && auditDateTo && effectivePageId)
   const scoreRangeLabel = formatAuditRangeLabel(auditDateFrom, auditDateTo)
   const parsedBatchLimit = useMemo(() => {
     const n = Number.parseInt(batchLimitInput.trim(), 10)
@@ -468,14 +496,70 @@ export function AuditMessengerView({
   }, [auditDateFrom, auditDateTo, selectedPageId])
 
   useEffect(() => {
-    if (auditJob.isRunning && auditJob.jobId && !attachedJobId) {
+    saveAuditWorkspace({
+      auditDateFrom,
+      auditDateTo,
+      selectedPageId,
+      selectedId,
+      batchLimitInput,
+      sidebarSearch,
+      listFilter,
+      sidebarSort,
+      chatTab,
+      workspacePane,
+    })
+  }, [
+    auditDateFrom,
+    auditDateTo,
+    selectedPageId,
+    selectedId,
+    batchLimitInput,
+    sidebarSearch,
+    listFilter,
+    sidebarSort,
+    chatTab,
+    workspacePane,
+  ])
+
+  useEffect(() => {
+    if (auditJob.isRunning && auditJob.jobId) {
       setAttachedJobId(auditJob.jobId)
     }
-  }, [auditJob.isRunning, auditJob.jobId, attachedJobId])
+    if (!selectedPageId && jobPageId) {
+      setSelectedPageId(jobPageId)
+      saveAuditWorkspace({ selectedPageId: jobPageId })
+    }
+  }, [auditJob.isRunning, auditJob.jobId, jobPageId, selectedPageId])
 
-  const jobId = attachedJobId
-  const progress = attachedJobId === auditJob.jobId ? auditJob.progress : undefined
-  const progressFetching = attachedJobId === auditJob.jobId ? auditJob.isFetching : false
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    let changed = false
+    if (effectivePageId && next.get('auditPage') !== effectivePageId) {
+      next.set('auditPage', effectivePageId)
+      changed = true
+    }
+    if (auditDateFrom && next.get('auditFrom') !== auditDateFrom) {
+      next.set('auditFrom', auditDateFrom)
+      changed = true
+    }
+    if (auditDateTo && next.get('auditTo') !== auditDateTo) {
+      next.set('auditTo', auditDateTo)
+      changed = true
+    }
+    if (changed) setSearchParams(next, { replace: true })
+  }, [effectivePageId, auditDateFrom, auditDateTo, searchParams, setSearchParams])
+
+  const handlePageChange = useCallback((pageId: string) => {
+    setSelectedPageId(pageId)
+    saveAuditWorkspace({ selectedPageId: pageId })
+  }, [])
+
+  const activeJobId = attachedJobId || (auditJob.isRunning ? auditJob.jobId : null)
+  const jobId = activeJobId
+  const progress =
+    activeJobId && activeJobId === auditJob.jobId ? auditJob.progress : undefined
+  const progressFetching =
+    activeJobId && activeJobId === auditJob.jobId ? auditJob.isFetching : false
 
   const runMut = useMutation({
     mutationFn: (opts: {
@@ -644,6 +728,10 @@ export function AuditMessengerView({
   })
 
   useEffect(() => {
+    if (skipInitialFilterResetRef.current) {
+      skipInitialFilterResetRef.current = false
+      return
+    }
     const prev = prevFiltersRef.current
     const filtersChanged =
       prev.from !== auditDateFrom || prev.to !== auditDateTo || prev.page !== selectedPageId
@@ -653,23 +741,24 @@ export function AuditMessengerView({
       page: selectedPageId,
     }
 
+    if (!filtersChanged) return
+
     stableAuditsRef.current = []
     setSelectedId(null)
     setSidebarSearch('')
     setListFilter('all')
     setChatTab('chat')
 
-    if (filtersChanged) {
-      setAttachedJobId(null)
-      toast.dismiss(AUDIT_TOAST_ID)
-      runMut.reset()
-      setDismissedErrorKey(null)
-    }
+    setAttachedJobId(null)
+    toast.dismiss(AUDIT_TOAST_ID)
+    runMut.reset()
+    setDismissedErrorKey(null)
   }, [auditDateFrom, auditDateTo, selectedPageId, qc])
 
   const summary = progress?.summary
   const isAuditActive =
     runMut.isPending ||
+    auditJob.isRunning ||
     (!!jobId &&
       attachedJobId === auditJob.jobId &&
       progress?.status !== 'failed' &&
@@ -1159,8 +1248,8 @@ export function AuditMessengerView({
                 )}
               </div>
               <Select
-                value={selectedPageId || undefined}
-                onValueChange={setSelectedPageId}
+                value={effectivePageId || undefined}
+                onValueChange={handlePageChange}
               >
                 <SelectTrigger
                   id="audit-page-filter"
@@ -1415,7 +1504,7 @@ export function AuditMessengerView({
           title="Chọn khoảng ngày"
           description="Chọn từ ngày → đến ngày và Page Facebook — hệ thống chỉ hiển thị kết quả khi Page đó đã được quét và chấm điểm trong khoảng đó."
         />
-      ) : !selectedPageId ? (
+      ) : !effectivePageId ? (
         <CskhEmptyState
           icon={<ClipboardCheck className="h-12 w-12 text-violet-500" />}
           title="Chọn Page"

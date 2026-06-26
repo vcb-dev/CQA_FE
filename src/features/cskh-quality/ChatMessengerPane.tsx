@@ -63,7 +63,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const { data: allConversations } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
     queryFn: () => fetchInboxConversations(selectedPageId),
-    refetchInterval: connected ? false : auditRunning ? 15000 : 5000,
+    refetchInterval: connected ? (auditRunning ? 20000 : 30000) : auditRunning ? 12000 : 5000,
   })
 
   // Compute filter counts

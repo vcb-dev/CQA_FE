@@ -53,6 +53,7 @@ import {
 import { AuditMessengerView } from './AuditMessengerView'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { useOptionalAuditJob } from './AuditJobProvider'
+import { loadAuditWorkspace, firstNonEmpty } from './auditWorkspaceState'
 import { CskhGlassPanel, CskhPageShell, CskhPageAvatar } from './cskhUi'
 import { toast } from 'sonner'
 
@@ -3516,6 +3517,29 @@ export function CskhQualityPage() {
       window.history.replaceState({}, '', url.pathname + url.search)
     }
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'audit') return
+    const saved = loadAuditWorkspace()
+    const next = new URLSearchParams(searchParams)
+    let changed = false
+    const page = firstNonEmpty(next.get('auditPage'), saved.selectedPageId)
+    const from = firstNonEmpty(next.get('auditFrom'), saved.auditDateFrom)
+    const to = firstNonEmpty(next.get('auditTo'), saved.auditDateTo)
+    if (page && next.get('auditPage') !== page) {
+      next.set('auditPage', page)
+      changed = true
+    }
+    if (from && next.get('auditFrom') !== from) {
+      next.set('auditFrom', from)
+      changed = true
+    }
+    if (to && next.get('auditTo') !== to) {
+      next.set('auditTo', to)
+      changed = true
+    }
+    if (changed) setSearchParams(next, { replace: true })
+  }, [tab, searchParams, setSearchParams])
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search)
