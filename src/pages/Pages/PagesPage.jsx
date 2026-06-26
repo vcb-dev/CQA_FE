@@ -14,7 +14,6 @@ import {
   TrendUp,
   Plus,
   CalendarBlank,
-  ArrowsClockwise,
   DownloadSimple,
 } from '@phosphor-icons/react';
 import {
@@ -505,18 +504,9 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             </label>
             <button
               type="button"
-              onClick={() => refetch()}
-              disabled={isFetchingPages}
-              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 cursor-pointer"
-            >
-              <ArrowsClockwise size={14} className={isFetchingPages ? 'animate-spin' : ''} />
-              {isFetchingPages ? 'Đang tải...' : 'Tải lại'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStartBackfill('empty')}
+              onClick={() => handleStartBackfill('all')}
               disabled={backfillRunning || startingBackfill}
-              title="Kéo toàn bộ tin nhắn cũ từ Facebook về cho các kênh đang trống"
+              title="Quét lại TOÀN BỘ kênh — kéo tin nhắn từ Facebook về (an toàn, không nhân đôi)"
               className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
             >
               <DownloadSimple size={14} className={backfillRunning ? 'animate-bounce' : ''} />
@@ -575,10 +565,10 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               {!backfillRunning && (
                 <button
                   type="button"
-                  onClick={() => handleStartBackfill('empty')}
+                  onClick={() => handleStartBackfill('all')}
                   className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer shrink-0"
                 >
-                  Quét lại kênh còn trống
+                  Quét lại toàn bộ
                 </button>
               )}
             </div>
