@@ -5,6 +5,10 @@ export type InboxRealtimeMessagePayload = CskhInboxMessage
 
 export type InboxRealtimeConversationPatch = Partial<CskhInboxConversation> & { id: string }
 
+function sortConversationsByRecent(a: CskhInboxConversation, b: CskhInboxConversation) {
+  return new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
+}
+
 export function appendInboxMessagesToCache(
   qc: QueryClient,
   conversationId: string,
@@ -51,21 +55,11 @@ export function patchInboxConversationInCache(
           return prev
         }
         const row = patch as CskhInboxConversation
-        return [row, ...prev].sort((a, b) => {
-          const aUnread = (a.unreadCount ?? 0) > 0 ? 1 : 0
-          const bUnread = (b.unreadCount ?? 0) > 0 ? 1 : 0
-          if (aUnread !== bUnread) return bUnread - aUnread
-          return new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
-        })
+        return [row, ...prev].sort(sortConversationsByRecent)
       }
       const next = [...prev]
       next[idx] = { ...next[idx], ...patch }
-      next.sort((a, b) => {
-        const aUnread = (a.unreadCount ?? 0) > 0 ? 1 : 0
-        const bUnread = (b.unreadCount ?? 0) > 0 ? 1 : 0
-        if (aUnread !== bUnread) return bUnread - aUnread
-        return new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
-      })
+      next.sort(sortConversationsByRecent)
       return next
     })
   }
