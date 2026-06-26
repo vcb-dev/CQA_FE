@@ -563,6 +563,33 @@ export async function syncInboxFromGraph(
   return data
 }
 
+export interface CskhBackfillStatus {
+  running: boolean
+  scope: 'empty' | 'all' | ''
+  total: number
+  done: number
+  currentPage: string | null
+  addedMessages: number
+  okPages: number
+  errorPages: Array<{ page: string; error: string }>
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+/** Bắt đầu quét đầy đủ chạy nền. scope='empty' chỉ quét kênh đang rỗng. */
+export async function startCskhBackfill(
+  scope: 'empty' | 'all' = 'empty'
+): Promise<CskhBackfillStatus> {
+  const { data } = await apiClient.post<CskhBackfillStatus>('/cskh/inbox/backfill', { scope })
+  return data
+}
+
+/** Lấy tiến độ quét đầy đủ để hiển thị thanh tiến trình. */
+export async function fetchCskhBackfillStatus(): Promise<CskhBackfillStatus> {
+  const { data } = await apiClient.get<CskhBackfillStatus>('/cskh/inbox/backfill')
+  return data
+}
+
 export async function linkAuditInbox(auditId: string): Promise<CskhInboxConversation> {
   const { data } = await apiClient.post<CskhInboxConversation>('/cskh/inbox/link-audit', {
     auditId,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useDeferredValue, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -15,8 +15,13 @@ import {
   Plus,
   CalendarBlank,
   ArrowsClockwise,
+  DownloadSimple,
 } from '@phosphor-icons/react';
-import { fetchCskhPages } from '@/features/cskh-quality/api';
+import {
+  fetchCskhPages,
+  startCskhBackfill,
+  fetchCskhBackfillStatus,
+} from '@/features/cskh-quality/api';
 
 function getVNMonthValue(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en', {
@@ -182,6 +187,37 @@ export default function PagesPage() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+
+  const [startingBackfill, setStartingBackfill] = useState(false);
+  const { data: backfillStatus, refetch: refetchBackfill } = useQuery({
+    queryKey: ['cskh', 'backfill'],
+    queryFn: fetchCskhBackfillStatus,
+    refetchInterval: (query) => (query.state.data?.running ? 2500 : false),
+    refetchOnWindowFocus: false,
+  });
+  const backfillRunning = Boolean(backfillStatus?.running);
+  const prevBackfillRunning = useRef(false);
+
+  useEffect(() => {
+    // Khi quét vừa chuyển từ ĐANG CHẠY → XONG: tải lại số liệu kênh.
+    if (prevBackfillRunning.current && !backfillRunning) {
+      refetch();
+    }
+    prevBackfillRunning.current = backfillRunning;
+  }, [backfillRunning, refetch]);
+
+  const handleStartBackfill = async (scope = 'empty') => {
+    if (backfillRunning || startingBackfill) return;
+    setStartingBackfill(true);
+    try {
+      await startCskhBackfill(scope);
+      await refetchBackfill();
+    } catch {
+      // lỗi sẽ hiện qua trạng thái; bỏ qua ở đây
+    } finally {
+      setStartingBackfill(false);
+    }
+  };
 
   const pages = pagesData?.pages || [];
   const inboundMonthSummary = pagesData?.inboundMonth;
@@ -476,6 +512,20 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               <ArrowsClockwise size={14} className={isFetchingPages ? 'animate-spin' : ''} />
               {isFetchingPages ? 'Đang tải...' : 'Tải lại'}
             </button>
+            <button
+              type="button"
+              onClick={() => handleStartBackfill('empty')}
+              disabled={backfillRunning || startingBackfill}
+              title="Kéo toàn bộ tin nhắn cũ từ Facebook về cho các kênh đang trống"
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+            >
+              <DownloadSimple size={14} className={backfillRunning ? 'animate-bounce' : ''} />
+              {backfillRunning
+                ? 'Đang quét...'
+                : startingBackfill
+                  ? 'Đang khởi động...'
+                  : 'Quét đầy đủ'}
+            </button>
             <div className="text-right px-3 py-1 min-w-[72px]">
               <div className="text-2xl font-black text-indigo-600 leading-none">
                 {isFetchingPages && !isLoadingPages ? '…' : totalNewInbound.toLocaleString()}
@@ -484,6 +534,56 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             </div>
           </div>
         </div>
+
+        {(backfillRunning || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
+          <div className={`rounded-xl border px-4 py-3 shadow-sm ${
+            backfillRunning
+              ? 'border-indigo-200 bg-indigo-50/80'
+              : 'border-emerald-200 bg-emerald-50/80'
+          }`}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className={`text-xs font-bold ${backfillRunning ? 'text-indigo-900' : 'text-emerald-900'}`}>
+                {backfillRunning
+                  ? 'Đang quét tin nhắn từ Facebook'
+                  : 'Đã quét xong'}
+                {' '}
+                <span className={backfillRunning ? 'text-indigo-600' : 'text-emerald-700'}>
+                  {backfillStatus.done}/{backfillStatus.total} kênh
+                </span>
+              </p>
+              <span className={`text-xs font-bold ${backfillRunning ? 'text-indigo-700' : 'text-emerald-700'}`}>
+                +{(backfillStatus.addedMessages || 0).toLocaleString()} tin
+              </span>
+            </div>
+            <div className="relative h-2 overflow-hidden rounded-full bg-white/70">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  backfillRunning ? 'bg-gradient-to-r from-indigo-400 to-indigo-600' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${backfillStatus.total > 0 ? Math.round((backfillStatus.done / backfillStatus.total) * 100) : 0}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className={`text-[10px] font-medium truncate ${backfillRunning ? 'text-indigo-700/80' : 'text-emerald-700/80'}`}>
+                {backfillRunning && backfillStatus.currentPage
+                  ? `Đang xử lý: ${backfillStatus.currentPage}`
+                  : `Hoàn tất ${backfillStatus.okPages} kênh`}
+                {backfillStatus.errorPages?.length > 0 && (
+                  <span className="text-amber-600"> · {backfillStatus.errorPages.length} kênh Facebook báo lỗi (sẽ thử lại sau)</span>
+                )}
+              </p>
+              {!backfillRunning && (
+                <button
+                  type="button"
+                  onClick={() => handleStartBackfill('empty')}
+                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer shrink-0"
+                >
+                  Quét lại kênh còn trống
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {monthStatsUnavailable && (
           <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2">
