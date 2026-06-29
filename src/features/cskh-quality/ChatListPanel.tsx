@@ -221,6 +221,11 @@ export function ChatListPanel({
 }: ChatListPanelProps) {
   const qc = useQueryClient()
   const parentRef = useRef<HTMLDivElement>(null)
+  const loadMoreLockRef = useRef(false)
+
+  useEffect(() => {
+    loadMoreLockRef.current = isFetchingNextPage
+  }, [isFetchingNextPage])
 
   const prefetchMessages = useCallback(
     (conversationId: string) => {
@@ -244,11 +249,13 @@ export function ChatListPanel({
 
   useEffect(() => {
     const scrollEl = parentRef.current
-    if (!scrollEl || !hasNextPage || isFetchingNextPage) return
+    if (!scrollEl || !hasNextPage) return
 
     const onScroll = () => {
+      if (loadMoreLockRef.current || isFetchingNextPage) return
       const { scrollTop, scrollHeight, clientHeight } = scrollEl
-      if (scrollHeight - scrollTop - clientHeight < ROW_HEIGHT * 4) {
+      if (scrollHeight - scrollTop - clientHeight < ROW_HEIGHT * 10) {
+        loadMoreLockRef.current = true
         onLoadMore?.()
       }
     }

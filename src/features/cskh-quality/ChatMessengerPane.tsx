@@ -106,13 +106,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         ...conversationFetchOpts,
         cursor: pageParam as string | undefined,
         search: debouncedSearch || undefined,
-        limit: 60,
+        limit: 80,
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 30_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
-    refetchInterval: connected ? 45000 : auditRunning ? 15000 : 20000,
+    refetchOnWindowFocus: false,
+    // Realtime qua SSE — không poll/refetch toàn bộ pages (gây treo khi đã cuộn sâu)
+    refetchInterval: false,
+    maxPages: 25,
   })
 
   const allConversations = useMemo(

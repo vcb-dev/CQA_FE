@@ -51,7 +51,8 @@ export function useCskhInboxStream({
     es.onopen = () => {
       if (disconnectTimer) clearTimeout(disconnectTimer)
       setConnected(true)
-      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
+      // Chỉ refresh số tab — KHÔNG refetch infinite list (đã load nhiều trang sẽ treo)
+      void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
     }
     es.onerror = () => {
       if (disconnectTimer) clearTimeout(disconnectTimer)
