@@ -559,6 +559,7 @@ export async function fetchInboxConversationsPage(options?: {
   limit?: number
   cursor?: string
   search?: string
+  sinceDays?: number
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {}
   if (options?.pageId) params.pageId = options.pageId
@@ -568,6 +569,9 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.limit != null && options.limit > 0) params.limit = String(options.limit)
   if (options?.cursor) params.cursor = options.cursor
   if (options?.search) params.search = options.search
+  if (options?.sinceDays != null && options.sinceDays > 0) {
+    params.sinceDays = String(options.sinceDays)
+  }
   const { data } = await apiClient.get<CskhInboxConversationPage>('/cskh/inbox/conversations', {
     params: Object.keys(params).length ? params : undefined,
   })

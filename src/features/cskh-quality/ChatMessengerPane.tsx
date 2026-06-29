@@ -35,6 +35,14 @@ type ChatMessengerPaneProps = {
 }
 
 type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
+type TimeRange = 7 | 30 | 90 | 0
+
+const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
+  { value: 7, label: '7 ngày' },
+  { value: 30, label: '30 ngày' },
+  { value: 90, label: '90 ngày' },
+  { value: 0, label: 'Tất cả' },
+]
 
 export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const auditJob = useOptionalAuditJob()
@@ -44,6 +52,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+  const [timeRange, setTimeRange] = useState<TimeRange>(30)
   const [selectedPageId, setSelectedPageId] = useState<string | undefined>(pageId)
 
   useEffect(() => {
@@ -93,6 +102,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
   }, [selectedPageId, activeFilter])
 
+  /** Tìm kiếm = quét toàn bộ DB; không tìm = giới hạn theo khoảng thời gian. */
+  const listSinceDays = useMemo(() => {
+    if (debouncedSearch) return undefined
+    if (timeRange === 0) return undefined
+    return timeRange
+  }, [timeRange, debouncedSearch])
+
   const {
     data: conversationPages,
     isLoading: isLoadingConversations,
@@ -100,12 +116,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch],
+    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch, timeRange],
     queryFn: ({ pageParam }) =>
       fetchInboxConversationsPage({
         ...conversationFetchOpts,
         cursor: pageParam as string | undefined,
         search: debouncedSearch || undefined,
+        sinceDays: listSinceDays,
         limit: 80,
       }),
     initialPageParam: undefined as string | undefined,
@@ -207,7 +224,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     })
     if (conv.unreadCount > 0) {
       qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
-        ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch],
+        ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch, timeRange],
         (prev) => {
           if (!prev) return prev
           if (activeFilter === 'unread') {
@@ -354,6 +371,40 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               </button>
             </div>
 
+            {/* Khoảng thời gian — tránh cuộn qua 35k hội thoại cũ */}
+            {!debouncedSearch && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {TIME_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTimeRange(opt.value)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
+                      timeRange === opt.value
+                        ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                        : 'bg-slate-100/80 text-slate-500 border border-transparent hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {debouncedSearch ? (
+              <p className="text-[9.5px] text-slate-400 mt-1.5">
+                Tìm kiếm trong toàn bộ {filterCounts.all.toLocaleString()} hội thoại
+              </p>
+            ) : timeRange === 0 ? (
+              <p className="text-[9.5px] text-amber-600 mt-1.5 leading-snug">
+                Đang xem toàn bộ lịch sử — có thể chậm. Nên dùng Tìm kiếm hoặc chọn 7/30/90 ngày.
+              </p>
+            ) : (
+              <p className="text-[9.5px] text-slate-400 mt-1.5">
+                Danh sách: {timeRange} ngày gần nhất · Tổng hệ thống: {filterCounts.all.toLocaleString()}
+              </p>
+            )}
+
             {/* Ads quick filter chip */}
             {activeFilter === 'ads' && filterCounts.ads > 0 && (
               <div className="flex items-center gap-2 mt-2">
@@ -402,6 +453,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             onLoadMore={() => {
               if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
             }}
+            manualLoadMore
           />
         </div>
 

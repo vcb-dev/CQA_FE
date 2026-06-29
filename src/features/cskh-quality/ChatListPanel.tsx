@@ -17,9 +17,12 @@ type ChatListPanelProps = {
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
   onLoadMore?: () => void
+  /** Bấm nút thay vì auto-load khi cuộn — tránh treo với DB lớn */
+  manualLoadMore?: boolean
 }
 
 const ROW_HEIGHT = 108
+const LOAD_MORE_ROW_HEIGHT = 52
 
 const avatarColors = [
   'from-blue-400 to-blue-600',
@@ -218,14 +221,10 @@ export function ChatListPanel({
   hasNextPage = false,
   isFetchingNextPage = false,
   onLoadMore,
+  manualLoadMore = false,
 }: ChatListPanelProps) {
   const qc = useQueryClient()
   const parentRef = useRef<HTMLDivElement>(null)
-  const loadMoreLockRef = useRef(false)
-
-  useEffect(() => {
-    loadMoreLockRef.current = isFetchingNextPage
-  }, [isFetchingNextPage])
 
   const prefetchMessages = useCallback(
     (conversationId: string) => {
@@ -243,26 +242,26 @@ export function ChatListPanel({
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) =>
+      hasNextPage && index === conversations.length ? LOAD_MORE_ROW_HEIGHT : ROW_HEIGHT,
     overscan: 8,
   })
 
   useEffect(() => {
+    if (manualLoadMore) return
     const scrollEl = parentRef.current
-    if (!scrollEl || !hasNextPage) return
+    if (!scrollEl || !hasNextPage || isFetchingNextPage) return
 
     const onScroll = () => {
-      if (loadMoreLockRef.current || isFetchingNextPage) return
       const { scrollTop, scrollHeight, clientHeight } = scrollEl
       if (scrollHeight - scrollTop - clientHeight < ROW_HEIGHT * 10) {
-        loadMoreLockRef.current = true
         onLoadMore?.()
       }
     }
 
     scrollEl.addEventListener('scroll', onScroll, { passive: true })
     return () => scrollEl.removeEventListener('scroll', onScroll)
-  }, [hasNextPage, isFetchingNextPage, onLoadMore, conversations.length])
+  }, [manualLoadMore, hasNextPage, isFetchingNextPage, onLoadMore, conversations.length])
 
   if (isLoading && conversations.length === 0) {
     return (
@@ -312,9 +311,27 @@ export function ChatListPanel({
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                className="flex items-center justify-center py-3"
+                className="flex items-center justify-center px-3 py-2"
               >
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                {manualLoadMore ? (
+                  <button
+                    type="button"
+                    onClick={() => onLoadMore?.()}
+                    disabled={isFetchingNextPage}
+                    className="w-full py-2 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 disabled:opacity-60 disabled:cursor-wait transition-colors cursor-pointer"
+                  >
+                    {isFetchingNextPage ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Đang tải...
+                      </span>
+                    ) : (
+                      'Tải thêm hội thoại'
+                    )}
+                  </button>
+                ) : isFetchingNextPage ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                ) : null}
               </div>
             )
           }
