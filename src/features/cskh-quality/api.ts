@@ -526,14 +526,37 @@ export interface CskhInboxMessage {
   status: 'sent' | 'pending' | 'failed' | 'read'
 }
 
+export interface CskhInboxConversationStats {
+  total: number
+  fromAd: number
+  unread: number
+  normal: number
+}
+
+export async function fetchInboxConversationStats(options?: {
+  pageId?: string
+}): Promise<CskhInboxConversationStats> {
+  const params: Record<string, string> = {}
+  if (options?.pageId) params.pageId = options.pageId
+  const { data } = await apiClient.get<CskhInboxConversationStats>(
+    '/cskh/inbox/conversation-stats',
+    { params: Object.keys(params).length ? params : undefined },
+  )
+  return data
+}
+
 export async function fetchInboxConversations(options?: {
   pageId?: string
   fromAdOnly?: boolean
+  unreadOnly?: boolean
+  organicOnly?: boolean
   limit?: number
 }): Promise<CskhInboxConversation[]> {
   const params: Record<string, string> = {}
   if (options?.pageId) params.pageId = options.pageId
   if (options?.fromAdOnly) params.fromAdOnly = '1'
+  if (options?.unreadOnly) params.unreadOnly = '1'
+  if (options?.organicOnly) params.organicOnly = '1'
   if (options?.limit != null && options.limit > 0) params.limit = String(options.limit)
   const { data } = await apiClient.get<CskhInboxConversation[]>('/cskh/inbox/conversations', {
     params: Object.keys(params).length ? params : undefined,

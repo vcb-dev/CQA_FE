@@ -11,6 +11,7 @@ import {
   fetchCustomerIntent,
   fetchConversationAdInsights,
   fetchInboxConversations,
+  fetchInboxConversationStats,
   fetchInboxMessages,
   backfillInboxAdReferrals,
   type CskhInboxConversation,
@@ -62,14 +63,32 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: () => fetchCskhPages(),
   })
 
-  // Fetch conversations — tất cả page: tối đa 15k hội thoại (BE backfill tag Ads nền)
+  const pageKey = selectedPageId ?? 'all'
+
+  const { data: convStats } = useQuery({
+    queryKey: ['cskh', 'inbox', 'conversation-stats', pageKey],
+    queryFn: () => fetchInboxConversationStats({ pageId: selectedPageId }),
+    staleTime: 30_000,
+  })
+
+  const conversationFetchOpts = useMemo(() => {
+    const base = { pageId: selectedPageId, limit: 100_000 as number }
+    switch (activeFilter) {
+      case 'ads':
+        return { ...base, fromAdOnly: true }
+      case 'unread':
+        return { ...base, unreadOnly: true }
+      case 'normal':
+        return { ...base, organicOnly: true }
+      default:
+        return base
+    }
+  }, [selectedPageId, activeFilter])
+
+  // Lấy hội thoại theo tab — lọc trên DB để đúng toàn bộ pages
   const { data: allConversations, isLoading: isLoadingConversations } = useQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', selectedPageId ?? 'all'],
-    queryFn: () =>
-      fetchInboxConversations({
-        pageId: selectedPageId,
-        limit: selectedPageId ? 8000 : 15000,
-      }),
+    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter],
+    queryFn: () => fetchInboxConversations(conversationFetchOpts),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
     refetchInterval: connected ? 45000 : auditRunning ? 15000 : 20000,
@@ -83,7 +102,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       try {
         const { updated } = await backfillInboxAdReferrals()
         if (!cancelled && updated > 0) {
-          await qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
+          await qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
           toast.success(`Đã nhận diện thêm ${updated} hội thoại từ quảng cáo`)
         }
       } catch {
@@ -108,14 +127,22 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   // Compute filter counts
   const filterCounts = useMemo(() => {
+    if (convStats) {
+      return {
+        all: convStats.total,
+        unread: convStats.unread,
+        ads: convStats.fromAd,
+        normal: convStats.normal,
+      }
+    }
     const convs = allConversations ?? []
     return {
       all: convs.length,
-      unread: convs.filter(c => c.unreadCount > 0).length,
-      ads: convs.filter(c => c.fromAd).length,
-      normal: convs.filter(c => !c.fromAd).length,
+      unread: convs.filter((c) => c.unreadCount > 0).length,
+      ads: convs.filter((c) => c.fromAd).length,
+      normal: convs.filter((c) => !c.fromAd).length,
     }
-  }, [allConversations])
+  }, [convStats, allConversations])
 
   const syncMut = useMutation({
     mutationFn: () => syncInboxFromGraph(selectedPageId),
@@ -160,7 +187,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     })
     if (conv.unreadCount > 0) {
       qc.setQueryData<CskhInboxConversation[]>(
-        ['cskh', 'inbox', 'conversations', selectedPageId],
+        ['cskh', 'inbox', 'conversations', pageKey, activeFilter],
         (prev) => {
           if (!prev) return prev
           return prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
@@ -336,7 +363,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             typingConversationIds={typingConversationIds}
             connected={connected}
             searchQuery={searchQuery}
-            activeFilter={activeFilter}
           />
         </div>
 

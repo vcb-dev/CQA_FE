@@ -5,8 +5,6 @@ import { cn } from '@/lib/utils'
 import { fetchInboxMessages, type CskhInboxConversation } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
 
-type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
-
 type ChatListPanelProps = {
   selectedConversationId?: string
   onSelect: (conversation: CskhInboxConversation) => void
@@ -16,7 +14,6 @@ type ChatListPanelProps = {
   typingConversationIds?: Set<string>
   connected?: boolean
   searchQuery?: string
-  activeFilter?: FilterTab
 }
 
 // Assign a consistent color to each conversation based on name
@@ -64,7 +61,6 @@ export function ChatListPanel({
   typingConversationIds = new Set(),
   connected,
   searchQuery = '',
-  activeFilter = 'all',
 }: ChatListPanelProps) {
   const qc = useQueryClient()
 
@@ -81,16 +77,6 @@ export function ChatListPanel({
     
     let result = conversations
 
-    // Apply tab filter
-    if (activeFilter === 'unread') {
-      result = result.filter(c => c.unreadCount > 0)
-    } else if (activeFilter === 'ads') {
-      result = result.filter(c => c.fromAd)
-    } else if (activeFilter === 'normal') {
-      result = result.filter(c => !c.fromAd)
-    }
-
-    // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       result = result.filter((c) => {
@@ -103,7 +89,7 @@ export function ChatListPanel({
     }
 
     return result
-  }, [conversations, searchQuery, activeFilter])
+  }, [conversations, searchQuery])
 
   const formatTime = (isoString: string | null): string => {
     if (!isoString) return ''
