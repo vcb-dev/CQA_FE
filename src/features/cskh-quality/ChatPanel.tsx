@@ -12,6 +12,8 @@ import {
 } from './api'
 import { ChatMessage } from './ChatMessage'
 import { ChatMessageInput } from './ChatMessageInput'
+import { ChatLabelBar, ConversationLabelBadges } from './ChatLabelBar'
+import { ConversationViewHistory } from './ConversationViewHistory'
 import { TypingIndicator } from './TypingIndicator'
 import { cskhMediaProxySrc } from './messageMedia'
 import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
@@ -54,6 +56,7 @@ export function ChatPanel({
   })
 
   const messages = messagesData?.messages ?? []
+  const conversationWithLabels = messagesData?.conversation ?? conversation
   const showInitialLoader = isLoading && !messages.length
 
   // Send message mutation
@@ -92,7 +95,9 @@ export function ChatPanel({
         id: conversation.id,
         lastMessage: text,
         lastMessageAt: optimisticMessage.sentAt,
-        unreadCount: 0,
+        ...(conversationWithLabels.labels?.length
+          ? { unreadCount: 0, awaitingLabel: false }
+          : {}),
       })
 
       return { tempId, previousMessages }
@@ -116,7 +121,9 @@ export function ChatPanel({
           id: conversation.id,
           lastMessage: newMessage.text,
           lastMessageAt: newMessage.sentAt,
-          unreadCount: 0,
+          ...(conversationWithLabels.labels?.length
+            ? { unreadCount: 0, awaitingLabel: false }
+            : {}),
         })
       }
     },
@@ -214,25 +221,34 @@ export function ChatPanel({
               {conversation.customerName ||
                 `Khách hàng ${conversation.participantPsid.slice(0, 8)}`}
             </h3>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">Cuộc trò chuyện Facebook</span>
-              {conversation.fromAd && (
+              {conversationWithLabels.fromAd && (
                 <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white leading-none">
                   Ads
                 </span>
               )}
+              <ConversationLabelBadges labels={conversationWithLabels.labels} max={4} />
             </div>
           </div>
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 cursor-pointer"
-            title="Đóng"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <ConversationViewHistory
+            conversationId={conversation.id}
+            pendingCount={
+              conversationWithLabels.viewers?.filter((v) => !v.hasChot).length ?? 0
+            }
+          />
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 cursor-pointer"
+              title="Đóng"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -267,7 +283,8 @@ export function ChatPanel({
         )}
       </div>
 
-      {/* Input Area */}
+      {/* Label bar + Input */}
+      <ChatLabelBar conversation={conversationWithLabels} />
       <ChatMessageInput
         onSend={(text) => { sendMut.mutate(text) }}
         onTyping={handleTyping}

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { InfiniteData } from '@tanstack/react-query'
-import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, SlidersHorizontal, Inbox } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useOptionalAuditJob } from './AuditJobProvider'
@@ -14,9 +14,11 @@ import {
   fetchInboxConversationsPage,
   fetchInboxConversationStats,
   fetchInboxMessages,
+  fetchInboxLabels,
   backfillInboxAdReferrals,
   type CskhInboxConversation,
   type CskhInboxConversationPage,
+  type CskhInboxLabel,
 } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
@@ -35,14 +37,8 @@ type ChatMessengerPaneProps = {
 }
 
 type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
-type TimeRange = 7 | 30 | 90 | 0
-
-const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
-  { value: 7, label: '7 ngày' },
-  { value: 30, label: '30 ngày' },
-  { value: 90, label: '90 ngày' },
-  { value: 0, label: 'Tất cả' },
-]
+/** 'all' | 'unlabeled' | label UUID */
+type LabelFilter = string
 
 export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const auditJob = useOptionalAuditJob()
@@ -52,7 +48,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
-  const [timeRange, setTimeRange] = useState<TimeRange>(30)
+  const [labelFilter, setLabelFilter] = useState<LabelFilter>('all')
   const [selectedPageId, setSelectedPageId] = useState<string | undefined>(pageId)
 
   useEffect(() => {
@@ -88,26 +84,53 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     staleTime: 30_000,
   })
 
+  const { data: inboxLabels } = useQuery({
+    queryKey: ['cskh', 'inbox', 'labels'],
+    queryFn: fetchInboxLabels,
+    staleTime: 120_000,
+  })
+
+  const statusLabels = useMemo(
+    () => (inboxLabels ?? []).filter((l) => l.type === 'status'),
+    [inboxLabels],
+  )
+  const staffLabels = useMemo(
+    () => (inboxLabels ?? []).filter((l) => l.type === 'staff'),
+    [inboxLabels],
+  )
+
   const conversationFetchOpts = useMemo(() => {
-    const base = { pageId: selectedPageId }
+    const base: {
+      pageId?: string
+      fromAdOnly?: boolean
+      unreadOnly?: boolean
+      organicOnly?: boolean
+      labelId?: string
+      unlabeledOnly?: boolean
+    } = { pageId: selectedPageId }
     switch (activeFilter) {
       case 'ads':
-        return { ...base, fromAdOnly: true }
+        base.fromAdOnly = true
+        break
       case 'unread':
-        return { ...base, unreadOnly: true }
+        base.unreadOnly = true
+        break
       case 'normal':
-        return { ...base, organicOnly: true }
-      default:
-        return base
+        base.organicOnly = true
+        break
     }
-  }, [selectedPageId, activeFilter])
+    if (labelFilter === 'unlabeled') {
+      base.unlabeledOnly = true
+    } else if (labelFilter !== 'all') {
+      base.labelId = labelFilter
+    }
+    return base
+  }, [selectedPageId, activeFilter, labelFilter])
 
-  /** Tìm kiếm = quét toàn bộ DB; không tìm = giới hạn theo khoảng thời gian. */
-  const listSinceDays = useMemo(() => {
-    if (debouncedSearch) return undefined
-    if (timeRange === 0) return undefined
-    return timeRange
-  }, [timeRange, debouncedSearch])
+  const listQueryKey = useMemo(
+    () => ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch, labelFilter] as const,
+    [pageKey, activeFilter, debouncedSearch, labelFilter],
+  )
 
   const {
     data: conversationPages,
@@ -116,23 +139,20 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch, timeRange],
+    queryKey: listQueryKey,
     queryFn: ({ pageParam }) =>
       fetchInboxConversationsPage({
         ...conversationFetchOpts,
         cursor: pageParam as string | undefined,
         search: debouncedSearch || undefined,
-        sinceDays: listSinceDays,
-        limit: 80,
+        limit: 50,
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
-    // Realtime qua SSE — không poll/refetch toàn bộ pages (gây treo khi đã cuộn sâu)
     refetchInterval: false,
-    maxPages: 25,
   })
 
   const allConversations = useMemo(
@@ -216,36 +236,51 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const handleSelectConversation = (conv: CskhInboxConversation) => {
     setSelectedConversation(conv)
     setInputDraft('')
-    // Prefetch ngay khi click để giảm thời gian chờ panel tin nhắn
     void qc.prefetchQuery({
       queryKey: ['cskh', 'inbox', 'messages', conv.id],
       queryFn: ({ signal }) => fetchInboxMessages(conv.id, undefined, signal),
       staleTime: 30_000,
     })
-    if (conv.unreadCount > 0) {
-      qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
-        ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch, timeRange],
-        (prev) => {
-          if (!prev) return prev
-          if (activeFilter === 'unread') {
-            return {
-              ...prev,
-              pages: prev.pages.map((p) => ({
-                ...p,
-                items: p.items.filter((c) => c.id !== conv.id),
-              })),
-            }
-          }
+
+    const hasLabels = (conv.labels?.length ?? 0) > 0
+    const isPending = conv.unreadCount > 0 || conv.awaitingLabel
+
+    if (!isPending) return
+
+    qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
+      listQueryKey,
+      (prev) => {
+        if (!prev) return prev
+        if (hasLabels && activeFilter === 'unread') {
           return {
             ...prev,
             pages: prev.pages.map((p) => ({
               ...p,
-              items: p.items.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c)),
+              items: p.items.filter((c) => c.id !== conv.id),
             })),
           }
-        },
-      )
-      markInboxAsRead(conv.id).catch((err: any) => {
+        }
+        return {
+          ...prev,
+          pages: prev.pages.map((p) => ({
+            ...p,
+            items: p.items.map((c) =>
+              c.id === conv.id
+                ? {
+                    ...c,
+                    ...(hasLabels
+                      ? { unreadCount: 0, awaitingLabel: false }
+                      : { awaitingLabel: true }),
+                  }
+                : c,
+            ),
+          })),
+        }
+      },
+    )
+
+    if (hasLabels) {
+      markInboxAsRead(conv.id).catch((err: unknown) => {
         console.error('Failed to mark conversation as read:', err)
       })
     }
@@ -257,6 +292,27 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     { key: 'ads', label: 'Quảng cáo', color: 'text-slate-500', activeColor: 'text-purple-600 border-purple-500' },
     { key: 'normal', label: 'Tin thường', color: 'text-slate-500', activeColor: 'text-emerald-600 border-emerald-500' },
   ]
+
+  const renderLabelChip = (label: CskhInboxLabel) => {
+    const active = labelFilter === label.id
+    return (
+      <button
+        key={label.id}
+        type="button"
+        onClick={() => setLabelFilter(active ? 'all' : label.id)}
+        className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors cursor-pointer ${
+          active ? 'text-white shadow-sm' : 'bg-white hover:brightness-95'
+        }`}
+        style={
+          active
+            ? { backgroundColor: label.color, borderColor: label.color }
+            : { color: label.color, borderColor: `${label.color}55` }
+        }
+      >
+        {label.name}
+      </button>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
@@ -353,7 +409,40 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             })}
           </div>
 
-          {/* Search & Filter */}
+          {/* Label filters — giống Sapo */}
+          <div className="px-2 py-2 border-b border-slate-100 shrink-0 bg-white">
+            <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-0.5">
+              <button
+                type="button"
+                onClick={() => setLabelFilter('all')}
+                className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors cursor-pointer ${
+                  labelFilter === 'all'
+                    ? 'bg-slate-800 text-white border-slate-800'
+                    : 'bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200'
+                }`}
+              >
+                Mọi nhãn
+              </button>
+              <button
+                type="button"
+                onClick={() => setLabelFilter(labelFilter === 'unlabeled' ? 'all' : 'unlabeled')}
+                className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors cursor-pointer ${
+                  labelFilter === 'unlabeled'
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-amber-50 text-amber-700 border-amber-200/60 hover:bg-amber-100'
+                }`}
+              >
+                Chưa gán nhãn
+              </button>
+              {statusLabels.map(renderLabelChip)}
+              {staffLabels.length > 0 && (
+                <span className="w-px h-4 bg-slate-200 shrink-0 self-center mx-0.5" />
+              )}
+              {staffLabels.map(renderLabelChip)}
+            </div>
+          </div>
+
+          {/* Search */}
           <div className="px-3 py-2.5 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -366,46 +455,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                   className="w-full h-8 pl-8 pr-3 text-[11px] text-slate-700 bg-slate-50/80 border border-slate-200/60 rounded-lg outline-none transition-all duration-200 placeholder:text-slate-400 focus:bg-white focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
                 />
               </div>
-              <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/60 bg-slate-50/80 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 shrink-0 cursor-pointer">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-              </button>
             </div>
 
-            {/* Khoảng thời gian — tránh cuộn qua 35k hội thoại cũ */}
-            {!debouncedSearch && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {TIME_RANGE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setTimeRange(opt.value)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
-                      timeRange === opt.value
-                        ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                        : 'bg-slate-100/80 text-slate-500 border border-transparent hover:bg-slate-100'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <p className="text-[9.5px] text-slate-400 mt-1.5">
+              {debouncedSearch
+                ? `Tìm trong ${filterCounts.all.toLocaleString()} hội thoại`
+                : activeFilter === 'all'
+                  ? `Đã tải ${allConversations.length.toLocaleString()} / ${filterCounts.all.toLocaleString()} · Cuộn để xem thêm`
+                  : activeFilter === 'unread'
+                    ? `${filterCounts.unread.toLocaleString()} chưa đọc · ${allConversations.length.toLocaleString()} đang hiển thị`
+                    : `${allConversations.length.toLocaleString()} hội thoại`}
+            </p>
 
-            {debouncedSearch ? (
-              <p className="text-[9.5px] text-slate-400 mt-1.5">
-                Tìm kiếm trong toàn bộ {filterCounts.all.toLocaleString()} hội thoại
-              </p>
-            ) : timeRange === 0 ? (
-              <p className="text-[9.5px] text-amber-600 mt-1.5 leading-snug">
-                Đang xem toàn bộ lịch sử — có thể chậm. Nên dùng Tìm kiếm hoặc chọn 7/30/90 ngày.
-              </p>
-            ) : (
-              <p className="text-[9.5px] text-slate-400 mt-1.5">
-                Danh sách: {timeRange} ngày gần nhất · Tổng hệ thống: {filterCounts.all.toLocaleString()}
-              </p>
-            )}
-
-            {/* Ads quick filter chip */}
             {activeFilter === 'ads' && filterCounts.ads > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-50 border border-purple-100 text-[10px] font-semibold text-purple-700">
@@ -453,7 +514,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             onLoadMore={() => {
               if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
             }}
-            manualLoadMore
           />
         </div>
 

@@ -5,6 +5,7 @@ import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchInboxMessages, type CskhInboxConversation } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
+import { ConversationLabelBadges } from './ChatLabelBar'
 
 type ChatListPanelProps = {
   selectedConversationId?: string
@@ -83,7 +84,7 @@ function ConversationRow({
   onPrefetch,
 }: ConversationRowProps) {
   const colorIdx = getColorIndex(conv.customerName)
-  const hasUnread = conv.unreadCount > 0
+  const hasUnread = conv.unreadCount > 0 || !!conv.awaitingLabel
 
   return (
     <button
@@ -188,14 +189,20 @@ function ConversationRow({
               )}
             </div>
             {hasUnread && (
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-orange-500 rounded-full shrink-0 shadow-sm">
-                {Math.min(conv.unreadCount, 99)}
+              <span
+                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-orange-500 rounded-full shrink-0 shadow-sm"
+                title={conv.awaitingLabel && conv.unreadCount <= 0 ? 'Chờ gán nhãn' : undefined}
+              >
+                {conv.awaitingLabel && conv.unreadCount <= 0
+                  ? '!'
+                  : Math.min(conv.unreadCount, 99)}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-            {conv.fromAd && conv.adTitle && (
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <ConversationLabelBadges labels={conv.labels} max={2} />
+                  {conv.fromAd && conv.adTitle && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200/60 max-w-[130px] truncate">
                 {conv.adTitle}
               </span>

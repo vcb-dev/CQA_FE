@@ -3,7 +3,10 @@ import type { CskhInboxConversation, CskhInboxConversationPage, CskhInboxMessage
 
 export type InboxRealtimeMessagePayload = CskhInboxMessage
 
-export type InboxRealtimeConversationPatch = Partial<CskhInboxConversation> & { id: string }
+export type InboxRealtimeConversationPatch = Partial<CskhInboxConversation> & {
+  id: string
+  labels?: CskhInboxConversation['labels']
+}
 
 function sortConversationsByRecent(a: CskhInboxConversation, b: CskhInboxConversation) {
   return new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
@@ -19,11 +22,17 @@ function matchesConversationFilter(
   conv: CskhInboxConversation,
   pageIdFilter: string | undefined,
   activeFilter: string | undefined,
+  labelFilter: string | undefined,
 ): boolean {
   if (pageIdFilter && conv.pageId !== pageIdFilter) return false
   if (activeFilter === 'ads' && !conv.fromAd) return false
-  if (activeFilter === 'unread' && !(conv.unreadCount > 0)) return false
+  if (activeFilter === 'unread' && !(conv.unreadCount > 0 || conv.awaitingLabel)) return false
   if (activeFilter === 'normal' && conv.fromAd) return false
+  if (labelFilter === 'unlabeled') {
+    if ((conv.labels?.length ?? 0) > 0) return false
+  } else if (labelFilter && labelFilter !== 'all') {
+    if (!conv.labels?.some((l) => l.id === labelFilter)) return false
+  }
   return true
 }
 
@@ -57,6 +66,7 @@ function patchInfiniteConversationList(
 
   const pageIdFilter = key[3] === 'all' ? undefined : (key[3] as string | undefined)
   const activeFilter = key[4] as string | undefined
+  const labelFilter = (key[5] as string | undefined) ?? 'all'
 
   const pages = prev.pages.map((p) => ({ ...p, items: [...p.items] }))
   let foundPage = -1
@@ -73,7 +83,13 @@ function patchInfiniteConversationList(
 
   if (foundPage >= 0) {
     const merged = { ...pages[foundPage].items[foundIdx], ...patch }
-    if (activeFilter === 'unread' && merged.unreadCount <= 0) {
+    const stillMatches = matchesConversationFilter(
+      merged as CskhInboxConversation,
+      pageIdFilter,
+      activeFilter,
+      labelFilter,
+    )
+    if (!stillMatches) {
       pages[foundPage].items.splice(foundIdx, 1)
     } else if (patch.lastMessageAt) {
       pages[foundPage].items.splice(foundIdx, 1)
@@ -93,7 +109,7 @@ function patchInfiniteConversationList(
     }
   } else {
     const row = patch as CskhInboxConversation
-    if (matchesConversationFilter(row, pageIdFilter, activeFilter)) {
+    if (matchesConversationFilter(row, pageIdFilter, activeFilter, labelFilter)) {
       pages[0].items = [row, ...pages[0].items].sort(sortConversationsByRecent)
     }
   }

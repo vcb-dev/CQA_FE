@@ -495,6 +495,23 @@ export async function fetchConversationAdInsights(
   return data
 }
 
+export interface CskhInboxViewer {
+  userId: number
+  fullName: string
+  avatarUrl: string | null
+  viewedAt: string
+  hasChot?: boolean
+}
+
+export interface CskhInboxLabel {
+  id: string
+  name: string
+  color: string
+  type: 'staff' | 'status'
+  userId: number | null
+  sortOrder: number
+}
+
 export interface CskhInboxConversation {
   id: string
   pageId: string
@@ -510,7 +527,11 @@ export interface CskhInboxConversation {
   lastMessage: string | null
   lastMessageAt: string | null
   unreadCount: number
+  awaitingLabel?: boolean
   updatedAt: string
+  labels?: CskhInboxLabel[]
+  labelsLocked?: boolean
+  viewers?: CskhInboxViewer[]
 }
 
 export interface CskhInboxMessage {
@@ -560,6 +581,8 @@ export async function fetchInboxConversationsPage(options?: {
   cursor?: string
   search?: string
   sinceDays?: number
+  labelId?: string
+  unlabeledOnly?: boolean
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {}
   if (options?.pageId) params.pageId = options.pageId
@@ -572,6 +595,8 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.sinceDays != null && options.sinceDays > 0) {
     params.sinceDays = String(options.sinceDays)
   }
+  if (options?.labelId) params.labelId = options.labelId
+  if (options?.unlabeledOnly) params.unlabeledOnly = '1'
   const { data } = await apiClient.get<CskhInboxConversationPage>('/cskh/inbox/conversations', {
     params: Object.keys(params).length ? params : undefined,
   })
@@ -621,6 +646,32 @@ export async function fetchInboxMessages(
     params: Object.keys(params).length ? params : undefined,
     signal,
   })
+  return data
+}
+
+export async function fetchInboxLabels(): Promise<CskhInboxLabel[]> {
+  const { data } = await apiClient.get<CskhInboxLabel[]>('/cskh/inbox/labels')
+  return data
+}
+
+export async function fetchInboxViewHistory(conversationId: string): Promise<{
+  viewers: CskhInboxViewer[]
+  withoutChot: CskhInboxViewer[]
+}> {
+  const { data } = await apiClient.get<{
+    viewers: CskhInboxViewer[]
+    withoutChot: CskhInboxViewer[]
+  }>(`/cskh/inbox/conversations/${conversationId}/view-history`)
+  return data
+}
+
+export async function toggleInboxConversationLabel(
+  conversationId: string,
+  labelId: string,
+): Promise<CskhInboxLabel[]> {
+  const { data } = await apiClient.post<CskhInboxLabel[]>(
+    `/cskh/inbox/conversations/${conversationId}/labels/${labelId}/toggle`,
+  )
   return data
 }
 

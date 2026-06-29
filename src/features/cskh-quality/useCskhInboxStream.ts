@@ -115,10 +115,19 @@ export function useCskhInboxStream({
             })
           }
           if (data.conversationId === activeConversationId) {
-            // Active conversation: automatically mark it as read on the backend
-            markInboxAsRead(data.conversationId).catch((err: any) => {
-              console.error('Failed to auto mark active conversation as read:', err)
-            })
+            const cached = qc.getQueryData<{ conversation: { labels?: { id: string }[] } }>([
+              'cskh',
+              'inbox',
+              'messages',
+              data.conversationId,
+            ])
+            const hasLabels =
+              (data.conversation?.labels?.length ?? cached?.conversation?.labels?.length ?? 0) > 0
+            if (hasLabels) {
+              markInboxAsRead(data.conversationId).catch((err: unknown) => {
+                console.error('Failed to auto mark active conversation as read:', err)
+              })
+            }
           }
           return
         }
