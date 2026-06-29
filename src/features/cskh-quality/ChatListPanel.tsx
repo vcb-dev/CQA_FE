@@ -12,6 +12,8 @@ type ChatListPanelProps = {
   onSelect: (conversation: CskhInboxConversation) => void
   conversations?: CskhInboxConversation[]
   isLoading?: boolean
+  isError?: boolean
+  emptyHint?: string
   pageId?: string
   typingConversationIds?: Set<string>
   connected?: boolean
@@ -224,6 +226,8 @@ export function ChatListPanel({
   onSelect,
   conversations = [],
   isLoading = false,
+  isError = false,
+  emptyHint,
   typingConversationIds = new Set(),
   hasNextPage = false,
   isFetchingNextPage = false,
@@ -281,15 +285,30 @@ export function ChatListPanel({
     )
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-red-600 p-6 text-center">
+        <MessageCircle className="w-10 h-10 mb-3 opacity-50" />
+        <p className="text-sm font-semibold">Lỗi tải hội thoại</p>
+        <p className="text-[11px] text-red-500/80 mt-2 leading-relaxed max-w-[240px]">
+          {emptyHint || 'API inbox không phản hồi. Kiểm tra BE đã deploy và chạy migration DB.'}
+        </p>
+      </div>
+    )
+  }
+
   if (conversations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 mb-3">
           <MessageCircle className="w-7 h-7 text-slate-400" />
         </div>
-        <p className="text-sm font-medium text-slate-600">Không có hội thoại nào</p>
-        <p className="text-[11px] text-slate-400 mt-1 text-center">
-          Hội thoại từ Facebook sẽ xuất hiện ở đây
+        <p className="text-sm font-medium text-slate-600">
+          {emptyHint ? 'Không có kết quả' : 'Không có hội thoại nào'}
+        </p>
+        <p className="text-[11px] text-slate-400 mt-1 text-center max-w-[240px] leading-relaxed">
+          {emptyHint ||
+            'Hội thoại từ Facebook sẽ xuất hiện ở đây. Thử tab Tất cả hoặc bấm Mọi nhãn.'}
         </p>
       </div>
     )

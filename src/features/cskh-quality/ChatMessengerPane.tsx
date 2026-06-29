@@ -4,6 +4,7 @@ import type { InfiniteData } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/axios'
 import { useOptionalAuditJob } from './AuditJobProvider'
 import {
   fetchCskhPages,
@@ -78,7 +79,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const pageKey = selectedPageId ?? 'all'
 
-  const { data: convStats } = useQuery({
+  const { data: convStats, isError: statsError, error: statsErr } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversation-stats', pageKey],
     queryFn: () => fetchInboxConversationStats({ pageId: selectedPageId }),
     staleTime: 30_000,
@@ -138,6 +139,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    isError: listError,
+    error: listErr,
   } = useInfiniteQuery({
     queryKey: listQueryKey,
     queryFn: ({ pageParam }) =>
@@ -159,6 +162,32 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     () => conversationPages?.pages.flatMap((p) => p.items) ?? [],
     [conversationPages],
   )
+
+  const listEmptyHint = useMemo(() => {
+    if (listError) return getApiErrorMessage(listErr) || 'Không tải được danh sách hội thoại'
+    if (labelFilter === 'unlabeled' && (convStats?.total ?? 0) > 0) {
+      return 'Không có hội thoại nào chưa gán nhãn với bộ lọc hiện tại'
+    }
+    if (labelFilter !== 'all' && (convStats?.total ?? 0) > 0) {
+      return 'Không có hội thoại khớp nhãn đã chọn'
+    }
+    if (activeFilter === 'unread' && (convStats?.total ?? 0) > 0 && (convStats?.unread ?? 0) === 0) {
+      return 'Không còn hội thoại chưa đọc'
+    }
+    return undefined
+  }, [listError, listErr, labelFilter, convStats, activeFilter])
+
+  const showMigrationHint =
+    labelFilter !== 'all' &&
+    (convStats?.total ?? 0) === 0 &&
+    allConversations.length === 0 &&
+    !listError
+
+  useEffect(() => {
+    if (listError) {
+      toast.error(getApiErrorMessage(listErr) || 'Lỗi tải hội thoại')
+    }
+  }, [listError, listErr])
 
   // Lần đầu xem tất cả page: quét DB gắn tag Ads (Việt/Anh/Thái) rồi refresh list
   useEffect(() => {
@@ -467,6 +496,28 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                     : `${allConversations.length.toLocaleString()} hội thoại`}
             </p>
 
+            {showMigrationHint && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] text-amber-800 leading-snug">
+                Bộ lọc nhãn cần migration DB mới. Bấm{' '}
+                <button
+                  type="button"
+                  className="font-bold underline cursor-pointer"
+                  onClick={() => setLabelFilter('all')}
+                >
+                  Mọi nhãn
+                </button>{' '}
+                để xem hội thoại, hoặc chạy file{' '}
+                <code className="text-[9px] bg-white/80 px-1 rounded">manual-inbox-labels.sql</code>{' '}
+                trên Supabase.
+              </div>
+            )}
+
+            {statsError && (
+              <p className="text-[10px] text-red-500 mt-1.5">
+                Không tải được thống kê: {getApiErrorMessage(statsErr) || 'lỗi API'}
+              </p>
+            )}
+
             {activeFilter === 'ads' && filterCounts.ads > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-50 border border-purple-100 text-[10px] font-semibold text-purple-700">
@@ -505,7 +556,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             selectedConversationId={selectedConversation?.id}
             onSelect={handleSelectConversation}
             conversations={allConversations}
-            isLoading={isLoadingConversations && allConversations.length === 0}
+            isLoading={isLoadingConversations && allConversations.length === 0 && !listError}
+            isError={listError}
+            emptyHint={listEmptyHint}
             pageId={selectedPageId}
             typingConversationIds={typingConversationIds}
             connected={connected}
