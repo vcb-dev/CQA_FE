@@ -12,6 +12,7 @@ import {
   fetchConversationAdInsights,
   fetchInboxConversations,
   fetchInboxMessages,
+  backfillInboxAdReferrals,
   type CskhInboxConversation,
 } from './api'
 import { ChatListPanel } from './ChatListPanel'
@@ -61,14 +62,38 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: () => fetchCskhPages(),
   })
 
-  // Fetch all conversations for counting stats
+  // Fetch conversations — tất cả page: tối đa 15k hội thoại (BE backfill tag Ads nền)
   const { data: allConversations, isLoading: isLoadingConversations } = useQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
-    queryFn: () => fetchInboxConversations(selectedPageId),
+    queryKey: ['cskh', 'inbox', 'conversations', selectedPageId ?? 'all'],
+    queryFn: () =>
+      fetchInboxConversations({
+        pageId: selectedPageId,
+        limit: selectedPageId ? 8000 : 15000,
+      }),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
     refetchInterval: connected ? 45000 : auditRunning ? 15000 : 20000,
   })
+
+  // Lần đầu xem tất cả page: quét DB gắn tag Ads (Việt/Anh/Thái) rồi refresh list
+  useEffect(() => {
+    if (selectedPageId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const { updated } = await backfillInboxAdReferrals()
+        if (!cancelled && updated > 0) {
+          await qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
+          toast.success(`Đã nhận diện thêm ${updated} hội thoại từ quảng cáo`)
+        }
+      } catch {
+        /* backfill optional */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedPageId, qc])
 
   const [sidebarReady, setSidebarReady] = useState(false)
   useEffect(() => {
@@ -275,7 +300,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                   Ads
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  {filterCounts.ads}/{filterCounts.all} tin nhắn
+                  {filterCounts.ads}/{filterCounts.all} hội thoại
                 </span>
               </div>
             )}

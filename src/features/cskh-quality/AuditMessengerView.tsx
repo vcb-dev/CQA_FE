@@ -1044,7 +1044,7 @@ export function AuditMessengerView({
 
   const inboxQuery = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
-    queryFn: () => fetchInboxConversations(selectedPageFilter!),
+    queryFn: () => fetchInboxConversations({ pageId: selectedPageFilter! }),
     enabled: filtersReady && (auditExistsForSelection || isRunning),
     refetchInterval: false,
     refetchOnWindowFocus: false,

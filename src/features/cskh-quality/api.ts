@@ -526,10 +526,23 @@ export interface CskhInboxMessage {
   status: 'sent' | 'pending' | 'failed' | 'read'
 }
 
-export async function fetchInboxConversations(pageId?: string): Promise<CskhInboxConversation[]> {
+export async function fetchInboxConversations(options?: {
+  pageId?: string
+  fromAdOnly?: boolean
+  limit?: number
+}): Promise<CskhInboxConversation[]> {
+  const params: Record<string, string> = {}
+  if (options?.pageId) params.pageId = options.pageId
+  if (options?.fromAdOnly) params.fromAdOnly = '1'
+  if (options?.limit != null && options.limit > 0) params.limit = String(options.limit)
   const { data } = await apiClient.get<CskhInboxConversation[]>('/cskh/inbox/conversations', {
-    params: pageId ? { pageId } : undefined,
+    params: Object.keys(params).length ? params : undefined,
   })
+  return data
+}
+
+export async function backfillInboxAdReferrals(): Promise<{ updated: number }> {
+  const { data } = await apiClient.post<{ updated: number }>('/cskh/inbox/backfill-ad-referrals')
   return data
 }
 
