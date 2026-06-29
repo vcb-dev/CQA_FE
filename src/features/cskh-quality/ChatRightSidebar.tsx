@@ -77,6 +77,11 @@ export function ChatRightSidebar({
     }
   }
 
+  const showAdDetails =
+    conversation.fromAd ||
+    conversation.referralSource === 'HEURISTIC' ||
+    Boolean(adInsights && !adInsights.unavailableReason)
+
   return (
     <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full overflow-y-auto font-sans">
       {/* Customer Profile */}
@@ -144,7 +149,7 @@ export function ChatRightSidebar({
         </div>
 
         {/* Ads Campaign Details */}
-        {conversation.fromAd && (
+        {showAdDetails && (
           <div className="mt-2 bg-gradient-to-br from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-100/60 p-3 space-y-2 text-[11px]">
             <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[10px]">
               <Megaphone className="w-3 h-3 text-amber-600" />

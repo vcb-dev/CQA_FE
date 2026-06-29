@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -78,7 +78,7 @@ type ConversationRowProps = {
   onPrefetch: (conversationId: string) => void
 }
 
-function ConversationRow({
+const ConversationRow = memo(function ConversationRow({
   conv,
   isSelected,
   isTyping,
@@ -203,13 +203,15 @@ function ConversationRow({
           </div>
 
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <ConversationLabelBadges labels={conv.labels} max={2} />
+                  {(conv.labels?.length ?? 0) > 0 && (
+                    <ConversationLabelBadges labels={conv.labels} max={1} />
+                  )}
                   {conv.fromAd && conv.adTitle && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200/60 max-w-[130px] truncate">
                 {conv.adTitle}
               </span>
             )}
-            {conv.pageName && (
+            {conv.pageName && !conv.fromAd && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-50/70 text-blue-600 border border-blue-100/50 max-w-[130px] truncate">
                 {conv.pageName}
               </span>
@@ -219,7 +221,7 @@ function ConversationRow({
       </div>
     </button>
   )
-}
+})
 
 export function ChatListPanel({
   selectedConversationId,
@@ -236,17 +238,31 @@ export function ChatListPanel({
 }: ChatListPanelProps) {
   const qc = useQueryClient()
   const parentRef = useRef<HTMLDivElement>(null)
+  const prefetchTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   const prefetchMessages = useCallback(
     (conversationId: string) => {
-      void qc.prefetchQuery({
-        queryKey: ['cskh', 'inbox', 'messages', conversationId],
-        queryFn: ({ signal }) => fetchInboxMessages(conversationId, undefined, signal),
-        staleTime: 30_000,
-      })
+      if (prefetchTimersRef.current.has(conversationId)) return
+      const timer = window.setTimeout(() => {
+        prefetchTimersRef.current.delete(conversationId)
+        void qc.prefetchQuery({
+          queryKey: ['cskh', 'inbox', 'messages', conversationId],
+          queryFn: ({ signal }) => fetchInboxMessages(conversationId, undefined, signal),
+          staleTime: 30_000,
+        })
+      }, 180)
+      prefetchTimersRef.current.set(conversationId, timer)
     },
     [qc],
   )
+
+  useEffect(() => {
+    const timers = prefetchTimersRef.current
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer))
+      timers.clear()
+    }
+  }, [])
 
   const rowCount = conversations.length + (hasNextPage ? 1 : 0)
 
@@ -255,7 +271,7 @@ export function ChatListPanel({
     getScrollElement: () => parentRef.current,
     estimateSize: (index) =>
       hasNextPage && index === conversations.length ? LOAD_MORE_ROW_HEIGHT : ROW_HEIGHT,
-    overscan: 8,
+    overscan: 5,
   })
 
   useEffect(() => {

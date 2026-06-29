@@ -47,11 +47,12 @@ export function ChatPanel({
   }
   const qc = useQueryClient()
 
-  // Fetch messages
+  // Fetch messages — dùng chung cache với ChatMessengerPane (prefetch khi click)
   const { data: messagesData, isLoading, isFetching } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
     queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
     staleTime: 60_000,
+    refetchOnMount: false,
     refetchInterval: connected ? false : 12_000,
   })
 

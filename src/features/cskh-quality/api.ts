@@ -583,6 +583,7 @@ export async function fetchInboxConversationsPage(options?: {
   sinceDays?: number
   labelId?: string
   unlabeledOnly?: boolean
+  includeLabels?: boolean
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {}
   if (options?.pageId) params.pageId = options.pageId
@@ -597,6 +598,7 @@ export async function fetchInboxConversationsPage(options?: {
   }
   if (options?.labelId) params.labelId = options.labelId
   if (options?.unlabeledOnly) params.unlabeledOnly = '1'
+  if (options?.includeLabels) params.includeLabels = '1'
   const { data } = await apiClient.get<CskhInboxConversationPage>('/cskh/inbox/conversations', {
     params: Object.keys(params).length ? params : undefined,
   })

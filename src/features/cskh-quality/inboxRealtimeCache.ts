@@ -93,9 +93,13 @@ function patchInfiniteConversationList(
       pages[foundPage].items.splice(foundIdx, 1)
     } else if (patch.lastMessageAt) {
       pages[foundPage].items.splice(foundIdx, 1)
-      pages[0].items = [merged, ...pages[0].items.filter((c) => c.id !== patch.id)].sort(
-        sortConversationsByRecent,
-      )
+      pages[0].items = [merged, ...pages[0].items.filter((c) => c.id !== patch.id)]
+      if (
+        pages[0].items.length > 1 &&
+        sortConversationsByRecent(pages[0].items[0], pages[0].items[1]) < 0
+      ) {
+        pages[0].items.sort(sortConversationsByRecent)
+      }
       const seen = new Set<string>()
       for (const page of pages) {
         page.items = page.items.filter((c) => {
@@ -110,7 +114,13 @@ function patchInfiniteConversationList(
   } else {
     const row = patch as CskhInboxConversation
     if (matchesConversationFilter(row, pageIdFilter, activeFilter, labelFilter)) {
-      pages[0].items = [row, ...pages[0].items].sort(sortConversationsByRecent)
+      pages[0].items = [row, ...pages[0].items.filter((c) => c.id !== row.id)]
+      if (
+        pages[0].items.length > 1 &&
+        sortConversationsByRecent(pages[0].items[0], pages[0].items[1]) < 0
+      ) {
+        pages[0].items.sort(sortConversationsByRecent)
+      }
     }
   }
 
