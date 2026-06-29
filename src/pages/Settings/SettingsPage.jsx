@@ -50,7 +50,7 @@ Các tiêu chí cần đánh giá:
   const [backupFreq, setBackupFreq] = useState('daily');
 
   // Fetch real channels/pages
-  const { data: pagesData, isLoading: isLoadingPages } = useQuery({
+  const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
     queryKey: ['cskh', 'pages'],
     queryFn: () => fetchCskhPages(),
   });
@@ -113,6 +113,8 @@ Các tiêu chí cần đánh giá:
       toast.error('Lỗi khi đồng bộ lại danh sách trang: ' + (err.message || err));
     }
   });
+
+  const isPagesBusy = isLoadingPages || isFetchingPages || isRefreshing;
 
   useEffect(() => {
     setTimeout(() => setAnim(true), 200);
@@ -438,6 +440,13 @@ Các tiêu chí cần đánh giá:
         {/* Cài đặt kênh (Real Facebook Integration) */}
         {settingsTabs[activeTabIdx] === 'Cài đặt kênh' && (
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {isLoadingPages && !pagesData ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', gap: '12px', color: '#6b7280' }}>
+                <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5' }} />
+                <span style={{ fontSize: '13px', fontWeight: 500 }}>Đang tải cấu hình kênh...</span>
+              </div>
+            ) : (
+            <>
             <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Cấu hình Kênh Kết nối</h3>
@@ -517,8 +526,13 @@ Các tiêu chí cần đánh giá:
                   <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
                     {pagesData?.oauthConnected ? `Tài khoản Facebook: ${pagesData.oauthUser}` : 'Chưa kết nối tài khoản Facebook'}
                   </h4>
-                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
-                    {pagesData?.oauthConnected 
+                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {isPagesBusy ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" style={{ color: '#4f46e5' }} />
+                        Đang cập nhật thông tin kết nối...
+                      </>
+                    ) : pagesData?.oauthConnected 
                       ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}` 
                       : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
                   </p>
@@ -550,13 +564,19 @@ Các tiêu chí cần đánh giá:
 
             {pagesData?.oauthConnected && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   Danh sách trang quản lý ({pagesData.pages.length})
+                  {isPagesBusy && (
+                    <Loader2 size={14} className="animate-spin" style={{ color: '#4f46e5' }} />
+                  )}
                 </div>
 
-                {isLoadingPages ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: '#9ca3af' }}>
-                    <RefreshCw className="animate-spin" size={24} />
+                {isPagesBusy ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: '10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#6b7280' }}>
+                    <Loader2 size={28} className="animate-spin" style={{ color: '#4f46e5' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 500 }}>
+                      {isRefreshing ? 'Đang đồng bộ lại danh sách trang...' : 'Đang tải danh sách trang...'}
+                    </span>
                   </div>
                 ) : pagesData.pages.length === 0 ? (
                   <div style={{ padding: '24px', textAlign: 'center', background: '#f9fafb', borderRadius: '8px', color: '#6b7280', fontSize: '12px' }}>
@@ -637,6 +657,8 @@ Các tiêu chí cần đánh giá:
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
         )}
