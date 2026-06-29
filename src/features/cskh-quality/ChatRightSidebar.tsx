@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Copy, Check, Sparkles, User, Megaphone, FileText, MessageSquare, Zap, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { CskhInboxConversation, CskhCustomerIntent } from './api'
+import type { CskhInboxConversation, CskhCustomerIntent, CskhAdInsights } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
 import { cn } from '@/lib/utils'
 
@@ -9,13 +9,43 @@ type ChatRightSidebarProps = {
   conversation: CskhInboxConversation
   intent?: CskhCustomerIntent | null
   isLoadingIntent?: boolean
+  adInsights?: CskhAdInsights | null
+  isLoadingAdInsights?: boolean
   onApplySuggestedReply: (text: string) => void
+}
+
+function formatAdMoney(amount: number | null | undefined, currency?: string | null): string {
+  if (amount == null || !Number.isFinite(amount)) return '—'
+  const cur = (currency || 'VND').toUpperCase()
+  if (cur === 'VND') {
+    return `${Math.round(amount).toLocaleString('vi-VN')}đ`
+  }
+  return `${amount.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ${cur}`
+}
+
+function adInsightsHint(reason: string | null | undefined): string {
+  switch (reason) {
+    case 'no_ad_id':
+      return 'Hội thoại nhận diện từ ads (heuristic) nhưng Meta không gửi mã quảng cáo — không tra được chi phí.'
+    case 'oauth_required':
+      return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
+    case 'ads_read_missing':
+      return 'Thiếu quyền ads_read — vào Meta App → thêm quyền → OAuth lại.'
+    case 'not_from_ad':
+      return 'Hội thoại không từ quảng cáo.'
+    case 'api_error':
+      return 'Không lấy được dữ liệu từ Marketing API — thử lại sau vài giờ (Insights có độ trễ).'
+    default:
+      return 'Chưa có dữ liệu chi phí.'
+  }
 }
 
 export function ChatRightSidebar({
   conversation,
   intent,
   isLoadingIntent,
+  adInsights,
+  isLoadingAdInsights,
   onApplySuggestedReply,
 }: ChatRightSidebarProps) {
   const [copied, setCopied] = useState(false)
@@ -129,6 +159,60 @@ export function ChatRightSidebar({
                 <span className="text-slate-600">{conversation.referralSource}</span>
               </div>
             )}
+
+            {/* Chi phí QC từ Marketing API */}
+            <div className="pt-1 border-t border-amber-100/80 space-y-1.5">
+              <span className="text-amber-600 font-bold text-[10px] uppercase tracking-wide">
+                Chi phí quảng cáo (ước tính)
+              </span>
+              {isLoadingAdInsights ? (
+                <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Đang lấy từ Meta Insights...
+                </div>
+              ) : adInsights?.unavailableReason ? (
+                <p className="text-[10px] text-amber-700/80 leading-relaxed">
+                  {adInsightsHint(adInsights.unavailableReason)}
+                </p>
+              ) : (
+                <>
+                  {adInsights?.campaignName && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-amber-500 font-medium text-[10px]">Chiến dịch:</span>
+                      <span className="text-slate-700">{adInsights.campaignName}</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
+                      <div className="text-[9px] text-amber-500 font-medium">Tổng chi tiêu</div>
+                      <div className="text-[11px] font-bold text-slate-800">
+                        {formatAdMoney(adInsights?.spend, adInsights?.currency)}
+                      </div>
+                    </div>
+                    <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
+                      <div className="text-[9px] text-amber-500 font-medium">Chi phí/hội thoại</div>
+                      <div className="text-[11px] font-bold text-emerald-700">
+                        {formatAdMoney(
+                          adInsights?.estimatedForThisConversation ?? adInsights?.costPerConversation,
+                          adInsights?.currency
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {adInsights?.messagingConversations != null && (
+                    <p className="text-[9px] text-slate-500">
+                      {adInsights.messagingConversations.toLocaleString('vi-VN')} hội thoại từ QC
+                      {adInsights.dateStart && adInsights.dateStop
+                        ? ` · ${adInsights.dateStart} → ${adInsights.dateStop}`
+                        : ''}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-slate-400 italic">
+                    Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -460,6 +460,35 @@ export async function fetchDeepSeekBalance(): Promise<DeepSeekBalanceResponse> {
   return data
 }
 
+export interface CskhAdInsights {
+  adId: string
+  adName: string | null
+  adsetName: string | null
+  campaignName: string | null
+  currency: string | null
+  spend: number | null
+  impressions: number | null
+  clicks: number | null
+  messagingConversations: number | null
+  costPerConversation: number | null
+  dateStart: string | null
+  dateStop: string | null
+  estimatedForThisConversation: number | null
+  localConversationCount: number
+  unavailableReason: string | null
+}
+
+export async function fetchConversationAdInsights(
+  conversationId: string,
+  signal?: AbortSignal
+): Promise<CskhAdInsights> {
+  const { data } = await apiClient.get<CskhAdInsights>(
+    `/cskh/inbox/conversations/${conversationId}/ad-insights`,
+    { signal }
+  )
+  return data
+}
+
 export interface CskhInboxConversation {
   id: string
   pageId: string

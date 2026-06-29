@@ -7,7 +7,6 @@ import {
   fetchInboxMessages,
   sendInboxMessage,
   notifyInboxTyping,
-  markInboxAsRead,
   type CskhInboxConversation,
   type CskhInboxMessage,
 } from './api'
@@ -47,13 +46,15 @@ export function ChatPanel({
   const qc = useQueryClient()
 
   // Fetch messages
-  const { data: messagesData, isLoading } = useQuery({
+  const { data: messagesData, isLoading, isFetching } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
     queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
+    staleTime: 30_000,
     refetchInterval: connected ? 25000 : 4000, // Fast 4s fallback if SSE is disconnected
   })
 
   const messages = messagesData?.messages ?? []
+  const showInitialLoader = isLoading && !messages.length
 
   // Send message mutation
   const sendMut = useMutation({
@@ -152,12 +153,7 @@ export function ChatPanel({
     }, 3000)
   }
 
-  // Mark messages as read
-  useEffect(() => {
-    void markInboxAsRead(conversation.id).catch(() => {
-      // Ignore errors
-    })
-  }, [conversation.id, messages.length])
+  // Mark-as-read được xử lý khi chọn hội thoại (ChatMessengerPane)
 
   // Auto-scroll to bottom when new messages arrive or when typing starts
   useEffect(() => {
@@ -244,7 +240,7 @@ export function ChatPanel({
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white"
       >
-        {isLoading ? (
+        {showInitialLoader ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
@@ -258,6 +254,11 @@ export function ChatPanel({
           </div>
         ) : (
           <>
+            {isFetching && (
+              <div className="flex justify-center py-1">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
+              </div>
+            )}
             {displayMessages.map((msg) => (
               <ChatMessage key={msg.id} message={msg} isOwn={msg.isOwn} />
             ))}

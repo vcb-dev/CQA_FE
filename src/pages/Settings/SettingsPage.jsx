@@ -126,24 +126,7 @@ Các tiêu chí cần đánh giá:
         setActiveTabIdx(idx);
       }
     }
-
-    if (searchParams.get('fb_connected') === '1') {
-      toast.success('Kết nối tài khoản Facebook thành công!');
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('fb_connected');
-      newParams.delete('tab');
-      setSearchParams(newParams, { replace: true });
-    }
-
-    const oauthError = searchParams.get('oauth_error');
-    if (oauthError) {
-      toast.error(`Lỗi kết nối Facebook: ${oauthError}`);
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('oauth_error');
-      newParams.delete('tab');
-      setSearchParams(newParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams]);
 
   const handleWeightChange = (id, newWeight) => {
     setCriteria(prev => prev.map(c => c.id === id ? { ...c, weight: parseInt(newWeight) || 0 } : c));

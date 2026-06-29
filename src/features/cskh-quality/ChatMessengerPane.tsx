@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, SlidersHorizontal, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -9,8 +9,10 @@ import {
   syncInboxFromGraph,
   markInboxAsRead,
   fetchCustomerIntent,
+  fetchConversationAdInsights,
   fetchInboxConversations,
-  type CskhInboxConversation
+  fetchInboxMessages,
+  type CskhInboxConversation,
 } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
@@ -60,10 +62,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   })
 
   // Fetch all conversations for counting stats
-  const { data: allConversations } = useQuery({
+  const { data: allConversations, isLoading: isLoadingConversations } = useQuery({
     queryKey: ['cskh', 'inbox', 'conversations', selectedPageId],
     queryFn: () => fetchInboxConversations(selectedPageId),
-    refetchInterval: connected ? (auditRunning ? 20000 : 30000) : auditRunning ? 12000 : 5000,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    refetchInterval: connected ? 45000 : auditRunning ? 8000 : 5000,
   })
 
   // Compute filter counts
@@ -100,9 +104,23 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     enabled: !!selectedConversation,
   })
 
+  const { data: adInsights, isLoading: isLoadingAdInsights } = useQuery({
+    queryKey: ['cskh', 'inbox', 'ad-insights', selectedConversation?.id],
+    queryFn: ({ signal }) =>
+      selectedConversation ? fetchConversationAdInsights(selectedConversation.id, signal) : null,
+    enabled: !!selectedConversation?.fromAd,
+    staleTime: 60_000,
+  })
+
   const handleSelectConversation = (conv: CskhInboxConversation) => {
     setSelectedConversation(conv)
     setInputDraft('')
+    // Prefetch ngay khi click để giảm thời gian chờ panel tin nhắn
+    void qc.prefetchQuery({
+      queryKey: ['cskh', 'inbox', 'messages', conv.id],
+      queryFn: ({ signal }) => fetchInboxMessages(conv.id, undefined, signal),
+      staleTime: 30_000,
+    })
     if (conv.unreadCount > 0) {
       qc.setQueryData<CskhInboxConversation[]>(
         ['cskh', 'inbox', 'conversations', selectedPageId],
@@ -275,6 +293,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
           <ChatListPanel
             selectedConversationId={selectedConversation?.id}
             onSelect={handleSelectConversation}
+            conversations={allConversations}
+            isLoading={isLoadingConversations && !allConversations}
             pageId={selectedPageId}
             typingConversationIds={typingConversationIds}
             connected={connected}
@@ -317,6 +337,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 conversation={selectedConversation}
                 intent={intent}
                 isLoadingIntent={isLoadingIntent}
+                adInsights={adInsights}
+                isLoadingAdInsights={isLoadingAdInsights}
                 onApplySuggestedReply={(text) => setInputDraft(text)}
               />
             </div>

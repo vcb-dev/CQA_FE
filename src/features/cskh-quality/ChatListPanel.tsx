@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchInboxConversations, type CskhInboxConversation } from './api'
+import { fetchInboxMessages, type CskhInboxConversation } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
 
 type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
@@ -10,6 +10,8 @@ type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
 type ChatListPanelProps = {
   selectedConversationId?: string
   onSelect: (conversation: CskhInboxConversation) => void
+  conversations?: CskhInboxConversation[]
+  isLoading?: boolean
   pageId?: string
   typingConversationIds?: Set<string>
   connected?: boolean
@@ -56,17 +58,23 @@ function getColorIndex(name: string | null): number {
 export function ChatListPanel({
   selectedConversationId,
   onSelect,
+  conversations,
+  isLoading = false,
   pageId,
   typingConversationIds = new Set(),
   connected,
   searchQuery = '',
   activeFilter = 'all',
 }: ChatListPanelProps) {
-  const { data: conversations, isLoading } = useQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', pageId],
-    queryFn: () => fetchInboxConversations(pageId),
-    refetchInterval: connected ? 45000 : 5000,
-  })
+  const qc = useQueryClient()
+
+  const prefetchMessages = (conversationId: string) => {
+    void qc.prefetchQuery({
+      queryKey: ['cskh', 'inbox', 'messages', conversationId],
+      queryFn: ({ signal }) => fetchInboxMessages(conversationId, undefined, signal),
+      staleTime: 30_000,
+    })
+  }
 
   const filteredConversations = useMemo(() => {
     if (!conversations) return []
@@ -166,6 +174,8 @@ export function ChatListPanel({
           <button
             key={conv.id}
             onClick={() => onSelect(conv)}
+            onMouseEnter={() => prefetchMessages(conv.id)}
+            onFocus={() => prefetchMessages(conv.id)}
             className={cn(
               'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
               isSelected

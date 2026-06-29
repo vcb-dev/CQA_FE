@@ -3541,18 +3541,6 @@ export function CskhQualityPage() {
     if (changed) setSearchParams(next, { replace: true })
   }, [tab, searchParams, setSearchParams])
 
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search)
-    if (p.get('fb_connected') || p.get('oauth_error')) {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('fb_connected')
-      url.searchParams.delete('oauth_error')
-      if (p.get('tab') === 'monitor') url.searchParams.set('tab', 'audit')
-      if (!url.searchParams.get('tab')) url.searchParams.set('tab', 'config')
-      window.history.replaceState({}, '', url.pathname + url.search)
-    }
-  }, [])
-
   return (
     <CskhPageShell
       className={
