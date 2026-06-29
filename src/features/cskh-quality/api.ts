@@ -480,6 +480,8 @@ export interface CskhAdInsights {
   unavailableReason: string | null
   isAccountLevelEstimate?: boolean
   estimateNote?: string | null
+  connectedAdAccountId?: string | null
+  connectedAdAccountName?: string | null
 }
 
 export async function fetchConversationAdInsights(

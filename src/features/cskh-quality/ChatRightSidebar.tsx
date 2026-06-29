@@ -23,14 +23,19 @@ function formatAdMoney(amount: number | null | undefined, currency?: string | nu
   return `${amount.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ${cur}`
 }
 
-function adInsightsHint(reason: string | null | undefined): string {
+function adInsightsHint(reason: string | null | undefined, referralSource?: string | null): string {
+  const heuristic = referralSource === 'HEURISTIC'
   switch (reason) {
     case 'no_ad_id':
-      return 'Hội thoại từ ads nhưng Meta không gửi mã QC — chỉ xem được chi phí trung bình tài khoản (nếu đã kết nối Marketing API).'
+      return heuristic
+        ? 'Hội thoại cũ (HEURISTIC): Meta không gửi mã QC. Marketing API đã kết nối — đang lấy chi phí TB tài khoản QC.'
+        : 'Hội thoại từ ads nhưng Meta không gửi mã QC.'
     case 'no_ad_accounts':
-      return 'Chưa thấy tài khoản quảng cáo trên Facebook đã kết nối. OAuth lại bằng tài khoản admin QC trong Business Manager (không chỉ quản trị Page).'
+      return 'Chưa thấy tài khoản quảng cáo. OAuth lại bằng tài khoản admin QC trên Business Manager.'
     case 'no_messaging_insights':
-      return 'Meta chưa trả dữ liệu Insights messaging (30 ngày). Kiểm tra QC đang chạy trên Ads Manager và thử lại sau vài giờ.'
+      return heuristic
+        ? 'Marketing API đã kết nối nhưng tài khoản QC này chưa có dữ liệu chi tiêu/messaging — có thể QC đang chạy trên tài khoản khác.'
+        : 'Meta chưa trả Insights messaging. Kiểm tra QC trên Ads Manager hoặc thử lại sau vài giờ.'
     case 'oauth_required':
       return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
     case 'ads_read_missing':
@@ -177,8 +182,13 @@ export function ChatRightSidebar({
               ) : adInsights?.unavailableReason ? (
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-amber-700/80 leading-relaxed">
-                    {adInsightsHint(adInsights.unavailableReason)}
+                    {adInsightsHint(adInsights.unavailableReason, conversation.referralSource)}
                   </p>
+                  {adInsights?.connectedAdAccountName && (
+                    <p className="text-[9px] text-slate-500">
+                      Tài khoản QC đã kết nối: {adInsights.connectedAdAccountName}
+                    </p>
+                  )}
                   {adInsights?.estimateNote && (
                     <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
                       {adInsights.estimateNote}
@@ -190,6 +200,11 @@ export function ChatRightSidebar({
                   {adInsights?.isAccountLevelEstimate && adInsights.estimateNote && (
                     <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
                       {adInsights.estimateNote}
+                    </p>
+                  )}
+                  {adInsights?.connectedAdAccountName && (
+                    <p className="text-[9px] text-slate-500">
+                      Tài khoản QC: {adInsights.connectedAdAccountName}
                     </p>
                   )}
                   {adInsights?.campaignName && (
