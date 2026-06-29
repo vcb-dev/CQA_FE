@@ -50,7 +50,7 @@ export function ChatPanel({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
     queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
     staleTime: 60_000,
-    refetchInterval: connected ? 30000 : 8000,
+    refetchInterval: connected ? false : 12_000,
   })
 
   const messages = messagesData?.messages ?? []
