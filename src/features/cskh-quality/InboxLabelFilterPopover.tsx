@@ -41,7 +41,7 @@ export function InboxLabelFilterPopover({
         onClick={() => onChange(selected && optionValue !== 'all' ? 'all' : optionValue)}
         className={cn(
           'w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer',
-          selected ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/80' : 'hover:bg-slate-50 text-slate-700',
+          selected ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/80' : 'bg-white hover:bg-slate-50 text-slate-700',
         )}
       >
         <span className="inline-flex items-center gap-2">
@@ -73,7 +73,12 @@ export function InboxLabelFilterPopover({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-2">
+      <PopoverContent
+        align="start"
+        side="bottom"
+        sideOffset={6}
+        className="w-56 p-2 bg-white border-slate-200 shadow-lg"
+      >
         <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
           Lọc nhãn
         </p>
