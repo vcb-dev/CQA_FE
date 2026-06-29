@@ -476,6 +476,8 @@ export interface CskhAdInsights {
   estimatedForThisConversation: number | null
   localConversationCount: number
   unavailableReason: string | null
+  isAccountLevelEstimate?: boolean
+  estimateNote?: string | null
 }
 
 export async function fetchConversationAdInsights(

@@ -26,7 +26,7 @@ function formatAdMoney(amount: number | null | undefined, currency?: string | nu
 function adInsightsHint(reason: string | null | undefined): string {
   switch (reason) {
     case 'no_ad_id':
-      return 'Hội thoại nhận diện từ ads (heuristic) nhưng Meta không gửi mã quảng cáo — không tra được chi phí.'
+      return 'Không có mã QC từ Meta cho hội thoại này. Vào Cài đặt → Cập nhật kết nối Facebook (quyền ads_read) để xem chi phí trung bình/tin.'
     case 'oauth_required':
       return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
     case 'ads_read_missing':
@@ -176,6 +176,11 @@ export function ChatRightSidebar({
                 </p>
               ) : (
                 <>
+                  {adInsights?.isAccountLevelEstimate && adInsights.estimateNote && (
+                    <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
+                      {adInsights.estimateNote}
+                    </p>
+                  )}
                   {adInsights?.campaignName && (
                     <div className="flex flex-col gap-0.5">
                       <span className="text-amber-500 font-medium text-[10px]">Chiến dịch:</span>
@@ -208,7 +213,9 @@ export function ChatRightSidebar({
                     </p>
                   )}
                   <p className="text-[9px] text-slate-400 italic">
-                    Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.
+                    {adInsights?.isAccountLevelEstimate
+                      ? 'Chi phí TB/tin từ Insights tài khoản QC — không phải mã QC cụ thể.'
+                      : 'Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.'}
                   </p>
                 </>
               )}

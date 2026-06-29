@@ -67,8 +67,19 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: () => fetchInboxConversations(selectedPageId),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
-    refetchInterval: connected ? 45000 : auditRunning ? 8000 : 5000,
+    refetchInterval: connected ? 45000 : auditRunning ? 15000 : 20000,
   })
+
+  const [sidebarReady, setSidebarReady] = useState(false)
+  useEffect(() => {
+    if (!selectedConversation) {
+      setSidebarReady(false)
+      return
+    }
+    setSidebarReady(false)
+    const t = window.setTimeout(() => setSidebarReady(true), 600)
+    return () => window.clearTimeout(t)
+  }, [selectedConversation?.id])
 
   // Compute filter counts
   const filterCounts = useMemo(() => {
@@ -101,15 +112,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const { data: intent, isLoading: isLoadingIntent } = useQuery({
     queryKey: ['cskh', 'inbox', 'intent', selectedConversation?.id],
     queryFn: ({ signal }) => selectedConversation ? fetchCustomerIntent(selectedConversation.id, undefined, signal) : null,
-    enabled: !!selectedConversation,
+    enabled: !!selectedConversation && sidebarReady,
+    staleTime: 60_000,
   })
 
   const { data: adInsights, isLoading: isLoadingAdInsights } = useQuery({
     queryKey: ['cskh', 'inbox', 'ad-insights', selectedConversation?.id],
     queryFn: ({ signal }) =>
       selectedConversation ? fetchConversationAdInsights(selectedConversation.id, signal) : null,
-    enabled: !!selectedConversation?.fromAd,
-    staleTime: 60_000,
+    enabled: !!selectedConversation?.fromAd && sidebarReady,
+    staleTime: 120_000,
   })
 
   const handleSelectConversation = (conv: CskhInboxConversation) => {
