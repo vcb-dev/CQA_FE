@@ -104,7 +104,8 @@ export function useCskhInboxStream({
             qc,
             data.conversationId,
             activeAuditDate ?? undefined,
-            data.messages
+            data.messages,
+            data.conversation,
           )
           if (!data.conversation) {
             const last = data.messages[data.messages.length - 1]

@@ -132,25 +132,53 @@ export function appendInboxMessagesToCache(
   conversationId: string,
   auditDateKey: string | undefined,
   incoming: InboxRealtimeMessagePayload[],
+  conversationPatch?: InboxRealtimeConversationPatch,
 ) {
   if (!incoming.length) return
   const queries = qc.getQueryCache().findAll({
     queryKey: ['cskh', 'inbox', 'messages', conversationId],
   })
+  const apply = (
+    prev: { conversation: CskhInboxConversation; messages: CskhInboxMessage[] } | undefined,
+  ) => {
+    if (!prev) {
+      if (!conversationPatch) return prev
+      const merged = [...incoming].sort(
+        (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
+      )
+      return {
+        conversation: conversationPatch as CskhInboxConversation,
+        messages: merged,
+      }
+    }
+    const byId = new Map(prev.messages.map((m) => [m.id, m]))
+    for (const msg of incoming) {
+      byId.set(msg.id, { ...byId.get(msg.id), ...msg })
+    }
+    const merged = [...byId.values()].sort(
+      (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
+    )
+    return {
+      ...prev,
+      conversation: conversationPatch
+        ? ({ ...prev.conversation, ...conversationPatch } as CskhInboxConversation)
+        : prev.conversation,
+      messages: merged,
+    }
+  }
+
+  if (!queries.length) {
+    const next = apply(undefined)
+    if (next) {
+      qc.setQueryData(['cskh', 'inbox', 'messages', conversationId], next)
+    }
+    return
+  }
+
   for (const q of queries) {
     qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
       q.queryKey,
-      (prev) => {
-        if (!prev) return prev
-        const byId = new Map(prev.messages.map((m) => [m.id, m]))
-        for (const msg of incoming) {
-          byId.set(msg.id, { ...byId.get(msg.id), ...msg })
-        }
-        const merged = [...byId.values()].sort(
-          (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
-        )
-        return { ...prev, messages: merged }
-      },
+      (prev) => apply(prev) ?? prev,
     )
   }
 }
