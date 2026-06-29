@@ -533,6 +533,12 @@ export interface CskhInboxConversationStats {
   normal: number
 }
 
+export interface CskhInboxConversationPage {
+  items: CskhInboxConversation[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 export async function fetchInboxConversationStats(options?: {
   pageId?: string
 }): Promise<CskhInboxConversationStats> {
@@ -545,21 +551,47 @@ export async function fetchInboxConversationStats(options?: {
   return data
 }
 
-export async function fetchInboxConversations(options?: {
+export async function fetchInboxConversationsPage(options?: {
   pageId?: string
   fromAdOnly?: boolean
   unreadOnly?: boolean
   organicOnly?: boolean
   limit?: number
-}): Promise<CskhInboxConversation[]> {
+  cursor?: string
+  search?: string
+}): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {}
   if (options?.pageId) params.pageId = options.pageId
   if (options?.fromAdOnly) params.fromAdOnly = '1'
   if (options?.unreadOnly) params.unreadOnly = '1'
   if (options?.organicOnly) params.organicOnly = '1'
   if (options?.limit != null && options.limit > 0) params.limit = String(options.limit)
-  const { data } = await apiClient.get<CskhInboxConversation[]>('/cskh/inbox/conversations', {
+  if (options?.cursor) params.cursor = options.cursor
+  if (options?.search) params.search = options.search
+  const { data } = await apiClient.get<CskhInboxConversationPage>('/cskh/inbox/conversations', {
     params: Object.keys(params).length ? params : undefined,
+  })
+  return data
+}
+
+/** Tải nhiều trang — dùng audit / màn hình cần list đầy đủ (giới hạn server). */
+export async function fetchInboxConversations(options?: {
+  pageId?: string
+  fromAdOnly?: boolean
+  unreadOnly?: boolean
+  organicOnly?: boolean
+  maxItems?: number
+}): Promise<CskhInboxConversation[]> {
+  const params: Record<string, string> = { legacy: '1' }
+  if (options?.pageId) params.pageId = options.pageId
+  if (options?.fromAdOnly) params.fromAdOnly = '1'
+  if (options?.unreadOnly) params.unreadOnly = '1'
+  if (options?.organicOnly) params.organicOnly = '1'
+  if (options?.maxItems != null && options.maxItems > 0) {
+    params.limit = String(Math.min(options.maxItems, 5000))
+  }
+  const { data } = await apiClient.get<CskhInboxConversation[]>('/cskh/inbox/conversations', {
+    params,
   })
   return data
 }

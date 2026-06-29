@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { InfiniteData } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, SlidersHorizontal, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -10,11 +11,12 @@ import {
   markInboxAsRead,
   fetchCustomerIntent,
   fetchConversationAdInsights,
-  fetchInboxConversations,
+  fetchInboxConversationsPage,
   fetchInboxConversationStats,
   fetchInboxMessages,
   backfillInboxAdReferrals,
   type CskhInboxConversation,
+  type CskhInboxConversationPage,
 } from './api'
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
@@ -40,8 +42,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [selectedConversation, setSelectedConversation] = useState<CskhInboxConversation | null>(null)
   const qc = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
   const [selectedPageId, setSelectedPageId] = useState<string | undefined>(pageId)
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [searchQuery])
 
   useEffect(() => {
     setSelectedPageId(pageId)
@@ -72,7 +80,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   })
 
   const conversationFetchOpts = useMemo(() => {
-    const base = { pageId: selectedPageId, limit: 100_000 as number }
+    const base = { pageId: selectedPageId }
     switch (activeFilter) {
       case 'ads':
         return { ...base, fromAdOnly: true }
@@ -85,14 +93,32 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
   }, [selectedPageId, activeFilter])
 
-  // Lấy hội thoại theo tab — lọc trên DB để đúng toàn bộ pages
-  const { data: allConversations, isLoading: isLoadingConversations } = useQuery({
-    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter],
-    queryFn: () => fetchInboxConversations(conversationFetchOpts),
+  const {
+    data: conversationPages,
+    isLoading: isLoadingConversations,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch],
+    queryFn: ({ pageParam }) =>
+      fetchInboxConversationsPage({
+        ...conversationFetchOpts,
+        cursor: pageParam as string | undefined,
+        search: debouncedSearch || undefined,
+        limit: 60,
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
     refetchInterval: connected ? 45000 : auditRunning ? 15000 : 20000,
   })
+
+  const allConversations = useMemo(
+    () => conversationPages?.pages.flatMap((p) => p.items) ?? [],
+    [conversationPages],
+  )
 
   // Lần đầu xem tất cả page: quét DB gắn tag Ads (Việt/Anh/Thái) rồi refresh list
   useEffect(() => {
@@ -127,22 +153,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   // Compute filter counts
   const filterCounts = useMemo(() => {
-    if (convStats) {
-      return {
-        all: convStats.total,
-        unread: convStats.unread,
-        ads: convStats.fromAd,
-        normal: convStats.normal,
-      }
-    }
-    const convs = allConversations ?? []
     return {
-      all: convs.length,
-      unread: convs.filter((c) => c.unreadCount > 0).length,
-      ads: convs.filter((c) => c.fromAd).length,
-      normal: convs.filter((c) => !c.fromAd).length,
+      all: convStats?.total ?? 0,
+      unread: convStats?.unread ?? 0,
+      ads: convStats?.fromAd ?? 0,
+      normal: convStats?.normal ?? 0,
     }
-  }, [convStats, allConversations])
+  }, [convStats])
 
   const syncMut = useMutation({
     mutationFn: () => syncInboxFromGraph(selectedPageId),
@@ -186,12 +203,27 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       staleTime: 30_000,
     })
     if (conv.unreadCount > 0) {
-      qc.setQueryData<CskhInboxConversation[]>(
-        ['cskh', 'inbox', 'conversations', pageKey, activeFilter],
+      qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
+        ['cskh', 'inbox', 'conversations', pageKey, activeFilter, debouncedSearch],
         (prev) => {
           if (!prev) return prev
-          return prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
-        }
+          if (activeFilter === 'unread') {
+            return {
+              ...prev,
+              pages: prev.pages.map((p) => ({
+                ...p,
+                items: p.items.filter((c) => c.id !== conv.id),
+              })),
+            }
+          }
+          return {
+            ...prev,
+            pages: prev.pages.map((p) => ({
+              ...p,
+              items: p.items.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c)),
+            })),
+          }
+        },
       )
       markInboxAsRead(conv.id).catch((err: any) => {
         console.error('Failed to mark conversation as read:', err)
@@ -358,11 +390,15 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             selectedConversationId={selectedConversation?.id}
             onSelect={handleSelectConversation}
             conversations={allConversations}
-            isLoading={isLoadingConversations && !allConversations}
+            isLoading={isLoadingConversations && allConversations.length === 0}
             pageId={selectedPageId}
             typingConversationIds={typingConversationIds}
             connected={connected}
-            searchQuery={searchQuery}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => {
+              if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
+            }}
           />
         </div>
 

@@ -7,7 +7,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { fetchInboxConversations } from "@/features/cskh-quality/api";
+import { fetchInboxConversationStats } from "@/features/cskh-quality/api";
 
 const getInitials = (name) => {
   if (!name) return "?";
@@ -55,15 +55,14 @@ export default function Header() {
     queryKey: ["currentUserProfile"],
   });
 
-  // Fetch conversations to calculate real unread notification count
-  const { data: conversations } = useQuery({
-    queryKey: ["cskh", "inbox-conversations"],
-    queryFn: () => fetchInboxConversations(),
+  const { data: convStats } = useQuery({
+    queryKey: ["cskh", "inbox", "conversation-stats", "all"],
+    queryFn: () => fetchInboxConversationStats(),
+    staleTime: 30_000,
+    refetchInterval: 45_000,
   });
 
-  const unreadCount = conversations
-    ? conversations.filter((c) => (c.unreadCount || 0) > 0).length
-    : 0;
+  const unreadCount = convStats?.unread ?? 0;
 
   useEffect(() => {
     function handleClickOutside(event) {
