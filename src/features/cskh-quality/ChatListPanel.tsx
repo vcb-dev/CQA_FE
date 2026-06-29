@@ -86,7 +86,9 @@ const ConversationRow = memo(function ConversationRow({
   onPrefetch,
 }: ConversationRowProps) {
   const colorIdx = getColorIndex(conv.customerName)
-  const hasUnread = conv.unreadCount > 0 || !!conv.awaitingLabel
+  const hasUnread = !isSelected && (conv.unreadCount > 0 || !!conv.awaitingLabel)
+  const unreadBadge =
+    conv.awaitingLabel && conv.unreadCount <= 0 ? '!' : Math.min(conv.unreadCount, 99)
 
   return (
     <button
@@ -195,9 +197,7 @@ const ConversationRow = memo(function ConversationRow({
                 className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-orange-500 rounded-full shrink-0 shadow-sm"
                 title={conv.awaitingLabel && conv.unreadCount <= 0 ? 'Chờ gán nhãn' : undefined}
               >
-                {conv.awaitingLabel && conv.unreadCount <= 0
-                  ? '!'
-                  : Math.min(conv.unreadCount, 99)}
+                {unreadBadge}
               </span>
             )}
           </div>

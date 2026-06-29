@@ -48,17 +48,16 @@ export function ChatPanel({
   const qc = useQueryClient()
 
   // Fetch messages — dùng chung cache với ChatMessengerPane (prefetch khi click)
-  const { data: messagesData, isLoading, isFetching } = useQuery({
+  const { data: messagesData, isLoading, isFetching, isPending } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
     queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
     staleTime: 60_000,
-    refetchOnMount: false,
     refetchInterval: connected ? false : 12_000,
   })
 
   const messages = messagesData?.messages ?? []
   const conversationWithLabels = messagesData?.conversation ?? conversation
-  const showInitialLoader = isLoading && !messages.length
+  const showInitialLoader = (isLoading || isPending) && !messages.length
 
   // Send message mutation
   const sendMut = useMutation({

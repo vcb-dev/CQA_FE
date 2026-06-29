@@ -24,6 +24,7 @@ import { ChatPanel } from './ChatPanel'
 import { ChatRightSidebar } from './ChatRightSidebar'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
+import { patchInboxConversationInCache } from './inboxRealtimeCache'
 import {
   Select,
   SelectContent,
@@ -269,18 +270,27 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   })
 
   const handleSelectConversation = useCallback((conv: CskhInboxConversation) => {
-    setSelectedConversation(conv)
+    const hasLabels = (conv.labels?.length ?? 0) > 0
+    const opened: CskhInboxConversation = {
+      ...conv,
+      unreadCount: 0,
+      awaitingLabel: !hasLabels,
+    }
+
+    setSelectedConversation(opened)
     setInputDraft('')
-    void qc.prefetchQuery({
+
+    void qc.fetchQuery({
       queryKey: ['cskh', 'inbox', 'messages', conv.id],
       queryFn: ({ signal }) => fetchInboxMessages(conv.id, undefined, signal),
-      staleTime: 30_000,
+      staleTime: 60_000,
     })
 
-    const hasLabels = (conv.labels?.length ?? 0) > 0
-    const isPending = conv.unreadCount > 0 || conv.awaitingLabel
-
-    if (!isPending) return
+    patchInboxConversationInCache(qc, {
+      id: conv.id,
+      unreadCount: 0,
+      awaitingLabel: !hasLabels,
+    })
 
     qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
       listQueryKey,
@@ -300,25 +310,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
           pages: prev.pages.map((p) => ({
             ...p,
             items: p.items.map((c) =>
-              c.id === conv.id
-                ? {
-                    ...c,
-                    ...(hasLabels
-                      ? { unreadCount: 0, awaitingLabel: false }
-                      : { awaitingLabel: true }),
-                  }
-                : c,
+              c.id === conv.id ? { ...c, unreadCount: 0, awaitingLabel: !hasLabels } : c,
             ),
           })),
         }
       },
     )
 
-    if (hasLabels) {
-      markInboxAsRead(conv.id).catch((err: unknown) => {
-        console.error('Failed to mark conversation as read:', err)
-      })
-    }
+    void markInboxAsRead(conv.id).catch((err: unknown) => {
+      console.error('Failed to record conversation view:', err)
+    })
   }, [qc, listQueryKey, activeFilter])
 
   const filterTabs: { key: FilterTab; label: string; color: string; activeColor: string }[] = [
