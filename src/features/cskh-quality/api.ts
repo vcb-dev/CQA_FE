@@ -33,6 +33,8 @@ export interface CskhPagesResponse {
   oauthUser: string | null
   oauthUpdatedAt: string | null
   oauthExpiresAt: string | null
+  adsReadConnected?: boolean
+  adAccountCount?: number
 }
 
 export interface CskhMonitorItem {

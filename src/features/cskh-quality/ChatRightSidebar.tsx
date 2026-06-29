@@ -26,11 +26,15 @@ function formatAdMoney(amount: number | null | undefined, currency?: string | nu
 function adInsightsHint(reason: string | null | undefined): string {
   switch (reason) {
     case 'no_ad_id':
-      return 'Không có mã QC từ Meta cho hội thoại này. Vào Cài đặt → Cập nhật kết nối Facebook (quyền ads_read) để xem chi phí trung bình/tin.'
+      return 'Hội thoại từ ads nhưng Meta không gửi mã QC — chỉ xem được chi phí trung bình tài khoản (nếu đã kết nối Marketing API).'
+    case 'no_ad_accounts':
+      return 'Chưa thấy tài khoản quảng cáo trên Facebook đã kết nối. OAuth lại bằng tài khoản admin QC trong Business Manager (không chỉ quản trị Page).'
+    case 'no_messaging_insights':
+      return 'Meta chưa trả dữ liệu Insights messaging (30 ngày). Kiểm tra QC đang chạy trên Ads Manager và thử lại sau vài giờ.'
     case 'oauth_required':
       return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
     case 'ads_read_missing':
-      return 'Thiếu quyền ads_read — vào Meta App → thêm quyền → OAuth lại.'
+      return 'Thiếu quyền ads_read — vào Meta App → Marketing API → OAuth lại và chấp nhận quyền quảng cáo.'
     case 'not_from_ad':
       return 'Hội thoại không từ quảng cáo.'
     case 'api_error':
@@ -171,9 +175,16 @@ export function ChatRightSidebar({
                   Đang lấy từ Meta Insights...
                 </div>
               ) : adInsights?.unavailableReason ? (
-                <p className="text-[10px] text-amber-700/80 leading-relaxed">
-                  {adInsightsHint(adInsights.unavailableReason)}
-                </p>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-amber-700/80 leading-relaxed">
+                    {adInsightsHint(adInsights.unavailableReason)}
+                  </p>
+                  {adInsights?.estimateNote && (
+                    <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
+                      {adInsights.estimateNote}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <>
                   {adInsights?.isAccountLevelEstimate && adInsights.estimateNote && (

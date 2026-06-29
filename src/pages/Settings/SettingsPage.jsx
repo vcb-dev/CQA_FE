@@ -106,7 +106,13 @@ Các tiêu chí cần đánh giá:
     onSuccess: (data) => {
       setIsRefreshing(false);
       queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
-      toast.success(`Đã đồng bộ lại danh sách trang! Tìm thấy ${data.pageCount} trang.`);
+      const adsNote =
+        typeof data.adAccountCount === 'number'
+          ? data.adsReadConnected
+            ? ` Marketing API: ${data.adAccountCount} tài khoản QC.`
+            : ' Chưa thấy tài khoản QC — cần OAuth bằng admin quảng cáo.'
+          : '';
+      toast.success(`Đã đồng bộ lại ${data.pageCount} trang.${adsNote}`);
     },
     onError: (err) => {
       setIsRefreshing(false);
@@ -526,16 +532,34 @@ Các tiêu chí cần đánh giá:
                   <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
                     {pagesData?.oauthConnected ? `Tài khoản Facebook: ${pagesData.oauthUser}` : 'Chưa kết nối tài khoản Facebook'}
                   </h4>
-                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     {isPagesBusy ? (
                       <>
                         <Loader2 size={12} className="animate-spin" style={{ color: '#4f46e5' }} />
                         Đang cập nhật thông tin kết nối...
                       </>
                     ) : pagesData?.oauthConnected 
-                      ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}` 
+                      ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}`
                       : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
                   </p>
+                  {pagesData?.oauthConnected && !isPagesBusy && (
+                    <p style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      marginTop: '6px',
+                      color: pagesData.adAccountCount === undefined
+                        ? '#6b7280'
+                        : pagesData.adsReadConnected
+                          ? '#15803d'
+                          : '#b45309',
+                    }}>
+                      {pagesData.adAccountCount === undefined
+                        ? 'Trạng thái Marketing API: cần cập nhật server mới'
+                        : pagesData.adsReadConnected
+                          ? `✓ Marketing API: ${pagesData.adAccountCount} tài khoản quảng cáo`
+                          : '⚠ Chưa thấy tài khoản quảng cáo — OAuth bằng admin QC trên Business Manager'}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -561,6 +585,22 @@ Các tiêu chí cần đánh giá:
                 {pagesData?.oauthConnected ? 'Cập nhật kết nối Facebook' : 'Kết nối tài khoản Facebook'}
               </button>
             </div>
+
+            {pagesData?.oauthConnected && pagesData.adsReadConnected === false && (
+              <div style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#92400e',
+                lineHeight: 1.5,
+              }}>
+                <strong>Chưa kết nối Marketing API:</strong> Facebook Page đã kết nối nhưng hệ thống không thấy tài khoản quảng cáo.
+                Bấm <strong>Cập nhật kết nối Facebook</strong> và đăng nhập bằng tài khoản <strong>admin tài khoản QC</strong> trên Business Manager
+                (không phải nút &quot;Đồng bộ lại Pages&quot;).
+              </div>
+            )}
 
             {pagesData?.oauthConnected && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
