@@ -250,7 +250,7 @@ export function ChatListPanel({
           queryFn: ({ signal }) => fetchInboxMessages(conversationId, undefined, signal),
           staleTime: 30_000,
         })
-      }, 180)
+      }, 60)
       prefetchTimersRef.current.set(conversationId, timer)
     },
     [qc],

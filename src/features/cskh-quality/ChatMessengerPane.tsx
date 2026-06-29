@@ -8,9 +8,9 @@ import { getApiErrorMessage } from '@/lib/axios'
 import {
   fetchCskhPages,
   syncInboxFromGraph,
-  markInboxAsRead,
   fetchCustomerIntent,
   fetchInboxMessages,
+  fetchInboxViewHistory,
   fetchConversationAdInsights,
   fetchInboxConversationsPage,
   fetchInboxConversationStats,
@@ -254,18 +254,27 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const [inputDraft, setInputDraft] = useState<string>('')
 
+  const selectedId = selectedConversation?.id
+
+  const { isFetched: messagesFetched } = useQuery({
+    queryKey: ['cskh', 'inbox', 'messages', selectedId ?? ''],
+    queryFn: ({ signal }) => fetchInboxMessages(selectedId!, undefined, signal),
+    enabled: !!selectedId,
+    staleTime: 60_000,
+  })
+
   const { data: intent, isLoading: isLoadingIntent } = useQuery({
-    queryKey: ['cskh', 'inbox', 'intent', selectedConversation?.id],
-    queryFn: ({ signal }) => selectedConversation ? fetchCustomerIntent(selectedConversation.id, undefined, signal) : null,
-    enabled: !!selectedConversation,
+    queryKey: ['cskh', 'inbox', 'intent', selectedId],
+    queryFn: ({ signal }) => (selectedId ? fetchCustomerIntent(selectedId, undefined, signal) : null),
+    enabled: !!selectedId && messagesFetched,
     staleTime: 60_000,
   })
 
   const { data: adInsights, isLoading: isLoadingAdInsights } = useQuery({
-    queryKey: ['cskh', 'inbox', 'ad-insights', selectedConversation?.id],
+    queryKey: ['cskh', 'inbox', 'ad-insights', selectedId],
     queryFn: ({ signal }) =>
-      selectedConversation ? fetchConversationAdInsights(selectedConversation.id, signal) : null,
-    enabled: shouldLoadAdInsights,
+      selectedId ? fetchConversationAdInsights(selectedId, signal) : null,
+    enabled: shouldLoadAdInsights && messagesFetched,
     staleTime: 120_000,
   })
 
@@ -284,6 +293,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       queryKey: ['cskh', 'inbox', 'messages', conv.id],
       queryFn: ({ signal }) => fetchInboxMessages(conv.id, undefined, signal),
       staleTime: 60_000,
+    })
+
+    void qc.prefetchQuery({
+      queryKey: ['cskh', 'inbox', 'view-history', conv.id],
+      queryFn: () => fetchInboxViewHistory(conv.id),
+      staleTime: 15_000,
     })
 
     patchInboxConversationInCache(qc, {
@@ -316,10 +331,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         }
       },
     )
-
-    void markInboxAsRead(conv.id).catch((err: unknown) => {
-      console.error('Failed to record conversation view:', err)
-    })
   }, [qc, listQueryKey, activeFilter])
 
   const filterTabs: { key: FilterTab; label: string; color: string; activeColor: string }[] = [

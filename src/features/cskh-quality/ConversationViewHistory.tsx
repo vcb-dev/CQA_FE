@@ -91,7 +91,7 @@ export function ConversationViewHistory({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" side="bottom" className="w-80 p-0 overflow-hidden">
+      <PopoverContent align="end" side="bottom" className="w-80 p-0 overflow-hidden bg-white border-slate-200 z-[250]">
         <div className="px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-2">
             <History className="w-3.5 h-3.5 text-indigo-500" />
