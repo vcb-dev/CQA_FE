@@ -55,22 +55,6 @@ export default function Header() {
     location.pathname.startsWith("/conversations") ||
     location.pathname.startsWith("/quality");
 
-  const [deferInboxStats, setDeferInboxStats] = useState(
-    location.pathname !== "/",
-  );
-
-  useEffect(() => {
-    if (location.pathname !== "/") {
-      setDeferInboxStats(true);
-      return undefined;
-    }
-    const timer = window.setTimeout(() => setDeferInboxStats(true), 1500);
-    return () => window.clearTimeout(timer);
-  }, [location.pathname]);
-
-  const fetchInboxStats =
-    needsInboxStats || (location.pathname === "/" && deferInboxStats);
-
   const { data: user } = useQuery({
     queryKey: ["currentUserProfile"],
   });
@@ -78,9 +62,9 @@ export default function Header() {
   const { data: convStats } = useQuery({
     queryKey: ["cskh", "inbox", "conversation-stats", "all"],
     queryFn: () => fetchInboxConversationStats(),
-    enabled: fetchInboxStats,
+    enabled: needsInboxStats,
     staleTime: 90_000,
-    refetchInterval: fetchInboxStats ? 90_000 : false,
+    refetchInterval: needsInboxStats ? 90_000 : false,
   });
 
   const unreadCount = convStats?.unread ?? 0;

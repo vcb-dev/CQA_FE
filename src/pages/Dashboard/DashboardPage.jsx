@@ -14,6 +14,34 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 
+const HEAVY_STATS_STORAGE_KEY = "cqa_dashboard_heavy_stats_v1";
+
+function readHeavyStatsCache() {
+  try {
+    const raw = localStorage.getItem(HEAVY_STATS_STORAGE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.totalConversations === "number" &&
+      typeof parsed.totalMessages === "number"
+    ) {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
+function writeHeavyStatsCache(data) {
+  try {
+    localStorage.setItem(HEAVY_STATS_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
 function formatCount(n) {
   if (n == null || Number.isNaN(Number(n))) return "0";
   return Number(n).toLocaleString("vi-VN");
@@ -35,22 +63,57 @@ function DashboardSkeleton() {
   );
 }
 
+function KpiValue({ value, loading }) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-16 rounded-md bg-slate-100 animate-pulse" />
+        <span className="text-[10px] text-slate-400 font-medium">đang tính...</span>
+      </div>
+    );
+  }
+  return (
+    <div className="text-2xl font-extrabold leading-tight text-slate-900">{value}</div>
+  );
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
 
-  const { data: stats, isLoading, isError, isFetching } = useQuery({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+    isFetching,
+  } = useQuery({
     queryKey: ["dashboardStats"],
     queryFn: async () => {
       const response = await apiClient.get("/cskh/dashboard/stats");
       return response.data;
     },
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
+    staleTime: 120_000,
+    gcTime: 10 * 60_000,
     refetchInterval: (query) => {
       const jobs = query.state.data?.latestJobs;
       const hasRunning = Array.isArray(jobs) && jobs.some((j) => j.status === "running");
-      return hasRunning ? 20_000 : 90_000;
+      return hasRunning ? 30_000 : false;
     },
+  });
+
+  const {
+    data: heavyStats,
+    isLoading: isHeavyLoading,
+    isFetching: isHeavyFetching,
+  } = useQuery({
+    queryKey: ["dashboardHeavyStats"],
+    queryFn: async () => {
+      const response = await apiClient.get("/cskh/dashboard/heavy-stats");
+      writeHeavyStatsCache(response.data);
+      return response.data;
+    },
+    staleTime: 600_000,
+    gcTime: 30 * 60_000,
+    placeholderData: () => readHeavyStatsCache(),
   });
 
   if (isLoading && !stats) {
@@ -69,10 +132,16 @@ export default function DashboardPage() {
     );
   }
 
+  const heavyPending =
+    (isHeavyLoading || isHeavyFetching) &&
+    heavyStats?.totalConversations == null &&
+    heavyStats?.totalMessages == null;
+
   const kpis = [
     {
       label: "Tổng số kênh Facebook",
       value: formatCount(stats?.totalPages),
+      loading: false,
       sub: "Kênh đã liên kết",
       bg: "rgba(59, 130, 246, 0.08)",
       color: "#3b82f6",
@@ -81,6 +150,7 @@ export default function DashboardPage() {
     {
       label: "Kênh đang hoạt động",
       value: formatCount(stats?.enabledPages),
+      loading: false,
       sub: "Đang bật đồng bộ",
       bg: "rgba(34, 197, 94, 0.08)",
       color: "#22c55e",
@@ -89,6 +159,7 @@ export default function DashboardPage() {
     {
       label: "Điểm QA trung bình",
       value: stats?.avgScore ? `${stats.avgScore}%` : "N/A",
+      loading: false,
       sub: "Chất lượng CSKH",
       bg: "rgba(168, 85, 247, 0.08)",
       color: "#a855f7",
@@ -97,6 +168,7 @@ export default function DashboardPage() {
     {
       label: "Lượt đánh giá",
       value: formatCount(stats?.totalAudits),
+      loading: false,
       sub: "Hội thoại đã chấm",
       bg: "rgba(245, 158, 11, 0.08)",
       color: "#f59e0b",
@@ -104,7 +176,8 @@ export default function DashboardPage() {
     },
     {
       label: "Hội thoại",
-      value: formatCount(stats?.totalConversations),
+      value: formatCount(heavyStats?.totalConversations),
+      loading: heavyPending && heavyStats?.totalConversations == null,
       sub: "Trong hệ thống",
       bg: "rgba(6, 182, 212, 0.08)",
       color: "#06b6d4",
@@ -112,7 +185,8 @@ export default function DashboardPage() {
     },
     {
       label: "Tin nhắn",
-      value: formatCount(stats?.totalMessages),
+      value: formatCount(heavyStats?.totalMessages),
+      loading: heavyPending && heavyStats?.totalMessages == null,
       sub: "Đã đồng bộ",
       bg: "rgba(236, 72, 153, 0.08)",
       color: "#ec4899",
@@ -121,7 +195,7 @@ export default function DashboardPage() {
   ];
 
   const hasRealData =
-    (stats?.totalConversations ?? 0) > 0 || (stats?.totalAudits ?? 0) > 0;
+    (heavyStats?.totalConversations ?? 0) > 0 || (stats?.totalAudits ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -146,7 +220,7 @@ export default function DashboardPage() {
                 </div>
                 <span className="text-[12.5px] font-medium text-slate-500">{kpi.label}</span>
               </div>
-              <div className="text-2xl font-extrabold leading-tight text-slate-900">{kpi.value}</div>
+              <KpiValue value={kpi.value} loading={kpi.loading} />
               <div className="mt-1 text-[11px] text-slate-400">{kpi.sub}</div>
             </div>
           );
