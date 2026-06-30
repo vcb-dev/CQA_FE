@@ -30,7 +30,7 @@ function adInsightsHint(reason: string | null | undefined): string {
     case 'no_ad_accounts':
       return 'OAuth chưa có tài khoản QC hoặc thiếu quyền ads_read — đăng nhập lại bằng admin Business Manager.'
     case 'no_messaging_insights':
-      return 'Marketing API đã kết nối nhưng chưa có dữ liệu chi tiêu/messaging — có thể QC đang chạy trên tài khoản khác.'
+      return 'Chưa lấy được chi phí messaging từ Meta — xem gợi ý bên dưới (có thể cần OAuth lại đúng tài khoản QC).'
     case 'oauth_required':
       return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
     case 'ads_read_missing':

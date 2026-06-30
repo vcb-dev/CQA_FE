@@ -263,7 +263,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         qc.setQueryData(['cskh', 'inbox', 'messages', selectedId!], partial)
       }),
     enabled: !!selectedId,
-    staleTime: 60_000,
+    staleTime: 120_000,
   })
 
   const messagesReady =
@@ -274,7 +274,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryKey: ['cskh', 'inbox', 'intent', selectedId],
     queryFn: ({ signal }) => (selectedId ? fetchCustomerIntent(selectedId, undefined, signal) : null),
     enabled: !!selectedId && messagesReady,
-    staleTime: 60_000,
+    staleTime: 180_000,
   })
 
   const { data: adInsights, isLoading: isLoadingAdInsights } = useQuery({
@@ -282,7 +282,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: ({ signal }) =>
       selectedId ? fetchConversationAdInsights(selectedId, signal) : null,
     enabled: shouldLoadAdInsights,
-    staleTime: 120_000,
+    staleTime: 300_000,
   })
 
   const handleSelectConversation = useCallback((conv: CskhInboxConversation) => {
@@ -300,23 +300,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     )
     if (!existing?.messages.length) {
       qc.setQueryData(['cskh', 'inbox', 'messages', conv.id], buildInboxMessagesPreview(opened))
-    }
-
-    void qc.fetchQuery({
-      queryKey: ['cskh', 'inbox', 'messages', conv.id],
-      queryFn: ({ signal }) =>
-        fetchInboxMessagesProgressive(conv.id, signal, (partial) => {
-          qc.setQueryData(['cskh', 'inbox', 'messages', conv.id], partial)
-        }),
-      staleTime: 60_000,
-    })
-
-    if (conv.fromAd || conv.referralSource === 'HEURISTIC') {
-      void qc.prefetchQuery({
-        queryKey: ['cskh', 'inbox', 'ad-insights', conv.id],
-        queryFn: ({ signal }) => fetchConversationAdInsights(conv.id, signal),
-        staleTime: 120_000,
-      })
     }
 
     patchInboxConversationInCache(qc, {

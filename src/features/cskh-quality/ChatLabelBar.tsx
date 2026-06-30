@@ -64,7 +64,7 @@ export function ChatLabelBar({ conversation }: ChatLabelBarProps) {
   const { data: allLabels, isLoading } = useQuery<CskhInboxLabel[]>({
     queryKey: ['cskh', 'inbox', 'labels'],
     queryFn: fetchInboxLabels,
-    staleTime: 60_000,
+    staleTime: 120_000,
   })
 
   const activeIds = useMemo(

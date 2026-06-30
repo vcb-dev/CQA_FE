@@ -1,9 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchInboxMessagesProgressive, type CskhInboxConversation } from './api'
+import { type CskhInboxConversation } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
 import { ConversationLabelBadges } from './ChatLabelBar'
 
@@ -75,7 +74,6 @@ type ConversationRowProps = {
   isSelected: boolean
   isTyping: boolean
   onSelect: (conversation: CskhInboxConversation) => void
-  onPrefetch: (conversationId: string) => void
 }
 
 const ConversationRow = memo(function ConversationRow({
@@ -83,8 +81,7 @@ const ConversationRow = memo(function ConversationRow({
   isSelected,
   isTyping,
   onSelect,
-  onPrefetch,
-}: ConversationRowProps) {
+}: Omit<ConversationRowProps, 'onPrefetch'>) {
   const colorIdx = getColorIndex(conv.customerName)
   const hasUnread = !isSelected && conv.unreadCount > 0
   const needsLabel = !isSelected && !!conv.awaitingLabel && conv.unreadCount <= 0
@@ -93,9 +90,6 @@ const ConversationRow = memo(function ConversationRow({
   return (
     <button
       onClick={() => onSelect(conv)}
-      onMouseEnter={() => onPrefetch(conv.id)}
-      onPointerDown={() => onPrefetch(conv.id)}
-      onFocus={() => onPrefetch(conv.id)}
       className={cn(
         'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
         isSelected
@@ -245,22 +239,7 @@ export function ChatListPanel({
   onLoadMore,
   manualLoadMore = false,
 }: ChatListPanelProps) {
-  const qc = useQueryClient()
   const parentRef = useRef<HTMLDivElement>(null)
-  const prefetchedRef = useRef<Set<string>>(new Set())
-
-  const prefetchMessages = useCallback(
-    (conversationId: string) => {
-      if (prefetchedRef.current.has(conversationId)) return
-      prefetchedRef.current.add(conversationId)
-      void qc.prefetchQuery({
-        queryKey: ['cskh', 'inbox', 'messages', conversationId],
-        queryFn: ({ signal }) => fetchInboxMessagesProgressive(conversationId, signal),
-        staleTime: 120_000,
-      })
-    },
-    [qc],
-  )
 
   const rowCount = conversations.length + (hasNextPage ? 1 : 0)
 
@@ -269,25 +248,8 @@ export function ChatListPanel({
     getScrollElement: () => parentRef.current,
     estimateSize: (index) =>
       hasNextPage && index === conversations.length ? LOAD_MORE_ROW_HEIGHT : ROW_HEIGHT,
-    overscan: 5,
+    overscan: 3,
   })
-
-  useEffect(() => {
-    const scrollEl = parentRef.current
-    if (!scrollEl || !conversations.length) return
-
-    const prefetchVisible = () => {
-      for (const row of virtualizer.getVirtualItems()) {
-        if (row.index < conversations.length) {
-          prefetchMessages(conversations[row.index].id)
-        }
-      }
-    }
-
-    prefetchVisible()
-    scrollEl.addEventListener('scroll', prefetchVisible, { passive: true })
-    return () => scrollEl.removeEventListener('scroll', prefetchVisible)
-  }, [conversations, virtualizer, prefetchMessages])
 
   useEffect(() => {
     if (manualLoadMore) return
@@ -411,7 +373,6 @@ export function ChatListPanel({
                 isSelected={selectedConversationId === conv.id}
                 isTyping={typingConversationIds.has(conv.id)}
                 onSelect={onSelect}
-                onPrefetch={prefetchMessages}
               />
             </div>
           )

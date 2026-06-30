@@ -55,8 +55,8 @@ export function ChatPanel({
       fetchInboxMessagesProgressive(conversation.id, signal, (partial) => {
         qc.setQueryData(['cskh', 'inbox', 'messages', conversation.id], partial)
       }),
-    staleTime: 60_000,
-    refetchInterval: connected ? false : 12_000,
+    staleTime: 120_000,
+    refetchInterval: connected ? false : 30_000,
   })
 
   const messages = messagesData?.messages ?? []

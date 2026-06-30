@@ -664,7 +664,7 @@ export async function fetchInboxMessages(
 
 const INBOX_MESSAGES_QUICK_LIMIT = 25
 
-/** Tải nhanh 25 tin trước, sau đó nạp đủ lịch sử nếu còn tin cũ hơn. */
+/** Chỉ tải 25 tin gần nhất — không gọi thêm API full history (tiết kiệm DB + BE). */
 export async function fetchInboxMessagesProgressive(
   conversationId: string,
   signal?: AbortSignal,
@@ -672,12 +672,21 @@ export async function fetchInboxMessagesProgressive(
 ): Promise<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }> {
   const quick = await fetchInboxMessages(conversationId, { limit: INBOX_MESSAGES_QUICK_LIMIT }, signal)
   onPartial?.(quick)
-  if (quick.messages.length < INBOX_MESSAGES_QUICK_LIMIT) return quick
-  try {
-    return await fetchInboxMessages(conversationId, undefined, signal)
-  } catch {
-    return quick
-  }
+  return quick
+}
+
+/** Tải thêm lịch sử cũ khi user cuộn lên. */
+export async function fetchInboxMessagesOlder(
+  conversationId: string,
+  beforeSentAt: string,
+  signal?: AbortSignal,
+): Promise<CskhInboxMessage[]> {
+  const { messages } = await fetchInboxMessages(
+    conversationId,
+    { since: beforeSentAt, limit: INBOX_MESSAGES_QUICK_LIMIT },
+    signal,
+  )
+  return messages
 }
 
 export async function fetchInboxLabels(): Promise<CskhInboxLabel[]> {
