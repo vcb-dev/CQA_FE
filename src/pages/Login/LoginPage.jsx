@@ -5,21 +5,9 @@ import { Sparkles, MessageSquare, BarChart3, Shield } from 'lucide-react';
 import { apiClient } from '../../lib/axios';
 
 const FEATURES = [
-  {
-    icon: MessageSquare,
-    title: 'Inbox đa kênh',
-    desc: 'Quản lý tin nhắn Facebook Page tập trung',
-  },
-  {
-    icon: Sparkles,
-    title: 'AI chấm điểm CSKH',
-    desc: 'Phân tích chất lượng hội thoại tự động',
-  },
-  {
-    icon: BarChart3,
-    title: 'Báo cáo & Ads',
-    desc: 'Theo dõi chi phí quảng cáo và hiệu quả',
-  },
+  { icon: MessageSquare, title: 'Inbox đa kênh' },
+  { icon: Sparkles, title: 'AI chấm điểm CSKH' },
+  { icon: BarChart3, title: 'Báo cáo & Ads' },
 ];
 
 export default function LoginPage() {
@@ -30,25 +18,18 @@ export default function LoginPage() {
     let token = null;
     let refreshToken = null;
     const hash = window.location.hash;
-    if (hash && hash.startsWith('#')) {
+    if (hash?.startsWith('#')) {
       const params = new URLSearchParams(hash.substring(1));
       token = params.get('token');
       refreshToken = params.get('refreshToken');
     }
-
-    if (!token) {
-      token = searchParams.get('token');
-    }
-    if (!refreshToken) {
-      refreshToken = searchParams.get('refreshToken');
-    }
+    if (!token) token = searchParams.get('token');
+    if (!refreshToken) refreshToken = searchParams.get('refreshToken');
     const errorParam = searchParams.get('error');
 
     if (token) {
       localStorage.setItem('authToken', token);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       window.history.replaceState(null, '', window.location.pathname);
       toast.success('Đăng nhập thành công!');
       navigate('/', { replace: true });
@@ -59,127 +40,79 @@ export default function LoginPage() {
   }, [searchParams, navigate]);
 
   const handleGoogleLogin = () => {
-    const loginUrl = `${apiClient.defaults.baseURL}/auth/google`;
-    window.location.assign(loginUrl);
+    window.location.assign(`${apiClient.defaults.baseURL}/auth/google`);
   };
 
   return (
-    <div className="login-page flex min-h-screen w-full overflow-auto bg-slate-50">
-      {/* Branding panel */}
-      <aside className="relative hidden lg:flex lg:w-[52%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#312e81] p-10 xl:p-14 text-white">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="login-blob login-blob-1 absolute -left-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl" />
-          <div className="login-blob login-blob-2 absolute bottom-10 right-0 h-96 w-96 rounded-full bg-violet-600/25 blur-3xl" />
-          <div className="login-blob login-blob-3 absolute left-1/3 top-1/2 h-64 w-64 rounded-full bg-blue-400/15 blur-3xl" />
-          <div
-            className="absolute inset-0 opacity-[0.07]"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
-              backgroundSize: '28px 28px',
-            }}
-          />
-        </div>
+    <div className="login-page relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#0b1020] px-4 py-10 sm:px-6">
+      {/* Background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="login-blob login-blob-1 absolute -left-24 -top-24 h-80 w-80 rounded-full bg-indigo-600/35 blur-3xl" />
+        <div className="login-blob login-blob-2 absolute -bottom-20 -right-16 h-96 w-96 rounded-full bg-violet-600/30 blur-3xl" />
+        <div className="login-blob login-blob-3 absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-blue-500/15 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+      </div>
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
-              <Shield className="h-5 w-5 text-indigo-200" />
+      <div className="relative z-10 grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[1fr_400px] lg:gap-16 xl:gap-20">
+        {/* Branding — hiện trên mọi màn hình */}
+        <div className="text-center lg:text-left">
+          <div className="mb-6 flex items-center justify-center gap-3 lg:justify-start">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/40 ring-1 ring-white/20">
+              <Shield className="h-6 w-6 text-white" />
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200/80">
+            <div className="text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-300/90">
                 Viên Chi Bảo
               </p>
-              <h1 className="text-xl font-bold tracking-tight">CQA CRM</h1>
+              <h1 className="text-xl font-bold tracking-tight text-white">CQA CRM</h1>
             </div>
           </div>
-        </div>
 
-        <div className="relative z-10 my-10 max-w-lg">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-indigo-100 backdrop-blur-sm">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            Nền tảng quản trị CSKH thông minh
-          </span>
-          <h2 className="text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
-            Nâng tầm trải nghiệm
-            <span className="block bg-gradient-to-r from-indigo-200 via-violet-200 to-fuchsia-200 bg-clip-text text-transparent">
-              chăm sóc khách hàng
+          <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
+            Quản trị CSKH
+            <span className="mt-1 block bg-gradient-to-r from-indigo-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
+              thông minh & tập trung
             </span>
           </h2>
-          <p className="mt-4 text-sm leading-relaxed text-slate-300/90">
-            Tập trung hội thoại, đánh giá chất lượng bằng AI và theo dõi hiệu quả quảng cáo — tất cả
-            trong một hệ thống duy nhất.
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-slate-400 lg:mx-0">
+            Đồng bộ hội thoại Facebook, phân tích chất lượng bằng AI và theo dõi hiệu quả quảng cáo.
           </p>
 
-          <ul className="mt-8 space-y-3">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <li
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+            {FEATURES.map(({ icon: Icon, title }) => (
+              <span
                 key={title}
-                className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm transition hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur-sm"
               >
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/30 ring-1 ring-indigo-400/30">
-                  <Icon className="h-4 w-4 text-indigo-200" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="text-xs text-slate-400">{desc}</p>
-                </div>
-              </li>
+                <Icon className="h-3.5 w-3.5 text-indigo-300" />
+                {title}
+              </span>
             ))}
-          </ul>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-6 text-xs text-slate-400">
-          <div>
-            <p className="text-lg font-bold text-white">35K+</p>
-            <p>Hội thoại quản lý</p>
-          </div>
-          <div className="h-8 w-px bg-white/15" />
-          <div>
-            <p className="text-lg font-bold text-white">AI</p>
-            <p>Phân tích intent</p>
-          </div>
-          <div className="h-8 w-px bg-white/15" />
-          <div>
-            <p className="text-lg font-bold text-white">24/7</p>
-            <p>Đồng bộ realtime</p>
           </div>
         </div>
-      </aside>
 
-      {/* Form panel — Google only */}
-      <main className="relative flex flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-indigo-100/80 to-transparent lg:hidden" />
-
-        <div className="relative w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="mb-8 text-center lg:hidden">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
-              <Shield className="h-6 w-6" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
-              CQA CRM
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/60 ring-1 ring-slate-100">
-            <div className="mb-8 text-center lg:text-left">
-              <div className="mb-4 hidden h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/25 lg:flex">
-                <Shield className="h-5 w-5" />
-              </div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                Chào mừng trở lại
-              </h2>
-              <p className="mt-1.5 text-sm text-slate-500">
-                Đăng nhập bằng tài khoản Google được cấp quyền
+        {/* Login card */}
+        <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl shadow-black/30 backdrop-blur-xl ring-1 ring-white/10">
+            <div className="mb-7 text-center">
+              <h3 className="text-xl font-bold text-white">Chào mừng trở lại</h3>
+              <p className="mt-1.5 text-sm text-slate-400">
+                Đăng nhập bằng tài khoản Google
               </p>
             </div>
 
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:shadow-md"
+              className="group flex w-full items-center justify-center gap-3 rounded-xl bg-white py-3.5 text-sm font-semibold text-slate-800 shadow-lg shadow-black/20 transition hover:bg-slate-50 hover:shadow-xl active:scale-[0.98]"
             >
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="shrink-0">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -199,18 +132,13 @@ export default function LoginPage() {
               </svg>
               Tiếp tục với Google
             </button>
-
-            <p className="mt-5 rounded-lg border border-amber-100 bg-amber-50/80 px-3 py-2.5 text-center text-xs leading-relaxed text-amber-800">
-              Chỉ email đã được admin thêm vào hệ thống mới đăng nhập được. Nếu chưa có quyền, vui
-              lòng liên hệ quản trị viên.
-            </p>
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <p className="mt-5 text-center text-[11px] text-slate-500">
             © {new Date().getFullYear()} CQA CRM · Viên Chi Bảo
           </p>
         </div>
-      </main>
+      </div>
 
       <style>{`
         .login-page {
