@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, Sparkles, User, Megaphone, FileText, MessageSquare, Zap, Loader2 } from 'lucide-react'
+import { Copy, Check, Sparkles, User, Megaphone, MessageSquare, Zap, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhInboxConversation, CskhCustomerIntent, CskhAdInsights } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -23,6 +23,25 @@ function formatAdMoney(amount: number | null | undefined, currency?: string | nu
   return `${amount.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ${cur}`
 }
 
+function formatAdPeriod(dateStart?: string | null, dateStop?: string | null): string | null {
+  if (!dateStart || !dateStop) return null
+  return `${dateStart} → ${dateStop}`
+}
+
+function hasAdCampaignInfo(
+  conversation: CskhInboxConversation,
+  adInsights?: CskhAdInsights | null,
+): boolean {
+  return Boolean(
+    conversation.adTitle?.trim() ||
+      adInsights?.campaignName ||
+      adInsights?.adName ||
+      adInsights?.adsetName ||
+      conversation.adId ||
+      adInsights?.adId ||
+      (adInsights?.topCampaigns?.length ?? 0) > 0,
+  )
+}
 function adInsightsHint(reason: string | null | undefined): string {
   switch (reason) {
     case 'no_ad_id':
@@ -83,9 +102,22 @@ export function ChatRightSidebar({
   const isPageEstimate =
     adInsights?.insightsScope === 'page' || adInsights?.isPageLevelEstimate === true
 
-  const showCampaignBlock =
-    hasSpecificAd &&
-    Boolean(adInsights?.campaignName || adInsights?.adName || conversation.adTitle)
+  const hasCostData =
+    adInsights != null &&
+    !adInsights.unavailableReason &&
+    (adInsights.estimatedForThisConversation != null || adInsights.costPerConversation != null)
+
+  const showCampaignBlock = hasAdCampaignInfo(conversation, adInsights)
+
+  const campaignName =
+    adInsights?.campaignName ||
+    adInsights?.topCampaigns?.[0]?.campaignName ||
+    null
+  const adDisplayName =
+    conversation.adTitle?.trim() ||
+    adInsights?.adName ||
+    null
+  const adPeriod = formatAdPeriod(adInsights?.dateStart, adInsights?.dateStop)
 
   return (
     <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full overflow-y-auto font-sans">
@@ -155,140 +187,126 @@ export function ChatRightSidebar({
 
         {/* Ads Campaign Details */}
         {showAdDetails && (
-          <div className="mt-2 bg-gradient-to-br from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-100/60 p-3 space-y-2 text-[11px]">
+          <div className="mt-2 bg-gradient-to-br from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-100/60 p-3 space-y-3 text-[11px]">
             <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[10px]">
               <Megaphone className="w-3 h-3 text-amber-600" />
-              Chi tiết chiến dịch quảng cáo
+              Quảng cáo Facebook
             </div>
 
-            {(adInsights?.campaignName ||
-              adInsights?.adName ||
-              conversation.adTitle) && showCampaignBlock && (
-              <div className="space-y-1.5 rounded-lg bg-white/60 border border-amber-100/80 px-2.5 py-2">
-                {(adInsights?.campaignName || adInsights?.adsetName) && (
+            {showCampaignBlock ? (
+              <div className="space-y-2 rounded-lg bg-white/70 border border-amber-100/80 px-2.5 py-2.5">
+                {campaignName && (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-amber-500 font-medium text-[10px]">Chiến dịch:</span>
-                    <span className="text-slate-800 font-semibold leading-snug">
-                      {adInsights?.campaignName ?? '—'}
-                    </span>
-                    {adInsights?.adsetName && (
-                      <span className="text-[10px] text-slate-500">Nhóm QC: {adInsights.adsetName}</span>
-                    )}
+                    <span className="text-slate-400 font-medium text-[10px]">Chiến dịch</span>
+                    <span className="text-slate-800 font-semibold leading-snug">{campaignName}</span>
                   </div>
                 )}
-                {(adInsights?.adName || conversation.adTitle) && (
+                {adInsights?.adsetName && (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-amber-500 font-medium text-[10px]">Tên quảng cáo:</span>
-                    <span className="text-slate-700 font-medium leading-snug">
-                      {adInsights?.adName || conversation.adTitle}
+                    <span className="text-slate-400 font-medium text-[10px]">Nhóm quảng cáo</span>
+                    <span className="text-slate-700 font-medium leading-snug">{adInsights.adsetName}</span>
+                  </div>
+                )}
+                {adDisplayName && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-slate-400 font-medium text-[10px]">
+                      {hasSpecificAd ? 'Tên quảng cáo' : 'Quảng cáo tham chiếu'}
                     </span>
+                    <span className="text-slate-700 font-medium leading-snug">{adDisplayName}</span>
                   </div>
                 )}
                 {(conversation.adId || adInsights?.adId) && (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-amber-500 font-medium text-[10px]">Mã QC:</span>
+                    <span className="text-slate-400 font-medium text-[10px]">Mã quảng cáo</span>
                     <span className="text-slate-600 font-mono text-[10px] select-all">
                       {conversation.adId || adInsights?.adId}
                     </span>
                   </div>
                 )}
+                {!hasSpecificAd && isPageEstimate && (
+                  <p className="text-[9px] text-slate-400 leading-relaxed pt-0.5">
+                    Meta không gắn mã QC cho tin này — hiển thị camp QC đang chạy mạnh nhất trên Page.
+                  </p>
+                )}
+              </div>
+            ) : isLoadingAdInsights ? (
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 rounded-lg bg-white/60 px-2.5 py-2">
+                <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                Đang lấy thông tin quảng cáo...
+              </div>
+            ) : (
+              <div className="rounded-lg bg-white/60 border border-amber-100/60 px-2.5 py-2 text-[10px] text-slate-500 leading-relaxed">
+                Khách vào từ quảng cáo Click-to-Messenger. Chi tiết camp sẽ hiện khi Meta trả dữ liệu.
               </div>
             )}
 
-            {/* Chi phí QC từ Marketing API */}
-            <div className="pt-1 border-t border-amber-100/80 space-y-1.5">
-              <span className="text-amber-600 font-bold text-[10px] uppercase tracking-wide">
-                {hasSpecificAd
-                  ? 'Chi phí quảng cáo'
-                  : isPageEstimate
-                    ? 'Chi phí TB tin nhắn (Page)'
-                    : 'Chi phí quảng cáo (ước tính)'}
-              </span>
-              {isLoadingAdInsights ? (
-                <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Đang lấy từ Meta Insights...
+            {/* Chi phí */}
+            <div className="pt-0.5 space-y-2">
+              {isLoadingAdInsights && !hasCostData ? (
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />
+                  Đang tính chi phí...
                 </div>
               ) : adInsights?.unavailableReason ? (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-amber-700/80 leading-relaxed">
+                <div className="rounded-lg bg-white/60 border border-slate-200/60 px-2.5 py-2 space-y-1">
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
                     {adInsightsHint(adInsights.unavailableReason)}
                   </p>
-                  {adInsights?.connectedAdAccountName && (
-                    <p className="text-[9px] text-slate-500">
-                      Tài khoản QC đã kết nối: {adInsights.connectedAdAccountName}
-                    </p>
-                  )}
-                  {adInsights?.estimateNote && (
-                    <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
-                      {adInsights.estimateNote}
-                    </p>
+                  {adInsights.estimateNote && (
+                    <p className="text-[9px] text-slate-400 leading-relaxed">{adInsights.estimateNote}</p>
                   )}
                 </div>
-              ) : (
+              ) : hasCostData ? (
                 <>
-                  {(isPageEstimate || adInsights?.isAccountLevelEstimate) &&
-                    adInsights?.estimateNote && (
-                    <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
-                      {adInsights.estimateNote}
-                    </p>
-                  )}
-                  {adInsights?.connectedAdAccountName && (
-                    <p className="text-[9px] text-slate-500">
-                      Tài khoản QC: {adInsights.connectedAdAccountName}
-                    </p>
-                  )}
                   <div
                     className={cn(
                       'grid gap-2',
-                      hasSpecificAd && adInsights?.spend != null ? 'grid-cols-2' : 'grid-cols-1'
+                      hasSpecificAd && adInsights?.spend != null ? 'grid-cols-2' : 'grid-cols-1',
                     )}
                   >
                     {hasSpecificAd && adInsights?.spend != null && (
-                      <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
-                        <div className="text-[9px] text-amber-500 font-medium">Tổng chi tiêu QC</div>
-                        <div className="text-[11px] font-bold text-slate-800">
+                      <div className="bg-white rounded-lg px-2.5 py-2 border border-emerald-100/80 shadow-sm">
+                        <div className="text-[9px] text-slate-400 font-medium">Tổng chi tiêu QC</div>
+                        <div className="text-[12px] font-bold text-slate-800">
                           {formatAdMoney(adInsights.spend, adInsights.currency)}
                         </div>
                       </div>
                     )}
-                    <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
-                      <div className="text-[9px] text-amber-500 font-medium">
-                        {hasSpecificAd ? 'Chi phí/hội thoại' : 'Chi phí TB/tin'}
+                    <div className="bg-white rounded-lg px-2.5 py-2 border border-emerald-100/80 shadow-sm">
+                      <div className="text-[9px] text-slate-400 font-medium">
+                        {hasSpecificAd ? 'Chi phí / hội thoại' : 'Chi phí TB / tin nhắn'}
                       </div>
-                      <div className="text-[11px] font-bold text-emerald-700">
+                      <div className="text-[13px] font-bold text-emerald-700">
                         {formatAdMoney(
                           adInsights?.estimatedForThisConversation ?? adInsights?.costPerConversation,
-                          adInsights?.currency
+                          adInsights?.currency,
                         )}
                       </div>
                     </div>
                   </div>
-                  {hasSpecificAd && adInsights?.messagingConversations != null && (
-                    <p className="text-[9px] text-slate-500">
-                      {adInsights.messagingConversations.toLocaleString('vi-VN')} hội thoại từ QC
-                      {adInsights.dateStart && adInsights.dateStop
-                        ? ` · ${adInsights.dateStart} → ${adInsights.dateStop}`
-                        : ''}
+                  {(adInsights?.messagingConversations != null || adPeriod) && (
+                    <p className="text-[9px] text-slate-400 leading-relaxed">
+                      {adInsights.messagingConversations != null && (
+                        <>
+                          {adInsights.messagingConversations.toLocaleString('vi-VN')}
+                          {hasSpecificAd ? ' hội thoại từ QC này' : ' hội thoại QC trên Page'}
+                        </>
+                      )}
+                      {adPeriod && (
+                        <>
+                          {adInsights.messagingConversations != null ? ' · ' : ''}
+                          {adPeriod}
+                        </>
+                      )}
                     </p>
                   )}
-                  {isPageEstimate && adInsights?.messagingConversations != null && (
-                    <p className="text-[9px] text-slate-500">
-                      {adInsights.messagingConversations.toLocaleString('vi-VN')} hội thoại QC trên Page
-                      {adInsights.dateStart && adInsights.dateStop
-                        ? ` · ${adInsights.dateStart} → ${adInsights.dateStop}`
-                        : ''}
+                  {adInsights?.connectedAdAccountName && (
+                    <p className="text-[9px] text-slate-400">
+                      Tài khoản QC: {adInsights.connectedAdAccountName}
                     </p>
                   )}
-                  <p className="text-[9px] text-slate-400 italic">
-                    {hasSpecificAd
-                      ? 'Số liệu từ Meta Insights theo mã QC của tin nhắn.'
-                      : isPageEstimate
-                        ? 'Không có mã QC — chỉ hiển thị chi phí trung bình của Page, không phải chiến dịch cụ thể.'
-                        : 'Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.'}
-                  </p>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
         )}

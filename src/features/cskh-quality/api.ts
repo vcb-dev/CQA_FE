@@ -664,19 +664,45 @@ export async function fetchInboxMessages(
 
 const INBOX_MESSAGES_OPEN_LIMIT = 50
 
-/** Mở hội thoại — đồng bộ Graph (refresh=1) rồi trả tin từ DB. */
+/** Mở hội thoại — trả DB ngay, đồng bộ Graph nền (không chặn UI). */
 export async function fetchInboxMessagesProgressive(
   conversationId: string,
   signal?: AbortSignal,
   onPartial?: (data: { conversation: CskhInboxConversation; messages: CskhInboxMessage[] }) => void,
 ): Promise<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }> {
-  const data = await fetchInboxMessages(
+  const quick = await fetchInboxMessages(
+    conversationId,
+    { limit: INBOX_MESSAGES_OPEN_LIMIT },
+    signal,
+  )
+  onPartial?.(quick)
+
+  const needsBlockingRefresh = quick.messages.length === 0
+
+  if (needsBlockingRefresh) {
+    const fresh = await fetchInboxMessages(
+      conversationId,
+      { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
+      signal,
+    )
+    onPartial?.(fresh)
+    return fresh
+  }
+
+  void fetchInboxMessages(
     conversationId,
     { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
     signal,
   )
-  onPartial?.(data)
-  return data
+    .then((fresh) => {
+      if (signal?.aborted) return
+      onPartial?.(fresh)
+    })
+    .catch(() => {
+      /* giữ tin DB nếu sync nền lỗi */
+    })
+
+  return quick
 }
 
 /** Tải thêm lịch sử cũ khi user cuộn lên. */

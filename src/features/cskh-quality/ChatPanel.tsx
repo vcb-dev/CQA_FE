@@ -68,13 +68,9 @@ export function ChatPanel({
   }, [rawMessages])
 
   const conversationWithLabels = messagesData?.conversation ?? conversation
-  const hasPreviewOnly =
-    messages.length > 0 && messages.every((m) => isInboxMessagePreview(m.id))
   const showInitialLoader =
-    !isFetched &&
-    (isLoading || isPending || isFetching) &&
-    !messages.some((m) => !isInboxMessagePreview(m.id))
-  const showHydratingHint = isFetching && hasPreviewOnly
+    !isFetched && (isLoading || isPending) && messages.length === 0
+  const showHydratingHint = isFetching && messages.length > 0
 
   // Send message mutation
   const sendMut = useMutation({
