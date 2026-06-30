@@ -24,7 +24,7 @@ import { ChatPanel } from './ChatPanel'
 import { ChatRightSidebar } from './ChatRightSidebar'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
-import { patchInboxConversationInCache, buildInboxMessagesPreview, isInboxMessagePreview } from './inboxRealtimeCache'
+import { patchInboxConversationInCache, isInboxMessagePreview } from './inboxRealtimeCache'
 import {
   Select,
   SelectContent,
@@ -294,13 +294,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
     setSelectedConversation(opened)
     setInputDraft('')
-
-    const existing = qc.getQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
-      ['cskh', 'inbox', 'messages', conv.id],
-    )
-    if (!existing?.messages.length) {
-      qc.setQueryData(['cskh', 'inbox', 'messages', conv.id], buildInboxMessagesPreview(opened))
-    }
 
     patchInboxConversationInCache(qc, {
       id: conv.id,

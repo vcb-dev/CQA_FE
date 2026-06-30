@@ -24,8 +24,10 @@ export default function KpiGrid({ items, columns = 4 }) {
             >
               {Icon ? <Icon size={18} weight="duotone" /> : null}
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-[10.5px] font-medium text-slate-500">{kpi.label}</div>
+            <div className="min-w-0 flex-1">
+              <div className="line-clamp-2 text-[10.5px] font-medium leading-snug text-slate-500">
+                {kpi.label}
+              </div>
               <div className="text-base font-extrabold leading-tight text-slate-900">{kpi.value}</div>
               {kpi.change ? (
                 <div

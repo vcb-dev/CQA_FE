@@ -59,12 +59,21 @@ export function ChatPanel({
     refetchInterval: connected ? false : 30_000,
   })
 
-  const messages = messagesData?.messages ?? []
+  const rawMessages = messagesData?.messages ?? []
+  const messages = useMemo(() => {
+    const hasReal = rawMessages.some((m) => !isInboxMessagePreview(m.id))
+    return hasReal
+      ? rawMessages.filter((m) => !isInboxMessagePreview(m.id))
+      : rawMessages
+  }, [rawMessages])
+
   const conversationWithLabels = messagesData?.conversation ?? conversation
   const hasPreviewOnly =
     messages.length > 0 && messages.every((m) => isInboxMessagePreview(m.id))
   const showInitialLoader =
-    !isFetched && (isLoading || isPending) && !messages.length && !conversation.lastMessage
+    !isFetched &&
+    (isLoading || isPending || isFetching) &&
+    !messages.some((m) => !isInboxMessagePreview(m.id))
   const showHydratingHint = isFetching && hasPreviewOnly
 
   // Send message mutation

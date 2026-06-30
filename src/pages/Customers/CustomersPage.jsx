@@ -153,7 +153,7 @@ export default function CustomersPage() {
 
           {/* Table */}
           <div style={{ flex: 1, overflow: 'auto' }}>
-            <table className="data-table">
+            <table className="data-table" style={{ minWidth: '960px' }}>
               <thead>
                 <tr>
                   <th>Khách hàng</th>

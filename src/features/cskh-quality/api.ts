@@ -662,17 +662,21 @@ export async function fetchInboxMessages(
   }
 }
 
-const INBOX_MESSAGES_QUICK_LIMIT = 25
+const INBOX_MESSAGES_OPEN_LIMIT = 50
 
-/** Chỉ tải 25 tin gần nhất — không gọi thêm API full history (tiết kiệm DB + BE). */
+/** Mở hội thoại — đồng bộ Graph (refresh=1) rồi trả tin từ DB. */
 export async function fetchInboxMessagesProgressive(
   conversationId: string,
   signal?: AbortSignal,
   onPartial?: (data: { conversation: CskhInboxConversation; messages: CskhInboxMessage[] }) => void,
 ): Promise<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }> {
-  const quick = await fetchInboxMessages(conversationId, { limit: INBOX_MESSAGES_QUICK_LIMIT }, signal)
-  onPartial?.(quick)
-  return quick
+  const data = await fetchInboxMessages(
+    conversationId,
+    { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
+    signal,
+  )
+  onPartial?.(data)
+  return data
 }
 
 /** Tải thêm lịch sử cũ khi user cuộn lên. */
@@ -683,7 +687,7 @@ export async function fetchInboxMessagesOlder(
 ): Promise<CskhInboxMessage[]> {
   const { messages } = await fetchInboxMessages(
     conversationId,
-    { since: beforeSentAt, limit: INBOX_MESSAGES_QUICK_LIMIT },
+    { since: beforeSentAt, limit: INBOX_MESSAGES_OPEN_LIMIT },
     signal,
   )
   return messages
