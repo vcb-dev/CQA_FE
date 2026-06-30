@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchInboxMessages, type CskhInboxConversation } from './api'
+import { fetchInboxMessagesProgressive, type CskhInboxConversation } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
 import { ConversationLabelBadges } from './ChatLabelBar'
 
@@ -94,6 +94,7 @@ const ConversationRow = memo(function ConversationRow({
     <button
       onClick={() => onSelect(conv)}
       onMouseEnter={() => onPrefetch(conv.id)}
+      onPointerDown={() => onPrefetch(conv.id)}
       onFocus={() => onPrefetch(conv.id)}
       className={cn(
         'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
@@ -238,31 +239,20 @@ export function ChatListPanel({
 }: ChatListPanelProps) {
   const qc = useQueryClient()
   const parentRef = useRef<HTMLDivElement>(null)
-  const prefetchTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const prefetchedRef = useRef<Set<string>>(new Set())
 
   const prefetchMessages = useCallback(
     (conversationId: string) => {
-      if (prefetchTimersRef.current.has(conversationId)) return
-      const timer = window.setTimeout(() => {
-        prefetchTimersRef.current.delete(conversationId)
-        void qc.prefetchQuery({
-          queryKey: ['cskh', 'inbox', 'messages', conversationId],
-          queryFn: ({ signal }) => fetchInboxMessages(conversationId, undefined, signal),
-          staleTime: 30_000,
-        })
-      }, 60)
-      prefetchTimersRef.current.set(conversationId, timer)
+      if (prefetchedRef.current.has(conversationId)) return
+      prefetchedRef.current.add(conversationId)
+      void qc.prefetchQuery({
+        queryKey: ['cskh', 'inbox', 'messages', conversationId],
+        queryFn: ({ signal }) => fetchInboxMessagesProgressive(conversationId, signal),
+        staleTime: 120_000,
+      })
     },
     [qc],
   )
-
-  useEffect(() => {
-    const timers = prefetchTimersRef.current
-    return () => {
-      timers.forEach((timer) => window.clearTimeout(timer))
-      timers.clear()
-    }
-  }, [])
 
   const rowCount = conversations.length + (hasNextPage ? 1 : 0)
 
@@ -273,6 +263,23 @@ export function ChatListPanel({
       hasNextPage && index === conversations.length ? LOAD_MORE_ROW_HEIGHT : ROW_HEIGHT,
     overscan: 5,
   })
+
+  useEffect(() => {
+    const scrollEl = parentRef.current
+    if (!scrollEl || !conversations.length) return
+
+    const prefetchVisible = () => {
+      for (const row of virtualizer.getVirtualItems()) {
+        if (row.index < conversations.length) {
+          prefetchMessages(conversations[row.index].id)
+        }
+      }
+    }
+
+    prefetchVisible()
+    scrollEl.addEventListener('scroll', prefetchVisible, { passive: true })
+    return () => scrollEl.removeEventListener('scroll', prefetchVisible)
+  }, [conversations, virtualizer, prefetchMessages])
 
   useEffect(() => {
     if (manualLoadMore) return

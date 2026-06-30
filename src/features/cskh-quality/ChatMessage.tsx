@@ -1,4 +1,5 @@
 import { Check, CheckCheck, Loader2, AlertCircle } from 'lucide-react'
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import type { CskhInboxMessage } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -8,7 +9,7 @@ type ChatMessageProps = {
   isOwn: boolean
 }
 
-export function ChatMessage({ message, isOwn }: ChatMessageProps) {
+export const ChatMessage = memo(function ChatMessage({ message, isOwn }: ChatMessageProps) {
   const statusIcon =
     message.status === 'pending' ? (
       <Loader2 className="w-3 h-3 animate-spin" />
@@ -70,7 +71,7 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        'flex mb-3 gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200',
+        'flex mb-3 gap-2',
         isOwn ? 'justify-end' : 'justify-start'
       )}
     >
@@ -96,4 +97,4 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
       </div>
     </div>
   )
-}
+})

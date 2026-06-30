@@ -656,6 +656,24 @@ export async function fetchInboxMessages(
   return data
 }
 
+const INBOX_MESSAGES_QUICK_LIMIT = 25
+
+/** Tải nhanh 25 tin trước, sau đó nạp đủ lịch sử nếu còn tin cũ hơn. */
+export async function fetchInboxMessagesProgressive(
+  conversationId: string,
+  signal?: AbortSignal,
+  onPartial?: (data: { conversation: CskhInboxConversation; messages: CskhInboxMessage[] }) => void,
+): Promise<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }> {
+  const quick = await fetchInboxMessages(conversationId, { limit: INBOX_MESSAGES_QUICK_LIMIT }, signal)
+  onPartial?.(quick)
+  if (quick.messages.length < INBOX_MESSAGES_QUICK_LIMIT) return quick
+  try {
+    return await fetchInboxMessages(conversationId, undefined, signal)
+  } catch {
+    return quick
+  }
+}
+
 export async function fetchInboxLabels(): Promise<CskhInboxLabel[]> {
   const { data } = await apiClient.get<CskhInboxLabel[]>('/cskh/inbox/labels')
   return data

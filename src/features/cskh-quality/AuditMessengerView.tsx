@@ -637,6 +637,7 @@ export function AuditMessengerView({
       auditJob.clearJobId()
       toast.dismiss(AUDIT_TOAST_ID)
       runMut.reset()
+      qc.setQueryData(['cskh', 'running-audit-job'], null)
       if (detachedJobId) {
         qc.removeQueries({ queryKey: ['cskh', 'audit-progress', detachedJobId] })
       }
@@ -662,6 +663,18 @@ export function AuditMessengerView({
 
   const pauseMut = useMutation({
     mutationFn: () => pauseAuditJob(),
+    onMutate: () => {
+      if (jobId) {
+        qc.setQueryData(['cskh', 'audit-progress', jobId], (prev: typeof progress) =>
+          prev
+            ? {
+                ...prev,
+                summary: { ...prev.summary, pauseRequested: true, phase: 'pausing' },
+              }
+            : prev,
+        )
+      }
+    },
     onSuccess: (res) => {
       if (!res.paused) {
         toast.info(res.message || 'Không có tiến trình đang chạy', { duration: 3000 })

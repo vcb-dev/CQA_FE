@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '@/lib/axios'
 import { Loader2, AlertCircle, X } from 'lucide-react'
 import {
   fetchInboxMessages,
+  fetchInboxMessagesProgressive,
   sendInboxMessage,
   notifyInboxTyping,
   type CskhInboxConversation,
@@ -16,7 +17,7 @@ import { ChatLabelBar, ConversationLabelBadges } from './ChatLabelBar'
 import { ConversationViewHistory } from './ConversationViewHistory'
 import { TypingIndicator } from './TypingIndicator'
 import { cskhMediaProxySrc } from './messageMedia'
-import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
+import { appendInboxMessagesToCache, patchInboxConversationInCache, isInboxMessagePreview } from './inboxRealtimeCache'
 
 type ChatPanelProps = {
   conversation: CskhInboxConversation
@@ -50,14 +51,21 @@ export function ChatPanel({
   // Fetch messages — dùng chung cache với ChatMessengerPane (prefetch khi click)
   const { data: messagesData, isLoading, isFetching, isPending, isFetched } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', conversation.id],
-    queryFn: ({ signal }) => fetchInboxMessages(conversation.id, undefined, signal),
+    queryFn: ({ signal }) =>
+      fetchInboxMessagesProgressive(conversation.id, signal, (partial) => {
+        qc.setQueryData(['cskh', 'inbox', 'messages', conversation.id], partial)
+      }),
     staleTime: 60_000,
     refetchInterval: connected ? false : 12_000,
   })
 
   const messages = messagesData?.messages ?? []
   const conversationWithLabels = messagesData?.conversation ?? conversation
-  const showInitialLoader = !isFetched && (isLoading || isPending) && !messages.length
+  const hasPreviewOnly =
+    messages.length > 0 && messages.every((m) => isInboxMessagePreview(m.id))
+  const showInitialLoader =
+    !isFetched && (isLoading || isPending) && !messages.length && !conversation.lastMessage
+  const showHydratingHint = isFetching && hasPreviewOnly
 
   // Send message mutation
   const sendMut = useMutation({
@@ -270,7 +278,7 @@ export function ChatPanel({
           </div>
         ) : (
           <>
-            {isFetching && (
+            {showHydratingHint && (
               <div className="flex justify-center py-1">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
               </div>

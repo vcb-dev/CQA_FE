@@ -201,6 +201,34 @@ export function patchInboxConversationInCache(
   }
 }
 
+export const INBOX_MESSAGE_PREVIEW_PREFIX = 'preview-'
+
+export function isInboxMessagePreview(id: string): boolean {
+  return id.startsWith(INBOX_MESSAGE_PREVIEW_PREFIX)
+}
+
+/** Hiển thị ngay tin cuối từ danh sách trong khi API messages đang tải. */
+export function buildInboxMessagesPreview(
+  conversation: CskhInboxConversation,
+): { conversation: CskhInboxConversation; messages: CskhInboxMessage[] } {
+  const messages: CskhInboxMessage[] = []
+  if (conversation.lastMessage && conversation.lastMessageAt) {
+    messages.push({
+      id: `${INBOX_MESSAGE_PREVIEW_PREFIX}${conversation.id}`,
+      conversationId: conversation.id,
+      fbMessageId: null,
+      direction: 'inbound',
+      senderType: 'customer',
+      text: conversation.lastMessage,
+      messageType: 'text',
+      attachmentUrl: null,
+      sentAt: conversation.lastMessageAt,
+      status: 'sent',
+    })
+  }
+  return { conversation, messages }
+}
+
 export function bumpAuditSidebarPreview(
   qc: QueryClient,
   auditId: string,

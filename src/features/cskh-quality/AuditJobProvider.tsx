@@ -114,7 +114,11 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
       setTrackedJobId(runningJob.id)
       persistJobId(runningJob.id)
     }
-    if (runningJob && runningJob.status !== 'running' && !trackedJobId) {
+    if (runningJob && runningJob.status !== 'running') {
+      setTrackedJobId(null)
+      persistJobId(null)
+    }
+    if (!runningJob && !trackedJobId) {
       persistJobId(null)
     }
   }, [runningJob, trackedJobId])
@@ -142,9 +146,8 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
   })
 
   const isRunning =
-    progress?.status === 'running' ||
-    runningJob?.status === 'running' ||
-    (!!jobId && progress === undefined && !progressError)
+    (progress?.status === 'running' && !progress.summary?.pauseRequested) ||
+    runningJob?.status === 'running'
 
   useEffect(() => {
     if (!progress || progress.status === 'running') return
