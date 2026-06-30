@@ -17,6 +17,7 @@ import {
   deleteCskhPage,
   syncInboxFromGraph
 } from '@/features/cskh-quality/api';
+import { buildOAuthChannelReturnUrl } from '@/lib/authSession';
 
 export default function SettingsPage() {
   const [anim, setAnim] = useState(false);
@@ -565,7 +566,7 @@ Các tiêu chí cần đánh giá:
 
               <button 
                 onClick={() => {
-                  window.location.href = getCskhOAuthStartUrl(window.location.origin + '/settings?tab=channel');
+                  window.location.href = getCskhOAuthStartUrl(buildOAuthChannelReturnUrl());
                 }}
                 style={{ 
                   padding: '8px 16px', 

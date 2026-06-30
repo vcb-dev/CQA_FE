@@ -5,8 +5,12 @@ import LoginPage from "./pages/Login/LoginPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
+import { restoreAuthAfterOAuth } from "@/lib/authSession";
+import PageLoader from "@/components/PageLoader";
 
 function ProtectedLayout() {
+  restoreAuthAfterOAuth();
+
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null;
   const hasToken = !!token && token !== 'undefined' && token !== 'null';
 
@@ -25,7 +29,15 @@ function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!isLoading && (isError || !userProfile)) {
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <PageLoader label="Đang xác thực phiên đăng nhập..." />
+      </div>
+    );
+  }
+
+  if (isError || !userProfile) {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('authToken');
       localStorage.removeItem('refreshToken');

@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/axios'
+import { backupAuthForOAuth } from '@/lib/authSession'
 
 export interface CskhPage {
   pageId: string
@@ -215,11 +216,13 @@ export interface CskhCustomerIntent {
 }
 
 export function getCskhOAuthStartUrl(returnUrl?: string): string {
+  backupAuthForOAuth()
   const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
-  const ret = returnUrl || (typeof window !== 'undefined' ? window.location.href : '')
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null
-  const tokenQuery = token ? `&token=${encodeURIComponent(token)}` : ''
-  return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}${tokenQuery}`
+  const ret =
+    returnUrl ||
+    (typeof window !== 'undefined' ? window.location.href.split('#')[0] : '')
+  // Cookie httpOnly trên API domain — không gửi JWT trong URL (tránh lộ token / logout sau redirect)
+  return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}`
 }
 
 export async function fetchCskhPages(options?: { month?: string }): Promise<CskhPagesResponse> {

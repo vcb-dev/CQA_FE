@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { restoreAuthAfterOAuth } from '@/lib/authSession'
 
 /** Xử lý redirect sau OAuth Facebook — refetch pages ngay, không cần restart. */
 export function useCskhOAuthReturn() {
@@ -10,6 +11,8 @@ export function useCskhOAuthReturn() {
   const handledRef = useRef<string | null>(null)
 
   useEffect(() => {
+    restoreAuthAfterOAuth()
+
     const oauthError = searchParams.get('oauth_error')
     const fbConnected = searchParams.get('fb_connected')
     const signature = oauthError
