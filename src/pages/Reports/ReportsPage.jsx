@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Download, CheckCircle, Printer, ShareNetwork, Sparkle, Clock, Plus, Sliders, ChartBar, ChatCircleText, Users, User, FacebookLogo, Megaphone, Package, CurrencyDollar, Smiley, TrendUp } from '@phosphor-icons/react';
 import { reportTypes } from '../../data/mockData';
 import AnalyticsShell from '@/components/analytics/AnalyticsShell';
@@ -28,10 +28,15 @@ const reportColors = {
 };
 
 export default function ReportsPage() {
+  const [anim, setAnim] = useState(false);
   const [selectedReportIdx, setSelectedReportIdx] = useState(0);
   const [dateRange, setDateRange] = useState('this_month');
   const [format, setFormat] = useState('pdf');
   const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    setTimeout(() => setAnim(true), 200);
+  }, []);
 
   const handleExport = () => {
     setSuccessMsg('Đang khởi tạo xuất file dữ liệu...');

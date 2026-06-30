@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MagnifyingGlass, Download, TrendUp, TrendDown, Minus, Package, ChatCircleText, EnvelopeOpen, ShoppingCart, CurrencyDollar, ChartBar, Diamond } from '@phosphor-icons/react';
 import { productKPIs, productList, productTopRevenue } from '../../data/mockData';
 import AnalyticsShell from '@/components/analytics/AnalyticsShell';
@@ -23,7 +23,9 @@ const kpiColors = [
 ];
 
 export default function ProductsPage() {
+  const [anim, setAnim] = useState(false);
   const [search, setSearch] = useState('');
+  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
 
   const kpiItems = productKPIs.map((kpi, i) => ({
     ...kpi,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { revenueKPIs, revenueTrend, revenueByEmployee, revenueByPage, revenueFunnel } from '../../data/mockData';
 import AnalyticsShell from '@/components/analytics/AnalyticsShell';
 import KpiGrid from '@/components/analytics/KpiGrid';
@@ -28,7 +28,9 @@ const kpiColors = [
 ];
 
 export default function RevenuePage() {
+  const [anim, setAnim] = useState(false);
   const [period, setPeriod] = useState('month');
+  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
 
   const kpiItems = revenueKPIs.map((kpi, i) => ({
     ...kpi,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PaperPlaneRight, Star, Brain, Sparkle, Lightbulb, Warning, TrendUp, MagnifyingGlass, CheckCircle, Smiley, SmileyMeh, SmileySad, Diamond } from '@phosphor-icons/react';
 import {
   insightKPIs, customerConcerns, closeRateFactors,
@@ -170,6 +170,9 @@ function AIChat() {
 }
 
 export default function AIInsightPage() {
+  const [anim, setAnim] = useState(false);
+  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
+
   const kpiItems = insightKPIs.map((kpi, i) => ({
     ...kpi,
     icon: kpiIconMap[i],
