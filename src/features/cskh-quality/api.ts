@@ -478,6 +478,9 @@ export interface CskhAdInsights {
   estimatedForThisConversation: number | null
   localConversationCount: number
   unavailableReason: string | null
+  isPageLevelEstimate?: boolean
+  insightsScope?: 'ad' | 'page' | null
+  /** @deprecated */
   isAccountLevelEstimate?: boolean
   estimateNote?: string | null
   connectedAdAccountId?: string | null

@@ -23,19 +23,14 @@ function formatAdMoney(amount: number | null | undefined, currency?: string | nu
   return `${amount.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ${cur}`
 }
 
-function adInsightsHint(reason: string | null | undefined, referralSource?: string | null): string {
-  const heuristic = referralSource === 'HEURISTIC'
+function adInsightsHint(reason: string | null | undefined): string {
   switch (reason) {
     case 'no_ad_id':
-      return heuristic
-        ? 'Hội thoại cũ (HEURISTIC): Meta không gửi mã QC. Marketing API đã kết nối — đang lấy chi phí TB tài khoản QC.'
-        : 'Hội thoại từ ads nhưng Meta không gửi mã QC.'
+      return 'Hội thoại cũ: Meta không gửi mã QC — đang lấy chi phí TB tài khoản QC.'
     case 'no_ad_accounts':
       return 'Chưa thấy tài khoản quảng cáo. OAuth lại bằng tài khoản admin QC trên Business Manager.'
     case 'no_messaging_insights':
-      return heuristic
-        ? 'Marketing API đã kết nối nhưng tài khoản QC này chưa có dữ liệu chi tiêu/messaging — có thể QC đang chạy trên tài khoản khác.'
-        : 'Meta chưa trả Insights messaging. Kiểm tra QC trên Ads Manager hoặc thử lại sau vài giờ.'
+      return 'Marketing API đã kết nối nhưng chưa có dữ liệu chi tiêu/messaging — có thể QC đang chạy trên tài khoản khác.'
     case 'oauth_required':
       return 'Cần kết nối lại Facebook (OAuth) với quyền ads_read.'
     case 'ads_read_missing':
@@ -81,6 +76,16 @@ export function ChatRightSidebar({
     conversation.fromAd ||
     conversation.referralSource === 'HEURISTIC' ||
     Boolean(adInsights && !adInsights.unavailableReason)
+
+  const hasSpecificAd =
+    adInsights?.insightsScope === 'ad' || Boolean(conversation.adId || adInsights?.adId)
+
+  const isPageEstimate =
+    adInsights?.insightsScope === 'page' || adInsights?.isPageLevelEstimate === true
+
+  const showCampaignBlock =
+    hasSpecificAd &&
+    Boolean(adInsights?.campaignName || adInsights?.adName || conversation.adTitle)
 
   return (
     <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full overflow-y-auto font-sans">
@@ -158,7 +163,7 @@ export function ChatRightSidebar({
 
             {(adInsights?.campaignName ||
               adInsights?.adName ||
-              conversation.adTitle) && (
+              conversation.adTitle) && showCampaignBlock && (
               <div className="space-y-1.5 rounded-lg bg-white/60 border border-amber-100/80 px-2.5 py-2">
                 {(adInsights?.campaignName || adInsights?.adsetName) && (
                   <div className="flex flex-col gap-0.5">
@@ -193,7 +198,11 @@ export function ChatRightSidebar({
             {/* Chi phí QC từ Marketing API */}
             <div className="pt-1 border-t border-amber-100/80 space-y-1.5">
               <span className="text-amber-600 font-bold text-[10px] uppercase tracking-wide">
-                Chi phí quảng cáo (ước tính)
+                {hasSpecificAd
+                  ? 'Chi phí quảng cáo'
+                  : isPageEstimate
+                    ? 'Chi phí TB tin nhắn (Page)'
+                    : 'Chi phí quảng cáo (ước tính)'}
               </span>
               {isLoadingAdInsights ? (
                 <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
@@ -203,7 +212,7 @@ export function ChatRightSidebar({
               ) : adInsights?.unavailableReason ? (
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-amber-700/80 leading-relaxed">
-                    {adInsightsHint(adInsights.unavailableReason, conversation.referralSource)}
+                    {adInsightsHint(adInsights.unavailableReason)}
                   </p>
                   {adInsights?.connectedAdAccountName && (
                     <p className="text-[9px] text-slate-500">
@@ -218,7 +227,8 @@ export function ChatRightSidebar({
                 </div>
               ) : (
                 <>
-                  {adInsights?.isAccountLevelEstimate && adInsights.estimateNote && (
+                  {(isPageEstimate || adInsights?.isAccountLevelEstimate) &&
+                    adInsights?.estimateNote && (
                     <p className="text-[9px] text-amber-700/90 leading-relaxed bg-amber-50/80 rounded-md px-2 py-1.5 border border-amber-100">
                       {adInsights.estimateNote}
                     </p>
@@ -228,15 +238,24 @@ export function ChatRightSidebar({
                       Tài khoản QC: {adInsights.connectedAdAccountName}
                     </p>
                   )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
-                      <div className="text-[9px] text-amber-500 font-medium">Tổng chi tiêu</div>
-                      <div className="text-[11px] font-bold text-slate-800">
-                        {formatAdMoney(adInsights?.spend, adInsights?.currency)}
+                  <div
+                    className={cn(
+                      'grid gap-2',
+                      hasSpecificAd && adInsights?.spend != null ? 'grid-cols-2' : 'grid-cols-1'
+                    )}
+                  >
+                    {hasSpecificAd && adInsights?.spend != null && (
+                      <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
+                        <div className="text-[9px] text-amber-500 font-medium">Tổng chi tiêu QC</div>
+                        <div className="text-[11px] font-bold text-slate-800">
+                          {formatAdMoney(adInsights.spend, adInsights.currency)}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">
-                      <div className="text-[9px] text-amber-500 font-medium">Chi phí/hội thoại</div>
+                      <div className="text-[9px] text-amber-500 font-medium">
+                        {hasSpecificAd ? 'Chi phí/hội thoại' : 'Chi phí TB/tin'}
+                      </div>
                       <div className="text-[11px] font-bold text-emerald-700">
                         {formatAdMoney(
                           adInsights?.estimatedForThisConversation ?? adInsights?.costPerConversation,
@@ -245,7 +264,7 @@ export function ChatRightSidebar({
                       </div>
                     </div>
                   </div>
-                  {adInsights?.messagingConversations != null && (
+                  {hasSpecificAd && adInsights?.messagingConversations != null && (
                     <p className="text-[9px] text-slate-500">
                       {adInsights.messagingConversations.toLocaleString('vi-VN')} hội thoại từ QC
                       {adInsights.dateStart && adInsights.dateStop
@@ -253,10 +272,20 @@ export function ChatRightSidebar({
                         : ''}
                     </p>
                   )}
+                  {isPageEstimate && adInsights?.messagingConversations != null && (
+                    <p className="text-[9px] text-slate-500">
+                      {adInsights.messagingConversations.toLocaleString('vi-VN')} hội thoại QC trên Page
+                      {adInsights.dateStart && adInsights.dateStop
+                        ? ` · ${adInsights.dateStart} → ${adInsights.dateStop}`
+                        : ''}
+                    </p>
+                  )}
                   <p className="text-[9px] text-slate-400 italic">
-                    {adInsights?.isAccountLevelEstimate
-                      ? 'Chi phí TB/tin từ Insights tài khoản QC — không phải mã QC cụ thể.'
-                      : 'Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.'}
+                    {hasSpecificAd
+                      ? 'Số liệu từ Meta Insights theo mã QC của tin nhắn.'
+                      : isPageEstimate
+                        ? 'Không có mã QC — chỉ hiển thị chi phí trung bình của Page, không phải chiến dịch cụ thể.'
+                        : 'Meta không trả chi phí theo từng tin — số liệu chia từ tổng spend Insights.'}
                   </p>
                 </>
               )}

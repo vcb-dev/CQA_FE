@@ -523,7 +523,7 @@ export function AuditMessengerView({
   ])
 
   useEffect(() => {
-    if (isCancellingAudit) return
+    if (isCancellingAudit || auditJob.userStopRequested) return
     if (auditJob.isRunning && auditJob.jobId) {
       setAttachedJobId(auditJob.jobId)
     }
@@ -531,7 +531,14 @@ export function AuditMessengerView({
       setSelectedPageId(jobPageId)
       saveAuditWorkspace({ selectedPageId: jobPageId })
     }
-  }, [auditJob.isRunning, auditJob.jobId, jobPageId, selectedPageId, isCancellingAudit])
+  }, [
+    auditJob.isRunning,
+    auditJob.jobId,
+    auditJob.userStopRequested,
+    jobPageId,
+    selectedPageId,
+    isCancellingAudit,
+  ])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -556,9 +563,10 @@ export function AuditMessengerView({
     saveAuditWorkspace({ selectedPageId: pageId })
   }, [])
 
-  const activeJobId = isCancellingAudit
-    ? null
-    : attachedJobId || (auditJob.isRunning ? auditJob.jobId : null)
+  const activeJobId =
+    isCancellingAudit || auditJob.userStopRequested
+      ? null
+      : attachedJobId || (auditJob.isRunning ? auditJob.jobId : null)
   const jobId = activeJobId
   const progress =
     activeJobId && activeJobId === auditJob.jobId ? auditJob.progress : undefined
@@ -634,16 +642,16 @@ export function AuditMessengerView({
       setIsCancellingAudit(true)
       const detachedJobId = jobId
       setAttachedJobId(null)
-      auditJob.clearJobId()
+      auditJob.dismissRunningJob()
       toast.dismiss(AUDIT_TOAST_ID)
       runMut.reset()
-      qc.setQueryData(['cskh', 'running-audit-job'], null)
       if (detachedJobId) {
         qc.removeQueries({ queryKey: ['cskh', 'audit-progress', detachedJobId] })
       }
       return { detachedJobId }
     },
     onSuccess: (res) => {
+      qc.setQueryData(['cskh', 'running-audit-job'], null)
       if (res.cancelled > 0) {
         toast.info('Đã hủy tiến trình chấm điểm', { duration: 4000 })
       } else {
@@ -664,6 +672,8 @@ export function AuditMessengerView({
   const pauseMut = useMutation({
     mutationFn: () => pauseAuditJob(),
     onMutate: () => {
+      setAttachedJobId(null)
+      auditJob.dismissRunningJob()
       if (jobId) {
         qc.setQueryData(['cskh', 'audit-progress', jobId], (prev: typeof progress) =>
           prev
@@ -680,7 +690,7 @@ export function AuditMessengerView({
         toast.info(res.message || 'Không có tiến trình đang chạy', { duration: 3000 })
         return
       }
-      toast.info('Đang dừng — lưu kết quả đã chấm, không quét thêm…', { duration: 5000 })
+      toast.info('Đang dừng — không quét thêm, lưu phần đã chấm…', { duration: 5000 })
       if (jobId) {
         void qc.invalidateQueries({ queryKey: ['cskh', 'audit-progress', jobId] })
       }
@@ -786,6 +796,7 @@ export function AuditMessengerView({
   const isAuditActive =
     !isCancellingAudit &&
     !cancelMut.isPending &&
+    !auditJob.userStopRequested &&
     (runMut.isPending ||
       auditJob.isRunning ||
       (!!jobId &&
@@ -795,7 +806,8 @@ export function AuditMessengerView({
         progress?.status !== 'paused' &&
         (progress?.status === 'running' || progress === undefined)))
   const isRunning = isAuditActive
-  const backgroundJobRunning = auditJob.isRunning && !isRunning
+  const backgroundJobRunning =
+    auditJob.isRunning && !isRunning && !auditJob.userStopRequested
 
   useEffect(() => {
     onAuditJobActiveChange?.(auditJob.isRunning)
@@ -1473,7 +1485,11 @@ export function AuditMessengerView({
           action={
             <button
               type="button"
-              onClick={() => auditJob.jobId && setAttachedJobId(auditJob.jobId)}
+              onClick={() => {
+                auditJob.resumeTrackingJob()
+                const id = auditJob.remoteRunningJobId ?? auditJob.jobId
+                if (id) setAttachedJobId(id)
+              }}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-700"
             >
               <Play className="h-3 w-3" />

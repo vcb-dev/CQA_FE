@@ -281,7 +281,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryKey: ['cskh', 'inbox', 'ad-insights', selectedId],
     queryFn: ({ signal }) =>
       selectedId ? fetchConversationAdInsights(selectedId, signal) : null,
-    enabled: shouldLoadAdInsights && messagesReady,
+    enabled: shouldLoadAdInsights,
     staleTime: 120_000,
   })
 
@@ -311,6 +311,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         }),
       staleTime: 60_000,
     })
+
+    if (conv.fromAd || conv.referralSource === 'HEURISTIC') {
+      void qc.prefetchQuery({
+        queryKey: ['cskh', 'inbox', 'ad-insights', conv.id],
+        queryFn: ({ signal }) => fetchConversationAdInsights(conv.id, signal),
+        staleTime: 120_000,
+      })
+    }
 
     patchInboxConversationInCache(qc, {
       id: conv.id,
