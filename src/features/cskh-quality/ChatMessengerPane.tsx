@@ -290,7 +290,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     const opened: CskhInboxConversation = {
       ...conv,
       unreadCount: 0,
-      awaitingLabel: !hasLabels,
     }
 
     setSelectedConversation(opened)
@@ -323,7 +322,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     patchInboxConversationInCache(qc, {
       id: conv.id,
       unreadCount: 0,
-      awaitingLabel: !hasLabels,
     })
 
     qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(
@@ -344,7 +342,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
           pages: prev.pages.map((p) => ({
             ...p,
             items: p.items.map((c) =>
-              c.id === conv.id ? { ...c, unreadCount: 0, awaitingLabel: !hasLabels } : c,
+              c.id === conv.id ? { ...c, unreadCount: 0 } : c,
             ),
           })),
         }

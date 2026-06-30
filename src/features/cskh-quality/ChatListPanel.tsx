@@ -86,9 +86,9 @@ const ConversationRow = memo(function ConversationRow({
   onPrefetch,
 }: ConversationRowProps) {
   const colorIdx = getColorIndex(conv.customerName)
-  const hasUnread = !isSelected && (conv.unreadCount > 0 || !!conv.awaitingLabel)
-  const unreadBadge =
-    conv.awaitingLabel && conv.unreadCount <= 0 ? '!' : Math.min(conv.unreadCount, 99)
+  const hasUnread = !isSelected && conv.unreadCount > 0
+  const needsLabel = !isSelected && !!conv.awaitingLabel && conv.unreadCount <= 0
+  const unreadBadge = Math.min(conv.unreadCount, 99)
 
   return (
     <button
@@ -100,7 +100,7 @@ const ConversationRow = memo(function ConversationRow({
         'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
         isSelected
           ? 'bg-gradient-to-r from-indigo-50/70 to-indigo-50/30 border-indigo-100/70 shadow-sm shadow-indigo-100/20'
-          : hasUnread
+          : hasUnread || needsLabel
             ? 'bg-slate-50/40 hover:bg-slate-50 border-slate-200/20'
             : 'bg-white hover:bg-slate-50 border-transparent',
       )}
@@ -125,6 +125,9 @@ const ConversationRow = memo(function ConversationRow({
           )}
           {hasUnread && (
             <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-500 rounded-full border-2 border-white" />
+          )}
+          {needsLabel && (
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full border-2 border-white" />
           )}
         </div>
 
@@ -194,11 +197,16 @@ const ConversationRow = memo(function ConversationRow({
               )}
             </div>
             {hasUnread && (
-              <span
-                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-orange-500 rounded-full shrink-0 shadow-sm"
-                title={conv.awaitingLabel && conv.unreadCount <= 0 ? 'Chờ gán nhãn' : undefined}
-              >
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-orange-500 rounded-full shrink-0 shadow-sm">
                 {unreadBadge}
+              </span>
+            )}
+            {needsLabel && (
+              <span
+                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-amber-500 rounded-full shrink-0 shadow-sm"
+                title="Chờ gán nhãn"
+              >
+                !
               </span>
             )}
           </div>

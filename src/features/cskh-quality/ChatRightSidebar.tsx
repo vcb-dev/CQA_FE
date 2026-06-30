@@ -28,7 +28,7 @@ function adInsightsHint(reason: string | null | undefined): string {
     case 'no_ad_id':
       return 'Hội thoại cũ: Meta không gửi mã QC — đang lấy chi phí TB tài khoản QC.'
     case 'no_ad_accounts':
-      return 'Chưa thấy tài khoản quảng cáo. OAuth lại bằng tài khoản admin QC trên Business Manager.'
+      return 'OAuth chưa có tài khoản QC hoặc thiếu quyền ads_read — đăng nhập lại bằng admin Business Manager.'
     case 'no_messaging_insights':
       return 'Marketing API đã kết nối nhưng chưa có dữ liệu chi tiêu/messaging — có thể QC đang chạy trên tài khoản khác.'
     case 'oauth_required':

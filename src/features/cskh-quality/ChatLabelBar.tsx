@@ -129,10 +129,10 @@ export function ChatLabelBar({ conversation }: ChatLabelBarProps) {
 
   return (
     <div className="border-t border-slate-100 bg-slate-50/60 shrink-0">
-      {!labelsLocked && (conversation.awaitingLabel || (conversation.labels?.length ?? 0) === 0) && (
+      {!labelsLocked && conversation.awaitingLabel && (
         <div className="px-3 pt-2 pb-1">
           <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2 py-1">
-            Đã xem tin nhưng chưa gán nhãn — hội thoại vẫn ở tab <strong>Chưa đọc</strong> cho đến khi gán nhãn.
+            Đã xem tin nhưng chưa gán nhãn — hội thoại vẫn hiện dấu <strong>!</strong> cho đến khi gán nhãn (shop đã trả lời thì không còn chấm cam chưa đọc).
           </p>
         </div>
       )}
