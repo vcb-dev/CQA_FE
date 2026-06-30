@@ -158,8 +158,7 @@ export function ChatRightSidebar({
 
             {(adInsights?.campaignName ||
               adInsights?.adName ||
-              conversation.adTitle ||
-              (adInsights?.topCampaigns?.length ?? 0) > 0) && (
+              conversation.adTitle) && (
               <div className="space-y-1.5 rounded-lg bg-white/60 border border-amber-100/80 px-2.5 py-2">
                 {(adInsights?.campaignName || adInsights?.adsetName) && (
                   <div className="flex flex-col gap-0.5">
@@ -188,29 +187,6 @@ export function ChatRightSidebar({
                     </span>
                   </div>
                 )}
-              </div>
-            )}
-
-            {adInsights?.topCampaigns && adInsights.topCampaigns.length > 1 && (
-              <div className="space-y-1">
-                <span className="text-amber-600 font-bold text-[9px] uppercase tracking-wide">
-                  Camp đang chi tiêu (30 ngày)
-                </span>
-                <ul className="space-y-1">
-                  {adInsights.topCampaigns.slice(0, 4).map((c) => (
-                    <li
-                      key={c.campaignName}
-                      className="text-[10px] text-slate-600 flex justify-between gap-2 bg-white/50 rounded px-2 py-1"
-                    >
-                      <span className="truncate font-medium">{c.campaignName}</span>
-                      {c.spend != null && (
-                        <span className="shrink-0 text-slate-500">
-                          {formatAdMoney(c.spend, adInsights.currency)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
               </div>
             )}
 

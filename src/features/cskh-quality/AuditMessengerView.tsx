@@ -466,6 +466,7 @@ export function AuditMessengerView({
     loadIntentCache()
   )
   const [dismissedErrorKey, setDismissedErrorKey] = useState<string | null>(null)
+  const [isCancellingAudit, setIsCancellingAudit] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const chatScrollSigRef = useRef('')
   const refreshedConvRef = useRef<string | null>(null)
@@ -522,6 +523,7 @@ export function AuditMessengerView({
   ])
 
   useEffect(() => {
+    if (isCancellingAudit) return
     if (auditJob.isRunning && auditJob.jobId) {
       setAttachedJobId(auditJob.jobId)
     }
@@ -529,7 +531,7 @@ export function AuditMessengerView({
       setSelectedPageId(jobPageId)
       saveAuditWorkspace({ selectedPageId: jobPageId })
     }
-  }, [auditJob.isRunning, auditJob.jobId, jobPageId, selectedPageId])
+  }, [auditJob.isRunning, auditJob.jobId, jobPageId, selectedPageId, isCancellingAudit])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -554,7 +556,9 @@ export function AuditMessengerView({
     saveAuditWorkspace({ selectedPageId: pageId })
   }, [])
 
-  const activeJobId = attachedJobId || (auditJob.isRunning ? auditJob.jobId : null)
+  const activeJobId = isCancellingAudit
+    ? null
+    : attachedJobId || (auditJob.isRunning ? auditJob.jobId : null)
   const jobId = activeJobId
   const progress =
     activeJobId && activeJobId === auditJob.jobId ? auditJob.progress : undefined
@@ -627,6 +631,7 @@ export function AuditMessengerView({
   const cancelMut = useMutation({
     mutationFn: () => cancelAuditJob(),
     onMutate: () => {
+      setIsCancellingAudit(true)
       const detachedJobId = jobId
       setAttachedJobId(null)
       auditJob.clearJobId()
@@ -649,6 +654,9 @@ export function AuditMessengerView({
     },
     onError: (err) => {
       toast.error(getApiErrorMessage(err) || 'Không hủy được tiến trình')
+    },
+    onSettled: () => {
+      setIsCancellingAudit(false)
     },
   })
 
@@ -763,14 +771,16 @@ export function AuditMessengerView({
 
   const summary = progress?.summary
   const isAuditActive =
-    runMut.isPending ||
-    auditJob.isRunning ||
-    (!!jobId &&
-      attachedJobId === auditJob.jobId &&
-      progress?.status !== 'failed' &&
-      progress?.status !== 'done' &&
-      progress?.status !== 'paused' &&
-      (progress?.status === 'running' || progress === undefined))
+    !isCancellingAudit &&
+    !cancelMut.isPending &&
+    (runMut.isPending ||
+      auditJob.isRunning ||
+      (!!jobId &&
+        attachedJobId === auditJob.jobId &&
+        progress?.status !== 'failed' &&
+        progress?.status !== 'done' &&
+        progress?.status !== 'paused' &&
+        (progress?.status === 'running' || progress === undefined)))
   const isRunning = isAuditActive
   const backgroundJobRunning = auditJob.isRunning && !isRunning
 
@@ -1307,7 +1317,7 @@ export function AuditMessengerView({
               )}
               <button
                 type="button"
-                disabled={!canRun || runMut.isPending}
+                disabled={!canRun || runMut.isPending || isCancellingAudit || cancelMut.isPending}
                 onClick={() => {
                   // Check if there's a background job running
                   if (auditJob.isRunning && !isRunning) {
@@ -1363,7 +1373,7 @@ export function AuditMessengerView({
                 }}
                 className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-md hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:border disabled:border-slate-200 disabled:shadow-none disabled:cursor-not-allowed"
               >
-                {isRunning || runMut.isPending ? (
+                {(isRunning || runMut.isPending) && !isCancellingAudit && !cancelMut.isPending ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4 shrink-0" />
@@ -1378,7 +1388,7 @@ export function AuditMessengerView({
                         : runButtonLabel}
                 </span>
               </button>
-              {isRunning && (
+              {isRunning && !isCancellingAudit && !cancelMut.isPending && (
                 <>
                   <button
                     type="button"
@@ -1399,10 +1409,15 @@ export function AuditMessengerView({
                     onClick={() => cancelMut.mutate()}
                     className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
                   >
-                    {cancelMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {cancelMut.isPending ? 'Đang hủy…' : 'Hủy'}
+                    Hủy
                   </button>
                 </>
+              )}
+              {(isCancellingAudit || cancelMut.isPending) && (
+                <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang hủy…
+                </span>
               )}
               {isFailed && sortedAudits.length === 0 && (
                 <button
