@@ -19,6 +19,8 @@ import {
   Warning,
 } from '@phosphor-icons/react';
 import { employees } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const PAGE_SIZE = 10;
 
@@ -292,26 +294,19 @@ export default function EmployeesPage() {
     setStatusFilter('all');
   };
 
-  return (
-    <div className="page-scroll">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-        {stats.map((stat, index) => {
-          const Icon = stat.Icon;
+  const kpiItems = stats.map((stat) => ({
+    label: stat.label,
+    value: stat.value,
+    sub: stat.sub,
+    icon: stat.Icon,
+    color: stat.color,
+    bg: stat.bg,
+  }));
 
-          return (
-            <div key={stat.label} className="kpi-card anim-up" style={{ animationDelay: `${index * 50}ms`, minHeight: '86px' }}>
-              <div className="kpi-icon" style={{ background: stat.bg }}>
-                <Icon size={22} weight="duotone" style={{ color: stat.color }} />
-              </div>
-              <div className="kpi-content">
-                <div className="kpi-label">{stat.label}</div>
-                <div className="kpi-value" style={{ fontSize: '22px' }}>{stat.value}</div>
-                <div style={{ fontSize: '11.5px', color: '#6b7280', marginTop: '2px' }}>{stat.sub}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+  return (
+    <AnalyticsShell>
+    <div className="page-scroll">
+      <KpiGrid items={kpiItems} columns={6} />
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '220ms' }}>
         <div className="card-title" style={{ marginBottom: '12px', alignItems: 'flex-start', gap: '12px' }}>
@@ -503,5 +498,6 @@ export default function EmployeesPage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }

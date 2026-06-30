@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PaperPlaneRight, Star, Brain, Sparkle, Lightbulb, Warning, TrendUp, MagnifyingGlass, CheckCircle, Smiley, SmileyMeh, SmileySad, Diamond } from '@phosphor-icons/react';
 import {
   insightKPIs, customerConcerns, closeRateFactors,
   insightProducts, insightByCountry, customerSentiment,
   adEfficiency, aiAssistantMessages, aiSuggestedQuestions,
 } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const kpiIconMap = [
   Lightbulb,       // 💡 Insight mới
@@ -168,10 +170,16 @@ function AIChat() {
 }
 
 export default function AIInsightPage() {
-  const [anim, setAnim] = useState(false);
-  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
+  const kpiItems = insightKPIs.map((kpi, i) => ({
+    ...kpi,
+    icon: kpiIconMap[i],
+    color: kpiColors[i],
+    change: `${kpi.change} ${kpi.sub}`,
+    changePositive: kpi.change.includes('↑'),
+  }));
 
   return (
+    <AnalyticsShell>
     <div style={{ display: 'flex', gap: '14px', height: '100%' }}>
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', minWidth: 0 }}>
@@ -185,24 +193,7 @@ export default function AIInsightPage() {
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-          {insightKPIs.map((kpi, i) => {
-            const IconComp = kpiIconMap[i];
-            return (
-              <div key={i} className="kpi-card anim-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="kpi-icon" style={{ background: kpi.bg }}>
-                  {IconComp && <IconComp size={18} weight="duotone" style={{ color: kpiColors[i] }} />}
-                </div>
-                <div className="kpi-content">
-                  <div className="kpi-label">{kpi.label}</div>
-                  <div className="kpi-value">{kpi.value}</div>
-                  <div className={`kpi-change ${kpi.change.includes('↑') ? 'up' : 'down'}`}>{kpi.change} <span className="kpi-sub">{kpi.sub}</span></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <KpiGrid items={kpiItems} columns={4} />
 
         {/* Row: Concern Donut + Close Rate Factors */}
         <div style={{ display: 'flex', gap: '14px' }}>
@@ -412,5 +403,6 @@ export default function AIInsightPage() {
       {/* AI Chat Panel */}
       <AIChat />
     </div>
+    </AnalyticsShell>
   );
 }

@@ -122,11 +122,21 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ['cskh', 'running-audit-job'] })
   }, [qc])
 
+  const shouldPollAuditJob =
+    location.pathname.startsWith('/quality') ||
+    !!trackedJobId ||
+    userStopRequested
+
   const { data: runningJob } = useQuery({
     queryKey: ['cskh', 'running-audit-job'],
     queryFn: () => fetchRunningCskhJob('audit'),
-    refetchInterval: userStopRequested ? 2000 : 6000,
-    staleTime: 3000,
+    enabled: shouldPollAuditJob,
+    refetchInterval: !shouldPollAuditJob
+      ? false
+      : userStopRequested
+        ? 3000
+        : 15_000,
+    staleTime: 10_000,
     retry: cskhQueryRetry,
     retryDelay: cskhQueryRetryDelay,
   })

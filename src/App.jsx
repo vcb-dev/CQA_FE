@@ -25,18 +25,7 @@ function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 text-white font-sans">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
-          <p className="text-sm text-slate-400">Đang xác thực thông tin...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError || !userProfile) {
+  if (!isLoading && (isError || !userProfile)) {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('authToken');
       localStorage.removeItem('refreshToken');

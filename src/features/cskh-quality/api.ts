@@ -283,7 +283,7 @@ export async function runAudit(params: {
   pageId?: string
   /** Quét tất cả kênh, mỗi kênh tối đa maxConversations cuộc. */
   scanAllChannels?: boolean
-  /** Chỉ chấm tối đa N cuộc chưa chấm (bỏ qua đã chấm trong khoảng ngày). */
+  /** Số cuộc hội thoại muốn quét; để trống/undefined = quét toàn bộ. */
   maxConversations?: number
 }): Promise<{
   jobId: string

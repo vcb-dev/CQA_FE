@@ -13,7 +13,6 @@ import {
   ClipboardCheck,
   Send,
   ArrowLeft,
-  HelpCircle,
   X,
 } from 'lucide-react'
 import {
@@ -454,7 +453,7 @@ export function AuditMessengerView({
   const [selectedPageId, setSelectedPageId] = useState(() =>
     firstNonEmpty(searchParams.get('auditPage'), savedWorkspace.selectedPageId, jobPageId)
   )
-  /** Số cuộc chấm mới mỗi lần chạy (để trống = không giới hạn). */
+  /** Số cuộc hội thoại muốn quét mỗi lần chạy (để trống = quét toàn bộ). */
   const [batchLimitInput, setBatchLimitInput] = useState(savedWorkspace.batchLimitInput ?? '')
   const [chatTab, setChatTab] = useState<'chat' | 'messenger' | 'timeline' | 'analysis'>(
     savedWorkspace.chatTab ?? 'chat'
@@ -1044,22 +1043,23 @@ export function AuditMessengerView({
   }, [])
 
   const alreadyScoredCount = dayStats?.total ?? sortedAudits.length
+  const scanAllConversations = !batchLimitInput.trim()
   const canRun =
     filtersReady &&
     !isRunning &&
-    (!batchLimitInput.trim() || (parsedBatchLimit != null && parsedBatchLimit > 0))
+    (scanAllConversations || (parsedBatchLimit != null && parsedBatchLimit > 0))
   const canResumeAudit = filtersReady && !isRunning && alreadyScoredCount > 0
   const runButtonLabel =
     auditDateFrom && auditDateTo
       ? batchLimitInput.trim() && !parsedBatchLimit
         ? 'Nhập số cuộc hợp lệ'
         : canResumeAudit
-          ? parsedBatchLimit
-            ? `Chấm thêm ${parsedBatchLimit} cuộc (${alreadyScoredCount} đã chấm)`
-            : `Tiếp tục chấm điểm ${scoreRangeLabel}`
-          : parsedBatchLimit
-            ? `Quét và chấm ${parsedBatchLimit} cuộc · ${scoreRangeLabel}`
-            : `Quét và chấm điểm ${scoreRangeLabel}`
+          ? scanAllConversations
+            ? `Quét toàn bộ (${alreadyScoredCount} đã chấm)`
+            : `Quét ${parsedBatchLimit} cuộc (${alreadyScoredCount} đã chấm)`
+          : scanAllConversations
+            ? `Quét toàn bộ · ${scoreRangeLabel}`
+            : `Quét ${parsedBatchLimit} cuộc · ${scoreRangeLabel}`
       : 'Chọn khoảng ngày'
   const transcript = useMemo(() => {
     if (!selected || !Array.isArray(selected.transcript)) return []
@@ -1312,23 +1312,21 @@ export function AuditMessengerView({
             <div className="flex min-w-0 flex-col">
               <CskhAuditFieldLabel
                 htmlFor="audit-batch-limit"
-                hint="Chỉ chấm cuộc chưa có điểm trong khoảng ngày. Đã 200, nhập 100 → chấm thêm 100."
+                hint="Để trống = quét toàn bộ hội thoại trong khoảng ngày. Nhập số = chỉ quét N cuộc (bỏ qua cuộc đã chấm)."
               >
-                <span className="inline-flex items-center gap-0.5">
-                  Giới hạn
-                  <HelpCircle className="h-3 w-3 text-slate-400" aria-hidden />
-                </span>
+                Số cuộc quét
               </CskhAuditFieldLabel>
               <input
                 id="audit-batch-limit"
                 type="number"
                 min={1}
+                max={5000}
                 step={1}
                 placeholder="Tất cả"
                 value={batchLimitInput}
                 onChange={(e) => setBatchLimitInput(e.target.value)}
                 disabled={isRunning}
-                title="Để trống = chấm hết cuộc chưa chấm. Nhập số = chỉ chấm thêm N cuộc (bỏ qua đã chấm)."
+                title="Để trống = quét toàn bộ. Nhập số = quét tối đa N cuộc chưa chấm."
                 className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all hover:bg-slate-50"
               />
             </div>

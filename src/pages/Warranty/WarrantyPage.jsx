@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { MagnifyingGlass, Warning, Clock, CheckCircle, Shield, Wrench, Hourglass, SmileySad, Calendar, ArrowsCounterClockwise, Star, Sparkle, Lightbulb, Crown } from '@phosphor-icons/react';
 import { warrantyKPIs, warrantyList, warrantyProcess, warrantySentiment, warrantyByProduct } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const kpiIconMap = [
   Wrench,
@@ -72,37 +74,23 @@ function isGoodChange(change, isGoodUp) {
 export default function WarrantyPage() {
   const [tab, setTab] = useState('all');
 
-  return (
-    <div className="page-scroll">
+  const kpiItems = warrantyKPIs.map((kpi, i) => {
+    const meta = kpiMeta[i];
+    const good = isGoodChange(kpi.change, meta.isGoodUp);
+    return {
+      ...kpi,
+      icon: kpiIconMap[i],
+      bg: meta.bg,
+      color: meta.color,
+      change: kpi.change,
+      changePositive: good,
+    };
+  });
 
-      {/* ── KPI Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '14px' }}>
-        {warrantyKPIs.map((kpi, i) => {
-          const meta = kpiMeta[i];
-          const good = isGoodChange(kpi.change, meta.isGoodUp);
-          const IconComp = kpiIconMap[i];
-          return (
-            <div key={i} className="kpi-card" style={{ flexDirection: 'column', gap: '12px', padding: '16px 18px', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div style={{ width: 38, height: 38, borderRadius: '10px', background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {IconComp && <IconComp size={20} weight="duotone" style={{ color: meta.color }} />}
-                </div>
-                <span style={{
-                  fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                  background: good ? '#f0fdf4' : '#fef2f2',
-                  color: good ? '#16a34a' : '#dc2626',
-                }}>
-                  {kpi.change}
-                </span>
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', lineHeight: 1.3 }}>{kpi.label}</div>
-                <div style={{ fontSize: '21px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>{kpi.value}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+  return (
+    <AnalyticsShell>
+    <div className="page-scroll">
+      <KpiGrid items={kpiItems} columns={7} />
 
       {/* ── Middle Row: Table + Process + AI ── */}
       <div style={{ display: 'flex', gap: '16px', minHeight: 0 }}>
@@ -440,5 +428,6 @@ export default function WarrantyPage() {
       </div>
 
     </div>
+    </AnalyticsShell>
   );
 }

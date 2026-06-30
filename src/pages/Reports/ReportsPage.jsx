@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, Download, CheckCircle, Printer, ShareNetwork, Sparkle, Clock, Plus, Sliders, ChartBar, ChatCircleText, Users, User, FacebookLogo, Megaphone, Package, CurrencyDollar, Smiley, TrendUp } from '@phosphor-icons/react';
 import { reportTypes } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
 
 const reportIcons = {
   '📊': ChatCircleText,
@@ -27,15 +28,10 @@ const reportColors = {
 };
 
 export default function ReportsPage() {
-  const [anim, setAnim] = useState(false);
   const [selectedReportIdx, setSelectedReportIdx] = useState(0);
   const [dateRange, setDateRange] = useState('this_month');
   const [format, setFormat] = useState('pdf');
   const [successMsg, setSuccessMsg] = useState('');
-
-  useEffect(() => {
-    setTimeout(() => setAnim(true), 200);
-  }, []);
 
   const handleExport = () => {
     setSuccessMsg('Đang khởi tạo xuất file dữ liệu...');
@@ -54,6 +50,7 @@ export default function ReportsPage() {
   ];
 
   return (
+    <AnalyticsShell>
     <div style={{ display: 'flex', gap: '14px', height: '100%' }}>
       {/* Left - Report Types list */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ width: '250px', minWidth: '250px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
@@ -267,5 +264,6 @@ export default function ReportsPage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { MagnifyingGlass, Funnel, Star, Megaphone, TrendUp, Sparkle, Warning, ArrowUpRight, ShieldWarning, Coins, Envelope, ChartBar, ChatCircleText, Package, Target, FacebookLogo } from '@phosphor-icons/react';
 import { adsKPIs, adsCampaigns } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const kpiIconMap = [
   Coins,           // 💸 Chi phí quảng cáo
@@ -42,29 +44,18 @@ export default function AdsPage() {
     return matchesSearch;
   });
 
+  const kpiItems = adsKPIs.map((kpi, i) => ({
+    ...kpi,
+    icon: kpiIconMap[i],
+    color: kpiColors[i],
+    changePositive:
+      (kpi.change.includes('↓') && kpi.label.includes('Chi phí')) || !kpi.change.includes('↓'),
+  }));
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%' }}>
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
-        {adsKPIs.map((kpi, i) => {
-          const IconComp = kpiIconMap[i];
-          const iconColor = kpiColors[i];
-          return (
-            <div key={i} className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '10px', display: 'flex', alignItems: 'center', gap: '8px', animationDelay: `${i * 40}ms` }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: kpi.bg || '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {IconComp && <IconComp size={16} weight="duotone" style={{ color: iconColor }} />}
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{kpi.label}</div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: '1px 0', whiteSpace: 'nowrap' }}>{kpi.value}</div>
-                <div style={{ fontSize: '10px', fontWeight: 600, color: kpi.change.includes('↓') && kpi.label.includes('Chi phí') ? '#16a34a' : kpi.change.includes('↓') ? '#dc2626' : '#16a34a' }}>
-                  {kpi.change}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <AnalyticsShell>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <KpiGrid items={kpiItems} columns={7} />
 
       <div style={{ display: 'flex', gap: '14px', flex: 1, minHeight: 0 }}>
         {/* Left - Active Campaigns */}
@@ -261,5 +252,6 @@ export default function AdsPage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }

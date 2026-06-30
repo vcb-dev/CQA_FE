@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { revenueKPIs, revenueTrend, revenueByEmployee, revenueByPage, revenueFunnel } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 import {
   Coins, Package, CurrencyDollar, ChartBar, Megaphone, Leaf, Target,
   FacebookLogo, Diamond, Warning, Crown
@@ -26,9 +28,14 @@ const kpiColors = [
 ];
 
 export default function RevenuePage() {
-  const [anim, setAnim] = useState(false);
   const [period, setPeriod] = useState('month');
-  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
+
+  const kpiItems = revenueKPIs.map((kpi, i) => ({
+    ...kpi,
+    icon: kpiIcons[i],
+    color: kpiColors[i],
+    changePositive: true,
+  }));
 
   const getColor = (s) => { const v = parseInt(s); return v >= 80 ? '#16a34a' : v >= 70 ? '#d97706' : 'var(--orange-500)'; };
 
@@ -66,25 +73,9 @@ export default function RevenuePage() {
   const funnelColors = ['#6366f1', '#818cf8', '#a78bfa', '#22c55e', '#16a34a', '#fbbf24'];
 
   return (
+    <AnalyticsShell>
     <div className="page-scroll">
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
-        {revenueKPIs.map((kpi, i) => {
-          const IconComp = kpiIcons[i];
-          return (
-            <div key={i} className="kpi-card anim-up" style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="kpi-icon" style={{ background: kpi.bg }}>
-                {IconComp && <IconComp size={18} weight="duotone" style={{ color: kpiColors[i] }} />}
-              </div>
-              <div className="kpi-content">
-                <div className="kpi-label">{kpi.label}</div>
-                <div className="kpi-value" style={{ fontSize: '16px' }}>{kpi.value}</div>
-                <div className={`kpi-change up`}>{kpi.change}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <KpiGrid items={kpiItems} columns={7} />
 
       {/* Revenue Trend + AI Insight */}
       <div style={{ display: 'flex', gap: '14px' }}>
@@ -306,5 +297,6 @@ export default function RevenuePage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }

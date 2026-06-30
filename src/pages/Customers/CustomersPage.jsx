@@ -5,6 +5,8 @@ import {
   SmileyMeh, Lightbulb, Warning
 } from '@phosphor-icons/react';
 import { customerKPIs, customerList } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const kpiIconMap = [
   Users,                  // 👥 Tổng khách hàng
@@ -81,28 +83,17 @@ export default function CustomersPage() {
 
   const selectedCustomer = customerList.find(c => c.id === selectedCustomerId) || customerList[0];
 
+  const kpiItems = customerKPIs.map((kpi, i) => ({
+    ...kpi,
+    icon: kpiIconMap[i],
+    color: kpiColors[i],
+    changePositive: !kpi.change.includes('↓'),
+  }));
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%' }}>
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px' }}>
-        {customerKPIs.map((kpi, i) => {
-          const IconComp = kpiIconMap[i];
-          return (
-            <div key={i} className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '10px', animationDelay: `${i * 50}ms` }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: kpi.bg || '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {IconComp && <IconComp size={18} weight="duotone" style={{ color: kpiColors[i] }} />}
-              </div>
-            <div>
-              <div style={{ fontSize: '10.5px', color: '#6b7280', whiteSpace: 'nowrap' }}>{kpi.label}</div>
-              <div style={{ fontSize: '17px', fontWeight: 800, color: '#111827', margin: '1px 0' }}>{kpi.value}</div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: kpi.change.includes('↓') ? '#dc2626' : '#16a34a' }}>
-                {kpi.change} <span style={{ color: '#9ca3af', fontWeight: 400 }}>so với kỳ trước</span>
-              </div>
-            </div>
-            </div>
-          );
-        })}
-      </div>
+    <AnalyticsShell>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <KpiGrid items={kpiItems} columns={6} />
 
       <div style={{ display: 'flex', gap: '14px', flex: 1, minHeight: 0 }}>
         {/* Left - Customer List */}
@@ -362,5 +353,6 @@ export default function CustomersPage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }

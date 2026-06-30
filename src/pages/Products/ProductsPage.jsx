@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MagnifyingGlass, Download, TrendUp, TrendDown, Minus, Package, ChatCircleText, EnvelopeOpen, ShoppingCart, CurrencyDollar, ChartBar, Diamond } from '@phosphor-icons/react';
 import { productKPIs, productList, productTopRevenue } from '../../data/mockData';
+import AnalyticsShell from '@/components/analytics/AnalyticsShell';
+import KpiGrid from '@/components/analytics/KpiGrid';
 
 const kpiIconMap = [
   Package,          // 📦
@@ -21,9 +23,14 @@ const kpiColors = [
 ];
 
 export default function ProductsPage() {
-  const [anim, setAnim] = useState(false);
   const [search, setSearch] = useState('');
-  useEffect(() => { setTimeout(() => setAnim(true), 200); }, []);
+
+  const kpiItems = productKPIs.map((kpi, i) => ({
+    ...kpi,
+    icon: kpiIconMap[i],
+    color: kpiColors[i],
+    changePositive: !kpi.change.includes('↓'),
+  }));
 
   const getColor = (s) => s >= 85 ? '#16a34a' : s >= 75 ? '#d97706' : 'var(--orange-500)';
   const getBg = (s) => s >= 85 ? '#dcfce7' : s >= 75 ? '#fef3c7' : 'var(--orange-100)';
@@ -44,28 +51,11 @@ export default function ProductsPage() {
   ];
 
   return (
+    <AnalyticsShell>
     <div style={{ display: 'flex', gap: '14px', height: '100%' }}>
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', minWidth: 0 }}>
-        {/* KPIs */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4">
-          <div className="card-title">Tổng quan hiệu suất sản phẩm</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
-            {productKPIs.map((kpi, i) => {
-              const IconComp = kpiIconMap[i];
-              return (
-                <div key={i} style={{ padding: '10px', background: '#f9fafb', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {IconComp && <IconComp size={15} weight="duotone" style={{ color: kpiColors[i] }} />}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{kpi.label}</div>
-                  <div style={{ fontSize: '17px', fontWeight: 800, color: '#111827', margin: '2px 0' }}>{kpi.value}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>{kpi.change}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <KpiGrid items={kpiItems} columns={6} />
 
         {/* Product Table */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '200ms' }}>
@@ -238,5 +228,6 @@ export default function ProductsPage() {
         </div>
       </div>
     </div>
+    </AnalyticsShell>
   );
 }
