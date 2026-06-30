@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { History, Loader2, UserX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { fetchInboxViewHistory, type CskhInboxViewer } from './api'
+
+const VIEW_HISTORY_STALE_MS = 60_000
 
 function formatViewTime(iso: string) {
   return new Date(iso).toLocaleString('vi-VN', {
@@ -53,28 +55,45 @@ type ConversationViewHistoryProps = {
   className?: string
 }
 
+export function prefetchInboxViewHistory(
+  qc: ReturnType<typeof useQueryClient>,
+  conversationId: string,
+) {
+  void qc.prefetchQuery({
+    queryKey: ['cskh', 'inbox', 'view-history', conversationId],
+    queryFn: () => fetchInboxViewHistory(conversationId),
+    staleTime: VIEW_HISTORY_STALE_MS,
+  })
+}
+
 export function ConversationViewHistory({
   conversationId,
   pendingCount = 0,
   className,
 }: ConversationViewHistoryProps) {
   const [open, setOpen] = useState(false)
+  const qc = useQueryClient()
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['cskh', 'inbox', 'view-history', conversationId],
     queryFn: () => fetchInboxViewHistory(conversationId),
-    enabled: open,
-    staleTime: 15_000,
+    enabled: Boolean(conversationId),
+    staleTime: VIEW_HISTORY_STALE_MS,
+    placeholderData: (prev) => prev,
   })
 
   const withoutChot = data?.withoutChot ?? []
   const badge = data?.withoutChot.length ?? pendingCount
+
+  const warmCache = () => prefetchInboxViewHistory(qc, conversationId)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          onMouseEnter={warmCache}
+          onFocus={warmCache}
           className={cn(
             'relative flex h-7 w-7 items-center justify-center rounded-lg text-slate-400',
             'hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200 cursor-pointer',
@@ -103,7 +122,7 @@ export function ConversationViewHistory({
         </div>
 
         <div className="max-h-[280px] overflow-y-auto p-1.5">
-          {(isLoading || isFetching) && !data ? (
+          {isLoading && !data ? (
             <div className="flex items-center justify-center gap-2 py-8 text-slate-400">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="text-[11px]">Đang tải...</span>

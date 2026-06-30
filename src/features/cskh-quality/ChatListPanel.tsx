@@ -9,6 +9,7 @@ import { ConversationLabelBadges } from './ChatLabelBar'
 type ChatListPanelProps = {
   selectedConversationId?: string
   onSelect: (conversation: CskhInboxConversation) => void
+  onPrefetch?: (conversation: CskhInboxConversation) => void
   conversations?: CskhInboxConversation[]
   isLoading?: boolean
   isError?: boolean
@@ -74,6 +75,7 @@ type ConversationRowProps = {
   isSelected: boolean
   isTyping: boolean
   onSelect: (conversation: CskhInboxConversation) => void
+  onPrefetch?: (conversation: CskhInboxConversation) => void
 }
 
 const ConversationRow = memo(function ConversationRow({
@@ -81,7 +83,8 @@ const ConversationRow = memo(function ConversationRow({
   isSelected,
   isTyping,
   onSelect,
-}: Omit<ConversationRowProps, 'onPrefetch'>) {
+  onPrefetch,
+}: ConversationRowProps) {
   const colorIdx = getColorIndex(conv.customerName)
   const hasUnread = !isSelected && conv.unreadCount > 0
   const needsLabel = !isSelected && !!conv.awaitingLabel && conv.unreadCount <= 0
@@ -90,6 +93,7 @@ const ConversationRow = memo(function ConversationRow({
   return (
     <button
       onClick={() => onSelect(conv)}
+      onMouseEnter={() => onPrefetch?.(conv)}
       className={cn(
         'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
         isSelected
@@ -229,6 +233,7 @@ const ConversationRow = memo(function ConversationRow({
 export function ChatListPanel({
   selectedConversationId,
   onSelect,
+  onPrefetch,
   conversations = [],
   isLoading = false,
   isError = false,
@@ -373,6 +378,7 @@ export function ChatListPanel({
                 isSelected={selectedConversationId === conv.id}
                 isTyping={typingConversationIds.has(conv.id)}
                 onSelect={onSelect}
+                onPrefetch={onPrefetch}
               />
             </div>
           )

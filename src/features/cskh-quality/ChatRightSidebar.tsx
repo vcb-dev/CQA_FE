@@ -99,8 +99,13 @@ export function ChatRightSidebar({
   const hasSpecificAd =
     adInsights?.insightsScope === 'ad' || Boolean(conversation.adId || adInsights?.adId)
 
+  const isCampaignEstimate = adInsights?.insightsScope === 'campaign'
+
   const isPageEstimate =
     adInsights?.insightsScope === 'page' || adInsights?.isPageLevelEstimate === true
+
+  const showCampaignSpend =
+    (hasSpecificAd || isCampaignEstimate) && adInsights?.spend != null
 
   const hasCostData =
     adInsights != null &&
@@ -261,12 +266,14 @@ export function ChatRightSidebar({
                   <div
                     className={cn(
                       'grid gap-2',
-                      hasSpecificAd && adInsights?.spend != null ? 'grid-cols-2' : 'grid-cols-1',
+                      showCampaignSpend ? 'grid-cols-2' : 'grid-cols-1',
                     )}
                   >
-                    {hasSpecificAd && adInsights?.spend != null && (
+                    {showCampaignSpend && (
                       <div className="bg-white rounded-lg px-2.5 py-2 border border-emerald-100/80 shadow-sm">
-                        <div className="text-[9px] text-slate-400 font-medium">Tổng chi tiêu QC</div>
+                        <div className="text-[9px] text-slate-400 font-medium">
+                          {isCampaignEstimate ? 'Tổng chi tiêu chiến dịch' : 'Tổng chi tiêu QC'}
+                        </div>
                         <div className="text-[12px] font-bold text-slate-800">
                           {formatAdMoney(adInsights.spend, adInsights.currency)}
                         </div>
@@ -274,7 +281,9 @@ export function ChatRightSidebar({
                     )}
                     <div className="bg-white rounded-lg px-2.5 py-2 border border-emerald-100/80 shadow-sm">
                       <div className="text-[9px] text-slate-400 font-medium">
-                        {hasSpecificAd ? 'Chi phí / hội thoại' : 'Chi phí TB / tin nhắn'}
+                        {hasSpecificAd || isCampaignEstimate
+                          ? 'Chi phí / hội thoại'
+                          : 'Chi phí TB / tin nhắn (Page)'}
                       </div>
                       <div className="text-[13px] font-bold text-emerald-700">
                         {formatAdMoney(
@@ -289,7 +298,11 @@ export function ChatRightSidebar({
                       {adInsights.messagingConversations != null && (
                         <>
                           {adInsights.messagingConversations.toLocaleString('vi-VN')}
-                          {hasSpecificAd ? ' hội thoại từ QC này' : ' hội thoại QC trên Page'}
+                          {hasSpecificAd
+                            ? ' hội thoại từ QC này'
+                            : isCampaignEstimate
+                              ? ' hội thoại từ chiến dịch'
+                              : ' hội thoại QC trên Page'}
                         </>
                       )}
                       {adPeriod && (

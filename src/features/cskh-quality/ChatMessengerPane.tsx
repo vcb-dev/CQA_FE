@@ -11,6 +11,7 @@ import {
   fetchCustomerIntent,
   fetchInboxMessagesProgressive,
   fetchConversationAdInsights,
+  prefetchInboxMessages,
   fetchInboxConversationsPage,
   fetchInboxConversationStats,
   fetchInboxLabels,
@@ -22,9 +23,10 @@ import {
 import { ChatListPanel } from './ChatListPanel'
 import { ChatPanel } from './ChatPanel'
 import { ChatRightSidebar } from './ChatRightSidebar'
+import { prefetchInboxViewHistory } from './ConversationViewHistory'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
-import { patchInboxConversationInCache, isInboxMessagePreview } from './inboxRealtimeCache'
+import { patchInboxConversationInCache, isInboxMessagePreview, buildInboxMessagesPreview } from './inboxRealtimeCache'
 import {
   Select,
   SelectContent,
@@ -256,6 +258,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const selectedId = selectedConversation?.id
 
+  useEffect(() => {
+    if (!selectedId) return
+    prefetchInboxViewHistory(qc, selectedId)
+  }, [selectedId, qc])
+
   const { data: messagesCache, isFetched: messagesFetched } = useQuery({
     queryKey: ['cskh', 'inbox', 'messages', selectedId ?? ''],
     queryFn: ({ signal }) =>
@@ -281,9 +288,23 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryKey: ['cskh', 'inbox', 'ad-insights', selectedId],
     queryFn: ({ signal }) =>
       selectedId ? fetchConversationAdInsights(selectedId, signal) : null,
-    enabled: shouldLoadAdInsights,
+    enabled: shouldLoadAdInsights && !!selectedId && messagesReady,
     staleTime: 300_000,
   })
+
+  const handlePrefetchConversation = useCallback(
+    (conv: CskhInboxConversation) => {
+      prefetchInboxMessages(qc, conv)
+      if (conv.fromAd || conv.referralSource === 'HEURISTIC') {
+        void qc.prefetchQuery({
+          queryKey: ['cskh', 'inbox', 'ad-insights', conv.id],
+          queryFn: ({ signal }) => fetchConversationAdInsights(conv.id, signal),
+          staleTime: 300_000,
+        })
+      }
+    },
+    [qc],
+  )
 
   const handleSelectConversation = useCallback((conv: CskhInboxConversation) => {
     const hasLabels = (conv.labels?.length ?? 0) > 0
@@ -291,6 +312,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       ...conv,
       unreadCount: 0,
     }
+
+    qc.setQueryData(
+      ['cskh', 'inbox', 'messages', conv.id],
+      buildInboxMessagesPreview(opened),
+    )
 
     setSelectedConversation(opened)
     setInputDraft('')
@@ -523,6 +549,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
           <ChatListPanel
             selectedConversationId={selectedConversation?.id}
             onSelect={handleSelectConversation}
+            onPrefetch={handlePrefetchConversation}
             conversations={allConversations}
             isLoading={isLoadingConversations && allConversations.length === 0 && !listError}
             isError={listError}

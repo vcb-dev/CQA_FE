@@ -479,7 +479,7 @@ export interface CskhAdInsights {
   localConversationCount: number
   unavailableReason: string | null
   isPageLevelEstimate?: boolean
-  insightsScope?: 'ad' | 'page' | null
+  insightsScope?: 'ad' | 'campaign' | 'page' | null
   /** @deprecated */
   isAccountLevelEstimate?: boolean
   estimateNote?: string | null
@@ -663,6 +663,17 @@ export async function fetchInboxMessages(
 }
 
 const INBOX_MESSAGES_OPEN_LIMIT = 50
+const INBOX_BACKGROUND_REFRESH_MS = 5 * 60_000
+const lastInboxBackgroundRefresh = new Map<string, number>()
+
+function shouldBackgroundRefreshMessages(
+  conversationId: string,
+  quick: { messages: CskhInboxMessage[] },
+): boolean {
+  if (quick.messages.length === 0) return true
+  const last = lastInboxBackgroundRefresh.get(conversationId) ?? 0
+  return Date.now() - last >= INBOX_BACKGROUND_REFRESH_MS
+}
 
 /** Mở hội thoại — trả DB ngay, đồng bộ Graph nền (không chặn UI). */
 export async function fetchInboxMessagesProgressive(
@@ -685,24 +696,45 @@ export async function fetchInboxMessagesProgressive(
       { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
       signal,
     )
+    lastInboxBackgroundRefresh.set(conversationId, Date.now())
     onPartial?.(fresh)
     return fresh
   }
 
-  void fetchInboxMessages(
-    conversationId,
-    { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
-    signal,
-  )
-    .then((fresh) => {
-      if (signal?.aborted) return
-      onPartial?.(fresh)
-    })
-    .catch(() => {
-      /* giữ tin DB nếu sync nền lỗi */
-    })
+  if (shouldBackgroundRefreshMessages(conversationId, quick)) {
+    lastInboxBackgroundRefresh.set(conversationId, Date.now())
+    void fetchInboxMessages(
+      conversationId,
+      { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
+      signal,
+    )
+      .then((fresh) => {
+        if (signal?.aborted) return
+        onPartial?.(fresh)
+      })
+      .catch(() => {
+        /* giữ tin DB nếu sync nền lỗi */
+      })
+  }
 
   return quick
+}
+
+/** Prefetch tin nhắn khi hover — chỉ DB, không sync Graph. */
+export function prefetchInboxMessages(
+  qc: import('@tanstack/react-query').QueryClient,
+  conversation: CskhInboxConversation,
+) {
+  const key = ['cskh', 'inbox', 'messages', conversation.id] as const
+  const existing = qc.getQueryData<{ messages?: CskhInboxMessage[] }>(key)
+  if (existing?.messages?.some((m) => m.id && !m.id.startsWith('preview-'))) return
+
+  void qc.prefetchQuery({
+    queryKey: key,
+    queryFn: ({ signal }) =>
+      fetchInboxMessages(conversation.id, { limit: INBOX_MESSAGES_OPEN_LIMIT }, signal),
+    staleTime: 120_000,
+  })
 }
 
 /** Tải thêm lịch sử cũ khi user cuộn lên. */
