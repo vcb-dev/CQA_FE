@@ -1,8 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Lock, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
+import {
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  Loader2,
+  Sparkles,
+  MessageSquare,
+  BarChart3,
+  Shield,
+} from 'lucide-react';
 import { apiClient, getApiErrorMessage } from '../../lib/axios';
+
+const FEATURES = [
+  {
+    icon: MessageSquare,
+    title: 'Inbox đa kênh',
+    desc: 'Quản lý tin nhắn Facebook Page tập trung',
+  },
+  {
+    icon: Sparkles,
+    title: 'AI chấm điểm CSKH',
+    desc: 'Phân tích chất lượng hội thoại tự động',
+  },
+  {
+    icon: BarChart3,
+    title: 'Báo cáo & Ads',
+    desc: 'Theo dõi chi phí quảng cáo và hiệu quả',
+  },
+];
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -13,7 +41,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // 1. Đọc từ URL Hash Fragment (Khuyến nghị bảo mật)
     let token = null;
     let refreshToken = null;
     const hash = window.location.hash;
@@ -23,7 +50,6 @@ export default function LoginPage() {
       refreshToken = params.get('refreshToken');
     }
 
-    // 2. Fallback đọc từ Query Parameters (Tương thích ngược)
     if (!token) {
       token = searchParams.get('token');
     }
@@ -37,10 +63,7 @@ export default function LoginPage() {
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
-      
-      // Xóa Hash và Query khỏi URL ngay lập tức để tránh rò rỉ bảo mật
       window.history.replaceState(null, '', window.location.pathname);
-      
       toast.success('Đăng nhập thành công!');
       navigate('/', { replace: true });
     } else if (errorParam) {
@@ -75,213 +98,225 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
-      padding: '20px',
-      fontFamily: 'Inter, system-ui, sans-serif'
-    }}>
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{
-        width: '100%',
-        maxWidth: '400px',
-        padding: '32px',
-        background: 'rgba(30, 41, 59, 0.7)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: '#4f46e5',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px',
-            color: '#fff',
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-          }}>
-            <Lock size={22} />
-          </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.025em' }}>
-            Chào mừng trở lại
-          </h2>
-          <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px' }}>
-            Đăng nhập hệ thống CQA CRM Viên Chi Bảo
-          </p>
+    <div className="login-page flex min-h-screen w-full overflow-auto bg-slate-50">
+      {/* Branding panel */}
+      <aside className="relative hidden lg:flex lg:w-[52%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#312e81] p-10 xl:p-14 text-white">
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="login-blob login-blob-1 absolute -left-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl" />
+          <div className="login-blob login-blob-2 absolute bottom-10 right-0 h-96 w-96 rounded-full bg-violet-600/25 blur-3xl" />
+          <div className="login-blob login-blob-3 absolute left-1/3 top-1/2 h-64 w-64 rounded-full bg-blue-400/15 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+              backgroundSize: '28px 28px',
+            }}
+          />
         </div>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Email field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Địa chỉ Email
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@vienchibao.com"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '8px',
-                  color: '#f8fafc',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  transition: 'all 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--primary-500)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
-              />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
+              <Shield className="h-5 w-5 text-indigo-200" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200/80">
+                Viên Chi Bảo
+              </p>
+              <h1 className="text-xl font-bold tracking-tight">CQA CRM</h1>
             </div>
           </div>
+        </div>
 
-          {/* Password field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Mật khẩu
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  padding: '10px 38px 10px 38px',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '8px',
-                  color: '#f8fafc',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  transition: 'all 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--primary-500)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
-              />
+        <div className="relative z-10 my-10 max-w-lg">
+          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-indigo-100 backdrop-blur-sm">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            Nền tảng quản trị CSKH thông minh
+          </span>
+          <h2 className="text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
+            Nâng tầm trải nghiệm
+            <span className="block bg-gradient-to-r from-indigo-200 via-violet-200 to-fuchsia-200 bg-clip-text text-transparent">
+              chăm sóc khách hàng
+            </span>
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-slate-300/90">
+            Tập trung hội thoại, đánh giá chất lượng bằng AI và theo dõi hiệu quả quảng cáo — tất cả
+            trong một hệ thống duy nhất.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <li
+                key={title}
+                className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm transition hover:bg-white/10"
+              >
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/30 ring-1 ring-indigo-400/30">
+                  <Icon className="h-4 w-4 text-indigo-200" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{title}</p>
+                  <p className="text-xs text-slate-400">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-6 text-xs text-slate-400">
+          <div>
+            <p className="text-lg font-bold text-white">35K+</p>
+            <p>Hội thoại quản lý</p>
+          </div>
+          <div className="h-8 w-px bg-white/15" />
+          <div>
+            <p className="text-lg font-bold text-white">AI</p>
+            <p>Phân tích intent</p>
+          </div>
+          <div className="h-8 w-px bg-white/15" />
+          <div>
+            <p className="text-lg font-bold text-white">24/7</p>
+            <p>Đồng bộ realtime</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Form panel */}
+      <main className="relative flex flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
+        {/* Mobile header gradient */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-indigo-100/80 to-transparent lg:hidden" />
+
+        <div className="relative w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Mobile logo */}
+          <div className="mb-8 text-center lg:hidden">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+              <Shield className="h-6 w-6" />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
+              CQA CRM
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/60 ring-1 ring-slate-100">
+            <div className="mb-7 text-center lg:text-left">
+              <div className="mb-4 hidden h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/25 lg:flex">
+                <Lock className="h-5 w-5" />
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
+                Chào mừng trở lại
+              </h2>
+              <p className="mt-1.5 text-sm text-slate-500">
+                Đăng nhập hệ thống CQA CRM Viên Chi Bảo
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Địa chỉ Email
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@vienchibao.com"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Đăng nhập'}
+              </button>
+
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  Hoặc
+                </span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  background: 'none',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: 0
-                }}
+                onClick={handleGoogleLogin}
+                className="flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                Tiếp tục với Google
               </button>
-            </div>
+            </form>
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              marginTop: '8px',
-              padding: '11px',
-              borderRadius: '8px',
-              background: '#4f46e5',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.background = '#3730a3'}
-            onMouseLeave={(e) => e.target.style.background = '#4f46e5'}
-          >
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Đăng nhập'}
-          </button>
+          <p className="mt-6 text-center text-xs text-slate-400">
+            © {new Date().getFullYear()} CQA CRM · Viên Chi Bảo
+          </p>
+        </div>
+      </main>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: '8px 0',
-            color: '#64748b',
-            fontSize: '12px'
-          }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-            <span style={{ padding: '0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hoặc</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            style={{
-              padding: '11px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              color: '#f8fafc',
-              fontSize: '14px',
-              fontWeight: 600,
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" style={{ display: 'block' }}>
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            Tiếp tục với Google
-          </button>
-        </form>
-      </div>
+      <style>{`
+        .login-page {
+          font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        @keyframes login-float {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(12px, -18px) scale(1.05); }
+          66% { transform: translate(-8px, 10px) scale(0.98); }
+        }
+        .login-blob-1 { animation: login-float 14s ease-in-out infinite; }
+        .login-blob-2 { animation: login-float 18s ease-in-out infinite reverse; }
+        .login-blob-3 { animation: login-float 22s ease-in-out infinite 2s; }
+      `}</style>
     </div>
   );
 }
