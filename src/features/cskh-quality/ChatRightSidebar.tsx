@@ -155,22 +155,62 @@ export function ChatRightSidebar({
               <Megaphone className="w-3 h-3 text-amber-600" />
               Chi tiết chiến dịch quảng cáo
             </div>
-            {conversation.adTitle && (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-amber-500 font-medium text-[10px]">Tên quảng cáo:</span>
-                <span className="text-slate-700 font-medium">{conversation.adTitle}</span>
+
+            {(adInsights?.campaignName ||
+              adInsights?.adName ||
+              conversation.adTitle ||
+              (adInsights?.topCampaigns?.length ?? 0) > 0) && (
+              <div className="space-y-1.5 rounded-lg bg-white/60 border border-amber-100/80 px-2.5 py-2">
+                {(adInsights?.campaignName || adInsights?.adsetName) && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-amber-500 font-medium text-[10px]">Chiến dịch:</span>
+                    <span className="text-slate-800 font-semibold leading-snug">
+                      {adInsights?.campaignName ?? '—'}
+                    </span>
+                    {adInsights?.adsetName && (
+                      <span className="text-[10px] text-slate-500">Nhóm QC: {adInsights.adsetName}</span>
+                    )}
+                  </div>
+                )}
+                {(adInsights?.adName || conversation.adTitle) && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-amber-500 font-medium text-[10px]">Tên quảng cáo:</span>
+                    <span className="text-slate-700 font-medium leading-snug">
+                      {adInsights?.adName || conversation.adTitle}
+                    </span>
+                  </div>
+                )}
+                {(conversation.adId || adInsights?.adId) && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-amber-500 font-medium text-[10px]">Mã QC:</span>
+                    <span className="text-slate-600 font-mono text-[10px] select-all">
+                      {conversation.adId || adInsights?.adId}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
-            {conversation.adId && (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-amber-500 font-medium text-[10px]">Mã QC:</span>
-                <span className="text-slate-600 font-mono text-[10px] select-all">{conversation.adId}</span>
-              </div>
-            )}
-            {conversation.referralSource && (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-amber-500 font-medium text-[10px]">Nguồn giới thiệu:</span>
-                <span className="text-slate-600">{conversation.referralSource}</span>
+
+            {adInsights?.topCampaigns && adInsights.topCampaigns.length > 1 && (
+              <div className="space-y-1">
+                <span className="text-amber-600 font-bold text-[9px] uppercase tracking-wide">
+                  Camp đang chi tiêu (30 ngày)
+                </span>
+                <ul className="space-y-1">
+                  {adInsights.topCampaigns.slice(0, 4).map((c) => (
+                    <li
+                      key={c.campaignName}
+                      className="text-[10px] text-slate-600 flex justify-between gap-2 bg-white/50 rounded px-2 py-1"
+                    >
+                      <span className="truncate font-medium">{c.campaignName}</span>
+                      {c.spend != null && (
+                        <span className="shrink-0 text-slate-500">
+                          {formatAdMoney(c.spend, adInsights.currency)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
@@ -211,12 +251,6 @@ export function ChatRightSidebar({
                     <p className="text-[9px] text-slate-500">
                       Tài khoản QC: {adInsights.connectedAdAccountName}
                     </p>
-                  )}
-                  {adInsights?.campaignName && (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-amber-500 font-medium text-[10px]">Chiến dịch:</span>
-                      <span className="text-slate-700">{adInsights.campaignName}</span>
-                    </div>
                   )}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-white/70 rounded-lg px-2 py-1.5 border border-amber-100/50">

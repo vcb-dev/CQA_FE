@@ -482,6 +482,11 @@ export interface CskhAdInsights {
   estimateNote?: string | null
   connectedAdAccountId?: string | null
   connectedAdAccountName?: string | null
+  topCampaigns?: Array<{
+    campaignName: string
+    spend: number | null
+    messagingConversations: number | null
+  }>
 }
 
 export async function fetchConversationAdInsights(
