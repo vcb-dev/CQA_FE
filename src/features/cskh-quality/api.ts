@@ -656,7 +656,10 @@ export async function fetchInboxMessages(
     params: Object.keys(params).length ? params : undefined,
     signal,
   })
-  return data
+  return {
+    conversation: data.conversation,
+    messages: Array.isArray(data.messages) ? data.messages : [],
+  }
 }
 
 const INBOX_MESSAGES_QUICK_LIMIT = 25

@@ -151,7 +151,7 @@ export function appendInboxMessagesToCache(
         messages: merged,
       }
     }
-    const byId = new Map(prev.messages.map((m) => [m.id, m]))
+    const byId = new Map((prev.messages ?? []).map((m) => [m.id, m]))
     for (const msg of incoming) {
       byId.set(msg.id, { ...byId.get(msg.id), ...msg })
     }

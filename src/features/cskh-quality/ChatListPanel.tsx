@@ -137,7 +137,7 @@ const ConversationRow = memo(function ConversationRow({
                   hasUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-700',
                 )}
               >
-                {conv.customerName || `Khách ${conv.participantPsid.slice(0, 8)}`}
+                {conv.customerName || `Khách ${(conv.participantPsid ?? '').slice(0, 8) || '?'}`}
               </h3>
               {conv.fromAd && (
                 <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-sm leading-none shrink-0">

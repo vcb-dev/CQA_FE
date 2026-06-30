@@ -268,7 +268,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const messagesReady =
     messagesFetched ||
-    (messagesCache?.messages.some((m) => !isInboxMessagePreview(m.id)) ?? false)
+    (messagesCache?.messages?.some((m) => !isInboxMessagePreview(m.id)) ?? false)
 
   const { data: intent, isLoading: isLoadingIntent } = useQuery({
     queryKey: ['cskh', 'inbox', 'intent', selectedId],

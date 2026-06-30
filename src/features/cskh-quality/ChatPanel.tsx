@@ -119,7 +119,7 @@ export function ChatPanel({
             if (!prev) return prev
             return {
               ...prev,
-              messages: prev.messages.map((m) =>
+              messages: (prev.messages ?? []).map((m) =>
                 m.id === context.tempId ? { ...newMessage, status: 'sent' } : m
               ),
             }
@@ -147,7 +147,7 @@ export function ChatPanel({
             if (!prev) return prev
             return {
               ...prev,
-              messages: prev.messages.filter((m) => m.id !== context.tempId),
+              messages: (prev.messages ?? []).filter((m) => m.id !== context.tempId),
             }
           }
         )
@@ -227,7 +227,7 @@ export function ChatPanel({
           <div>
             <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
               {conversation.customerName ||
-                `Khách hàng ${conversation.participantPsid.slice(0, 8)}`}
+                `Khách hàng ${(conversation.participantPsid ?? '').slice(0, 8) || '?'}`}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">Cuộc trò chuyện Facebook</span>
