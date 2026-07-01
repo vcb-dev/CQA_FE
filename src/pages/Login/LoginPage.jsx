@@ -12,7 +12,7 @@ const FEATURES = [
 
 const GOOGLE_ACCESS_DENIED_MSG = 'Email bạn không được phép truy cập vào hệ thống.';
 
-function formatLoginError(errorParam: string): string {
+function formatLoginError(errorParam) {
   const raw = decodeURIComponent(errorParam).trim();
   if (!raw) return GOOGLE_ACCESS_DENIED_MSG;
   if (
