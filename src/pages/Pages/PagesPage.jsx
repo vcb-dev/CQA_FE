@@ -19,7 +19,6 @@ import {
 } from '@phosphor-icons/react';
 import {
   fetchCskhPages,
-  syncCskhPagesAdSpend,
   startCskhBackfill,
   pauseCskhBackfill,
   fetchCskhBackfillStatus,
@@ -239,22 +238,6 @@ export default function PagesPage() {
       await refetchBackfill();
     } catch {
       setPausingBackfill(false);
-    }
-  };
-
-  const [syncingAdSpend, setSyncingAdSpend] = useState(false);
-
-  const handleSyncAdSpend = async () => {
-    if (syncingAdSpend) return;
-    setSyncingAdSpend(true);
-    try {
-      const res = await syncCskhPagesAdSpend(selectedDate);
-      await refetch();
-      alert(`Đã đồng bộ chi phí QC: ${res.synced} kênh có dữ liệu (${res.pages} kênh quét).`);
-    } catch {
-      alert('Không đồng bộ được chi phí QC — kiểm tra OAuth Marketing API.');
-    } finally {
-      setSyncingAdSpend(false);
     }
   };
 
@@ -543,7 +526,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             </div>
             <p className="text-xs text-slate-500 mt-1">
               Chọn ngày — hệ thống <strong className="text-slate-600">tự tải</strong> số tin khách gửi đến từ inbox đã đồng bộ.
-              Chi phí QC đồng bộ lúc <strong>3:30 sáng</strong> (VN) hoặc bấm nút bên cạnh.
+              Chi phí QC được cập nhật khi <strong>Quét đầy đủ</strong> xong và tự chạy lúc <strong>2:00 sáng</strong> (VN).
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -563,16 +546,6 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 cursor-pointer"
             >
               Hôm nay
-            </button>
-            <button
-              type="button"
-              onClick={handleSyncAdSpend}
-              disabled={syncingAdSpend}
-              title="Lấy chi tiêu QC từ Marketing API cho ngày đang chọn"
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
-            >
-              <TrendUp size={14} />
-              {syncingAdSpend ? 'Đang sync QC...' : 'Đồng bộ chi phí QC'}
             </button>
             <button
               type="button"
