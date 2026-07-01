@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
 import {
   fetchCskhPages,
+  CSKH_PAGES_LITE_QUERY_KEY,
   syncInboxFromGraph,
   fetchCustomerIntent,
   fetchInboxMessagesProgressive,
@@ -71,10 +72,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     activeConversationId: selectedConversation?.id ?? null,
   })
 
-  const { data: pagesData } = useQuery({
-    queryKey: ['cskh', 'pages'],
-    queryFn: () => fetchCskhPages(),
+  const { data: pagesData, isLoading: isLoadingPages } = useQuery({
+    queryKey: CSKH_PAGES_LITE_QUERY_KEY,
+    queryFn: () => fetchCskhPages({ lite: true }),
+    staleTime: 300_000,
   })
+
+  const pagesLoading = isLoadingPages && !pagesData
 
   const pageKey = selectedPageId ?? 'all'
 
@@ -387,12 +391,15 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             <Select
               value={selectedPageId ?? 'all'}
               onValueChange={(val: string) => setSelectedPageId(val === 'all' ? undefined : val)}
+              disabled={pagesLoading}
             >
               <SelectTrigger className="h-7 min-w-[140px] text-[11px] rounded-lg border-slate-200 bg-slate-50/80 px-2 [&>span]:line-clamp-1 [&>span]:truncate">
-                <SelectValue placeholder="Tất cả Page" />
+                <SelectValue placeholder={pagesLoading ? 'Đang tải Page...' : 'Tất cả Page'} />
               </SelectTrigger>
               <SelectContent className="max-h-72 bg-white rounded-lg">
-                <SelectItem value="all">Tất cả Page ({allPages.length})</SelectItem>
+                <SelectItem value="all">
+                  Tất cả Page ({pagesLoading ? '…' : allPages.length})
+                </SelectItem>
                 {allPages.map((page) => (
                   <SelectItem key={page.pageId} value={page.pageId}>
                     {page.pageName || `Kênh ${page.pageId}`}
@@ -525,12 +532,15 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             <Select
               value={selectedPageId ?? 'all'}
               onValueChange={(val: string) => setSelectedPageId(val === 'all' ? undefined : val)}
+              disabled={pagesLoading}
             >
               <SelectTrigger className="w-full h-8 text-[11px] rounded-lg border-slate-200/60 [&>span]:line-clamp-1 [&>span]:truncate">
-                <SelectValue placeholder="Tất cả kênh" />
+                <SelectValue placeholder={pagesLoading ? 'Đang tải kênh...' : 'Tất cả kênh'} />
               </SelectTrigger>
               <SelectContent className="max-h-72 bg-white rounded-lg">
-                <SelectItem value="all">Tất cả kênh</SelectItem>
+                <SelectItem value="all">
+                  Tất cả kênh ({pagesLoading ? '…' : allPages.length})
+                </SelectItem>
                 {allPages.map((page) => (
                   <SelectItem key={page.pageId} value={page.pageId}>
                     {page.pageName || `Kênh ${page.pageId}`}

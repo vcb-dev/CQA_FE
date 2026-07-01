@@ -19,55 +19,64 @@ import {
 } from '@phosphor-icons/react';
 import {
   fetchCskhPages,
+  syncCskhPagesAdSpend,
   startCskhBackfill,
   pauseCskhBackfill,
   fetchCskhBackfillStatus,
 } from '@/features/cskh-quality/api';
 
-function getVNMonthValue(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(date);
-  const year = parts.find((p) => p.type === 'year')?.value;
-  const month = parts.find((p) => p.type === 'month')?.value;
-  return `${year}-${month}`;
+function getVNDateValue(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
 }
 
-function formatMonthLabel(monthValue) {
-  const [year, month] = monthValue.split('-');
-  return `Tháng ${parseInt(month, 10)}/${year}`;
+function formatDateLabel(dateValue) {
+  const [year, month, day] = dateValue.split('-');
+  return `${day}/${month}/${year}`;
 }
 
 /** Thanh tiến trình indeterminate — API đếm DB, không có % từ server. */
-function MonthStatsProgress({ active, monthLabel }) {
+function DayStatsProgress({ active, dateLabel }) {
   if (!active) return null;
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 shadow-sm animate-in fade-in duration-200">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-indigo-900">
-          Đang thống kê tin nhắn mới đến — <span className="text-indigo-600">{monthLabel}</span>
+          Đang thống kê tin nhắn mới đến — <span className="text-indigo-600">{dateLabel}</span>
         </p>
         <Globe size={15} className="animate-spin text-indigo-600 shrink-0" />
       </div>
       <div className="relative h-2 overflow-hidden rounded-full bg-indigo-100">
         <div
           className="absolute top-0 bottom-0 w-2/5 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600"
-          style={{ animation: 'monthStatsBar 1.15s ease-in-out infinite' }}
+          style={{ animation: 'dayStatsBar 1.15s ease-in-out infinite' }}
         />
       </div>
       <p className="mt-2 text-[10px] font-medium text-indigo-700/70">
         Đọc từ inbox đã đồng bộ — thường hoàn tất trong vài giây, không cần quét Facebook.
       </p>
       <style>{`
-        @keyframes monthStatsBar {
+        @keyframes dayStatsBar {
           0% { left: -40%; }
           100% { left: 100%; }
         }
       `}</style>
     </div>
   );
+}
+
+function formatAdMoney(amount, currency) {
+  if (amount == null || !Number.isFinite(amount)) return '—';
+  const cur = (currency || 'VND').toUpperCase();
+  const rounded = cur === 'VND' ? Math.round(amount) : amount;
+  try {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: cur,
+      maximumFractionDigits: cur === 'VND' ? 0 : 2,
+    }).format(rounded);
+  } catch {
+    return `${rounded.toLocaleString('vi-VN')} ${cur}`;
+  }
 }
 
 function pageMessageCount(p) {
@@ -178,11 +187,11 @@ export default function PagesPage() {
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [performanceFilter, setPerformanceFilter] = useState('all');
-  const [selectedMonth, setSelectedMonth] = useState(() => getVNMonthValue());
+  const [selectedDate, setSelectedDate] = useState(() => getVNDateValue());
 
   const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages, refetch, isError } = useQuery({
-    queryKey: ['cskh', 'pages', selectedMonth],
-    queryFn: () => fetchCskhPages({ month: selectedMonth }),
+    queryKey: ['cskh', 'pages', selectedDate],
+    queryFn: () => fetchCskhPages({ date: selectedDate }),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
@@ -233,27 +242,43 @@ export default function PagesPage() {
     }
   };
 
+  const [syncingAdSpend, setSyncingAdSpend] = useState(false);
+
+  const handleSyncAdSpend = async () => {
+    if (syncingAdSpend) return;
+    setSyncingAdSpend(true);
+    try {
+      const res = await syncCskhPagesAdSpend(selectedDate);
+      await refetch();
+      alert(`Đã đồng bộ chi phí QC: ${res.synced} kênh có dữ liệu (${res.pages} kênh quét).`);
+    } catch {
+      alert('Không đồng bộ được chi phí QC — kiểm tra OAuth Marketing API.');
+    } finally {
+      setSyncingAdSpend(false);
+    }
+  };
+
   const pages = pagesData?.pages || [];
-  const inboundMonthSummary = pagesData?.inboundMonth;
-  const selectedMonthLabel = formatMonthLabel(selectedMonth);
+  const inboundDaySummary = pagesData?.inboundDay;
+  const selectedDateLabel = formatDateLabel(selectedDate);
   const apiBase = import.meta.env.VITE_API_URL || '(chưa cấu hình VITE_API_URL)';
   const isRailwayApi = /railway\.app/i.test(apiBase);
   const deployHint = isRailwayApi
     ? `1. Commit & push code BE (cskh.controller.ts, cskh.service.ts) lên branch Railway đang theo dõi
 2. Railway Dashboard → service cqa-be → Deployments → Redeploy
    (Build Docker Hub viejhaf/cqa-be KHÔNG ảnh hưởng Railway trừ khi Railway cấu hình pull image đó)
-3. Sau deploy, mở ${apiBase.replace(/\/$/, '')}/docs — GET /cskh/pages phải có query ?month=`
+3. Sau deploy, mở ${apiBase.replace(/\/$/, '')}/docs — GET /cskh/pages phải có query ?date=`
     : `cd CQA_BE
 docker build -t viejhaf/cqa-be:latest .
 docker push viejhaf/cqa-be:latest
 # Trên server:
 docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
-  const monthStatsReady =
-    inboundMonthSummary?.month === selectedMonth ||
-    pagesData?.statsMeta?.requestedMonth === selectedMonth ||
+  const dayStatsReady =
+    inboundDaySummary?.date === selectedDate ||
+    pagesData?.statsMeta?.requestedDate === selectedDate ||
     pages.some((p) => typeof p.inboundMessageCount === 'number');
-  const monthStatsUnavailable =
-    !isLoadingPages && !isFetchingPages && !isError && pages.length > 0 && !monthStatsReady;
+  const dayStatsUnavailable =
+    !isLoadingPages && !isFetchingPages && !isError && pages.length > 0 && !dayStatsReady;
 
   useEffect(() => {
     if (!activeChannelId && pages.length > 0) {
@@ -305,11 +330,21 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     type: getPageType(p.pageName),
     msgs: pageMessageCount(p),
     newInbound: p.inboundMessageCount ?? 0,
+    adSpend: p.adSpend,
+    adSpendCurrency: p.adSpendCurrency,
+    adCostPerConversation: p.adCostPerConversation,
+    adMessagingConversations: p.adMessagingConversations,
+    adSpendUnavailableReason: p.adSpendUnavailableReason,
     pictureUrl: p.pagePictureUrl,
   })), [pages]);
 
-  const totalNewInbound = inboundMonthSummary?.totalInbound
+  const totalNewInbound = inboundDaySummary?.totalInbound
     ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
+  const totalAdSpend = inboundDaySummary?.totalAdSpend
+    ?? performance.reduce((sum, p) => sum + (p.adSpend ?? 0), 0);
+  const adSpendCurrency = inboundDaySummary?.adSpendCurrency
+    ?? performance.find((p) => p.adSpendCurrency)?.adSpendCurrency
+    ?? 'VND';
   const totalMsgs = performance.reduce((sum, p) => sum + p.msgs, 0);
 
   const dynamicKPIs = [
@@ -322,20 +357,21 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     { 
       label: 'Tin nhắn mới đến', 
       value: totalNewInbound.toLocaleString(), 
-      sub: selectedMonthLabel, 
+      sub: selectedDateLabel, 
       isReal: true,
+    },
+    { 
+      label: 'Tổng chi tiêu QC', 
+      value: totalAdSpend > 0 ? formatAdMoney(totalAdSpend, adSpendCurrency) : '—', 
+      sub: selectedDateLabel, 
+      isReal: true,
+      adMetric: true,
     },
     { 
       label: 'Số kênh đang hoạt động', 
       value: pages.filter((p) => p.enabled).length.toLocaleString(), 
       sub: `Trên ${pages.length} kênh`, 
       isReal: true,
-    },
-    { 
-      label: 'Doanh thu từ chat', 
-      value: 'Chưa có', 
-      sub: 'Cần kết nối Sapo', 
-      isReal: false,
     },
   ];
 
@@ -371,14 +407,17 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     const topInbound = [...performance].sort((a, b) => b.newInbound - a.newInbound)[0];
     const list = [
       `Kênh "${primaryPageName}" và ${pages.length - 1} kênh khác đang đồng bộ dữ liệu tin nhắn.`,
-      `Trong ${selectedMonthLabel}, hệ thống ghi nhận ${totalNewInbound.toLocaleString()} tin khách gửi đến.`,
+      `Trong ngày ${selectedDateLabel}, hệ thống ghi nhận ${totalNewInbound.toLocaleString()} tin khách gửi đến.`,
     ];
+    if (totalAdSpend > 0) {
+      list.push(`Tổng chi tiêu QC ${selectedDateLabel}: ${formatAdMoney(totalAdSpend, adSpendCurrency)}.`);
+    }
     if (topInbound?.newInbound > 0) {
       list.push(`Kênh "${topInbound.name}" nhận nhiều tin mới nhất (${topInbound.newInbound.toLocaleString()} tin).`);
     }
     list.push('Liên kết Sapo OAuth tại Cài đặt kênh để đồng bộ doanh thu thực tế.');
     return list.slice(0, 4);
-  }, [pages, performance, selectedMonthLabel, totalNewInbound]);
+  }, [pages, performance, selectedDateLabel, totalNewInbound, totalAdSpend, adSpendCurrency]);
 
   const filteredPerformance = useMemo(() => performance.filter(p => {
     if (performanceFilter === 'all') return true;
@@ -500,23 +539,41 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <CalendarBlank size={20} className="text-indigo-600 shrink-0" weight="duotone" />
-              <h3 className="font-bold text-slate-800">Thống kê tin nhắn theo tháng</h3>
+              <h3 className="font-bold text-slate-800">Thống kê tin nhắn theo ngày</h3>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Chọn tháng — hệ thống <strong className="text-slate-600">tự tải</strong> số tin khách gửi đến từ inbox đã đồng bộ.
-              Không cần bấm quét; dữ liệu đọc trực tiếp từ DB.
+              Chọn ngày — hệ thống <strong className="text-slate-600">tự tải</strong> số tin khách gửi đến từ inbox đã đồng bộ.
+              Chi phí QC đồng bộ lúc <strong>3:30 sáng</strong> (VN) hoặc bấm nút bên cạnh.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <label className="flex items-center gap-2 rounded-xl border-2 border-indigo-200 bg-indigo-50/40 px-3 py-2 cursor-pointer">
-              <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Tháng</span>
+              <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Ngày</span>
               <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+                type="date"
+                value={selectedDate}
+                max={getVNDateValue()}
+                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
                 className="text-sm font-bold text-slate-800 bg-transparent border-none outline-none cursor-pointer"
               />
             </label>
+            <button
+              type="button"
+              onClick={() => setSelectedDate(getVNDateValue())}
+              className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 cursor-pointer"
+            >
+              Hôm nay
+            </button>
+            <button
+              type="button"
+              onClick={handleSyncAdSpend}
+              disabled={syncingAdSpend}
+              title="Lấy chi tiêu QC từ Marketing API cho ngày đang chọn"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
+            >
+              <TrendUp size={14} />
+              {syncingAdSpend ? 'Đang sync QC...' : 'Đồng bộ chi phí QC'}
+            </button>
             <button
               type="button"
               onClick={() => handleStartBackfill(false)}
@@ -549,7 +606,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               <div className="text-2xl font-black text-indigo-600 leading-none">
                 {isFetchingPages && !isLoadingPages ? '…' : totalNewInbound.toLocaleString()}
               </div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">{selectedMonthLabel}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">{selectedDateLabel}</div>
             </div>
           </div>
         </div>
@@ -623,13 +680,13 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
         )}
 
-        {monthStatsUnavailable && (
+        {dayStatsUnavailable && (
           <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2">
             <Warning size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="space-y-2">
               <p>
-                API backend đang chạy <strong>bản cũ</strong> — không trả <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code> cho{' '}
-                <strong>{selectedMonthLabel}</strong>.
+                API backend đang chạy <strong>bản cũ</strong> — không trả <code className="text-[11px] bg-amber-100 px-1 rounded">inboundDay</code> cho{' '}
+                <strong>{selectedDateLabel}</strong>.
               </p>
               <p className="text-amber-800/90">
                 {isRailwayApi ? (
@@ -645,8 +702,8 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               </p>
               <pre className="text-[10px] bg-amber-100/80 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap">{deployHint}</pre>
               <p className="text-amber-800/90">
-                Kiểm tra: DevTools → Network → <code className="text-[11px] bg-amber-100 px-1 rounded">pages?month={selectedMonth}</code> → response phải có{' '}
-                <code className="text-[11px] bg-amber-100 px-1 rounded">inboundMonth</code>.
+                Kiểm tra: DevTools → Network → <code className="text-[11px] bg-amber-100 px-1 rounded">pages?date={selectedDate}</code> → response phải có{' '}
+                <code className="text-[11px] bg-amber-100 px-1 rounded">inboundDay</code>.
                 Hiện tại Railway chưa có endpoint <code className="text-[11px] bg-amber-100 px-1 rounded">/cskh/features</code> — dấu hiệu bản cũ.
                 API: <code className="text-[11px] bg-amber-100 px-1 rounded break-all">{apiBase}</code>
               </p>
@@ -660,7 +717,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
         )}
 
-        <MonthStatsProgress active={isFetchingPages} monthLabel={selectedMonthLabel} />
+        <DayStatsProgress active={isFetchingPages} dateLabel={selectedDateLabel} />
 
         <div className={`grid grid-cols-2 2xl:grid-cols-4 gap-3 2xl:gap-4 transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
           {dynamicKPIs.map((kpi, i) => (
@@ -704,8 +761,8 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               <h3 className="font-bold text-slate-800 text-base">Hiệu suất từng Page & Kênh</h3>
               <p className="text-xs text-slate-400 mt-1">
                 {isFetchingPages
-                  ? `Đang cập nhật số liệu ${selectedMonthLabel}...`
-                  : `Theo dõi tổng tin nhắn và tin mới đến trong ${selectedMonthLabel}.`}
+                  ? `Đang cập nhật số liệu ${selectedDateLabel}...`
+                  : `Theo dõi tổng tin nhắn và tin mới đến trong ngày ${selectedDateLabel}.`}
               </p>
             </div>
             <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg self-start sm:self-center select-none">
@@ -748,21 +805,26 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
           
           <div className="overflow-auto flex-1 min-h-0">
-            <table className="w-full text-left border-collapse min-w-[500px]">
+            <table className="w-full text-left border-collapse min-w-[680px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
                   <th className="px-5 py-3.5">Page / Kênh</th>
                   <th className="px-4 py-3.5 text-center">Tin nhắn</th>
                   <th className="px-4 py-3.5 text-center">
-                    <div>Tin nhắn mới đến</div>
-                    <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedMonthLabel}</div>
+                    <div>Tin mới đến</div>
+                    <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedDateLabel}</div>
                   </th>
+                  <th className="px-4 py-3.5 text-center">
+                    <div>Chi tiêu QC</div>
+                    <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedDateLabel}</div>
+                  </th>
+                  <th className="px-4 py-3.5 text-center">CP / hội thoại</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
                 {filteredPerformance.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                    <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
                       Không có trang nào thuộc nền tảng này.
                     </td>
                   </tr>
@@ -793,6 +855,18 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                       {p.newInbound > 0 ? p.newInbound.toLocaleString() : (
                         <span className="text-slate-300 font-normal text-xs">0</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3.5 text-center font-bold text-emerald-700">
+                      {p.adSpend != null && p.adSpend > 0
+                        ? formatAdMoney(p.adSpend, p.adSpendCurrency)
+                        : p.adSpendUnavailableReason
+                          ? <span className="text-slate-300 font-normal text-[10px]" title={p.adSpendUnavailableReason}>—</span>
+                          : <span className="text-slate-300 font-normal text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3.5 text-center font-bold text-slate-700">
+                      {p.adCostPerConversation != null && p.adCostPerConversation > 0
+                        ? formatAdMoney(p.adCostPerConversation, p.adSpendCurrency)
+                        : <span className="text-slate-300 font-normal text-xs">—</span>}
                     </td>
                   </tr>
                 ))}

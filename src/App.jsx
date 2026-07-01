@@ -3,13 +3,16 @@ import { routes } from "@/router/routes";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/Login/LoginPage";
 import PrivacyPage from "./pages/PrivacyPage";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
 import { restoreAuthAfterOAuth } from "@/lib/authSession";
 import PageLoader from "@/components/PageLoader";
+import { CSKH_PAGES_LITE_QUERY_KEY, fetchCskhPages } from "@/features/cskh-quality/api";
 
 function ProtectedLayout() {
   restoreAuthAfterOAuth();
+  const queryClient = useQueryClient();
 
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null;
   const hasToken = !!token && token !== 'undefined' && token !== 'null';
@@ -24,6 +27,15 @@ function ProtectedLayout() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!userProfile) return;
+    void queryClient.prefetchQuery({
+      queryKey: CSKH_PAGES_LITE_QUERY_KEY,
+      queryFn: () => fetchCskhPages({ lite: true }),
+      staleTime: 300_000,
+    });
+  }, [userProfile, queryClient]);
 
   if (!hasToken) {
     return <Navigate to="/login" replace />;

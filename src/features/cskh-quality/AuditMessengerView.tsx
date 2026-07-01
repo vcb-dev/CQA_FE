@@ -18,6 +18,7 @@ import {
 import {
   cancelAuditJob,
   fetchCskhPages,
+  CSKH_PAGES_LITE_QUERY_KEY,
   pauseAuditJob,
   fetchAuditDayStats,
   fetchCskhAudits,
@@ -758,9 +759,9 @@ export function AuditMessengerView({
   ])
 
   const { data: pagesData } = useQuery({
-    queryKey: ['cskh', 'pages'],
-    queryFn: () => fetchCskhPages(),
-    staleTime: 60_000,
+    queryKey: CSKH_PAGES_LITE_QUERY_KEY,
+    queryFn: () => fetchCskhPages({ lite: true }),
+    staleTime: 300_000,
   })
 
   useEffect(() => {

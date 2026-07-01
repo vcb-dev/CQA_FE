@@ -13,6 +13,14 @@ export interface CskhPage {
   unreadConversationCount?: number
   /** Tin nhắn khách gửi đến trong tháng đã chọn (inbound). */
   inboundMessageCount?: number
+  /** Chi tiêu QC trong ngày (cache cron Marketing API). */
+  adSpend?: number | null
+  adSpendCurrency?: string | null
+  adMessagingConversations?: number | null
+  adCostPerConversation?: number | null
+  adAccountName?: string | null
+  adSpendUnavailableReason?: string | null
+  adSpendSyncedAt?: string | null
 }
 
 export interface CskhPagesInboundSummary {
@@ -20,15 +28,25 @@ export interface CskhPagesInboundSummary {
   totalInbound: number
 }
 
+export interface CskhPagesInboundDaySummary {
+  date: string
+  totalInbound: number
+  totalAdSpend?: number | null
+  adSpendCurrency?: string | null
+}
+
 export interface CskhPagesStatsMeta {
-  inboundMonthStats: true
-  requestedMonth: string
+  inboundMonthStats?: true
+  requestedMonth?: string
+  inboundDayStats?: true
+  requestedDate?: string
   buildTag: string
 }
 
 export interface CskhPagesResponse {
   pages: CskhPage[]
   inboundMonth?: CskhPagesInboundSummary
+  inboundDay?: CskhPagesInboundDaySummary
   statsMeta?: CskhPagesStatsMeta
   oauthConnected: boolean
   oauthUser: string | null
@@ -227,11 +245,35 @@ export function getCskhOAuthStartUrl(returnUrl?: string): string {
   return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}`
 }
 
-export async function fetchCskhPages(options?: { month?: string }): Promise<CskhPagesResponse> {
+export async function fetchCskhPages(options?: {
+  month?: string
+  date?: string
+  lite?: boolean
+}): Promise<CskhPagesResponse> {
   const month = options?.month?.trim()
+  const date = options?.date?.trim()
+  const params: Record<string, string> = {}
+  if (month) params.month = month
+  if (date) params.date = date
+  if (options?.lite) params.lite = '1'
   const { data } = await apiClient.get<CskhPagesResponse>('/cskh/pages', {
-    params: month ? { month } : undefined,
+    params: Object.keys(params).length ? params : undefined,
   })
+  return data
+}
+
+export const CSKH_PAGES_LITE_QUERY_KEY = ['cskh', 'pages', 'lite'] as const
+
+export async function syncCskhPagesAdSpend(date?: string): Promise<{
+  synced: number
+  pages: number
+  dates: string[]
+}> {
+  const { data } = await apiClient.post<{ synced: number; pages: number; dates: string[] }>(
+    '/cskh/pages/sync-ad-spend',
+    null,
+    { params: date ? { date } : undefined },
+  )
   return data
 }
 
