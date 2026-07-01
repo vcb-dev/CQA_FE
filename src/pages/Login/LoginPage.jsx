@@ -144,7 +144,7 @@ export default function LoginPage() {
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="user1 hoặc email"
+                  placeholder="Nhập tài khoản"
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-500/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-500/30"
                 />
               </div>
