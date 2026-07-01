@@ -875,6 +875,7 @@ export async function syncInboxFromGraph(
 export interface CskhBackfillStatus {
   running: boolean
   paused?: boolean
+  pauseRequested?: boolean
   scope: 'empty' | 'all' | ''
   total: number
   done: number

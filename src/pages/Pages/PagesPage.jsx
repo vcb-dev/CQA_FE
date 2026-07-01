@@ -202,11 +202,18 @@ export default function PagesPage() {
   const { data: backfillStatus, refetch: refetchBackfill } = useQuery({
     queryKey: ['cskh', 'backfill'],
     queryFn: fetchCskhBackfillStatus,
-    refetchInterval: (query) => (query.state.data?.running ? 2500 : false),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.pauseRequested) return 1000;
+      if (data?.running) return 2500;
+      return false;
+    },
     refetchOnWindowFocus: false,
   });
   const backfillRunning = Boolean(backfillStatus?.running);
   const backfillPaused = Boolean(backfillStatus?.paused && !backfillRunning);
+  const backfillStopping = Boolean(backfillStatus?.pauseRequested) || pausingBackfill;
+  const backfillScanActive = backfillRunning && !backfillStopping;
   const prevBackfillRunning = useRef(false);
 
   useEffect(() => {
@@ -214,8 +221,11 @@ export default function PagesPage() {
       refetch();
       setPausingBackfill(false);
     }
+    if (!backfillRunning && !backfillStatus?.pauseRequested) {
+      setPausingBackfill(false);
+    }
     prevBackfillRunning.current = backfillRunning;
-  }, [backfillRunning, refetch]);
+  }, [backfillRunning, backfillStatus?.pauseRequested, refetch]);
 
   const handleStartBackfill = async (force = false) => {
     if (backfillRunning || startingBackfill) return;
@@ -231,7 +241,7 @@ export default function PagesPage() {
   };
 
   const handlePauseBackfill = async () => {
-    if (!backfillRunning || pausingBackfill) return;
+    if (!backfillScanActive || pausingBackfill) return;
     setPausingBackfill(true);
     try {
       await pauseCskhBackfill();
@@ -550,29 +560,34 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             <button
               type="button"
               onClick={() => handleStartBackfill(false)}
-              disabled={backfillRunning || startingBackfill}
+              disabled={backfillScanActive || startingBackfill}
               title="Quét toàn bộ kênh từ Facebook — tự bỏ qua kênh đã quét nếu tạm dừng trước đó"
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50 cursor-pointer ${
+                backfillStopping
+                  ? 'border border-amber-300 bg-amber-50 text-amber-800'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
             >
-              <DownloadSimple size={14} className={backfillRunning ? 'animate-bounce' : ''} />
-              {backfillRunning
-                ? 'Đang quét...'
-                : backfillPaused
-                  ? 'Tiếp tục quét'
-                  : startingBackfill
-                    ? 'Đang khởi động...'
-                    : 'Quét đầy đủ'}
+              <DownloadSimple size={14} className={backfillScanActive ? 'animate-bounce' : ''} />
+              {backfillStopping
+                ? 'Đang dừng...'
+                : backfillScanActive
+                  ? 'Đang quét...'
+                  : backfillPaused
+                    ? 'Tiếp tục quét'
+                    : startingBackfill
+                      ? 'Đang khởi động...'
+                      : 'Quét đầy đủ'}
             </button>
-            {backfillRunning && (
+            {backfillScanActive && (
               <button
                 type="button"
                 onClick={handlePauseBackfill}
-                disabled={pausingBackfill}
                 title="Tạm dừng sau khi xong kênh hiện tại — tiến độ được lưu vào DB"
-                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 cursor-pointer"
               >
                 <Pause size={14} weight="fill" />
-                {pausingBackfill ? 'Đang dừng...' : 'Tạm dừng'}
+                Tạm dừng
               </button>
             )}
             <div className="text-right px-3 py-1 min-w-[72px]">
@@ -586,7 +601,9 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
 
         {(backfillRunning || backfillPaused || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
           <div className={`rounded-xl border px-4 py-3 shadow-sm ${
-            backfillRunning
+            backfillStopping
+              ? 'border-amber-200 bg-amber-50/80'
+              : backfillScanActive
               ? 'border-indigo-200 bg-indigo-50/80'
               : backfillPaused
                 ? 'border-amber-200 bg-amber-50/80'
@@ -594,35 +611,43 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           }`}>
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className={`text-xs font-bold ${
-                backfillRunning ? 'text-indigo-900' : backfillPaused ? 'text-amber-900' : 'text-emerald-900'
+                backfillStopping ? 'text-amber-900' : backfillScanActive ? 'text-indigo-900' : backfillPaused ? 'text-amber-900' : 'text-emerald-900'
               }`}>
-                {backfillRunning
+                {backfillStopping
+                  ? 'Đang dừng — chờ xong kênh hiện tại'
+                  : backfillScanActive
                   ? 'Đang quét tin nhắn từ Facebook'
                   : backfillPaused
                     ? 'Đã tạm dừng — tiến độ đã lưu'
                     : 'Đã quét xong'}
                 {' '}
                 <span className={
-                  backfillRunning ? 'text-indigo-600' : backfillPaused ? 'text-amber-700' : 'text-emerald-700'
+                  backfillStopping ? 'text-amber-700' : backfillScanActive ? 'text-indigo-600' : backfillPaused ? 'text-amber-700' : 'text-emerald-700'
                 }>
                   {backfillStatus.done}/{backfillStatus.total} kênh
                 </span>
               </p>
-              <span className={`text-xs font-bold ${backfillRunning ? 'text-indigo-700' : 'text-emerald-700'}`}>
+              <span className={`text-xs font-bold ${backfillScanActive ? 'text-indigo-700' : 'text-emerald-700'}`}>
                 +{(backfillStatus.addedMessages || 0).toLocaleString()} tin
               </span>
             </div>
             <div className="relative h-2 overflow-hidden rounded-full bg-white/70">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  backfillRunning ? 'bg-gradient-to-r from-indigo-400 to-indigo-600' : 'bg-emerald-500'
+                  backfillStopping
+                    ? 'bg-gradient-to-r from-amber-300 to-amber-500'
+                    : backfillScanActive ? 'bg-gradient-to-r from-indigo-400 to-indigo-600' : 'bg-emerald-500'
                 }`}
                 style={{ width: `${backfillStatus.total > 0 ? Math.round((backfillStatus.done / backfillStatus.total) * 100) : 0}%` }}
               />
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className={`text-[10px] font-medium truncate ${backfillRunning ? 'text-indigo-700/80' : 'text-emerald-700/80'}`}>
-                {backfillRunning && backfillStatus.currentPage
+              <p className={`text-[10px] font-medium truncate ${
+                backfillStopping ? 'text-amber-700/80' : backfillScanActive ? 'text-indigo-700/80' : 'text-emerald-700/80'
+              }`}>
+                {backfillStopping && backfillStatus.currentPage
+                  ? `Đang kết thúc kênh: ${backfillStatus.currentPage}`
+                  : backfillScanActive && backfillStatus.currentPage
                   ? `Đang xử lý: ${backfillStatus.currentPage}`
                   : `Hoàn tất ${backfillStatus.okPages} kênh`}
                 {backfillStatus.errorPages?.length > 0 && (
