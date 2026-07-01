@@ -10,6 +10,20 @@ const FEATURES = [
   { icon: BarChart3, title: 'Báo cáo & Ads' },
 ];
 
+const GOOGLE_ACCESS_DENIED_MSG = 'Email bạn không được phép truy cập vào hệ thống.';
+
+function formatLoginError(errorParam: string): string {
+  const raw = decodeURIComponent(errorParam).trim();
+  if (!raw) return GOOGLE_ACCESS_DENIED_MSG;
+  if (
+    raw === 'Unauthorized' ||
+    /chưa được cấp quyền|không được phép truy cập/i.test(raw)
+  ) {
+    return GOOGLE_ACCESS_DENIED_MSG;
+  }
+  return raw;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,8 +51,8 @@ export default function LoginPage() {
       toast.success('Đăng nhập thành công!');
       navigate('/', { replace: true });
     } else if (errorParam) {
-      toast.error(decodeURIComponent(errorParam));
-      navigate('/login', { replace: true });
+      toast.error(formatLoginError(errorParam));
+      window.history.replaceState(null, '', window.location.pathname);
     }
   }, [searchParams, navigate]);
 
