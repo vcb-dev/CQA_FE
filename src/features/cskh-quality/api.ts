@@ -34,6 +34,8 @@ export interface CskhPagesResponse {
   oauthUser: string | null
   oauthUpdatedAt: string | null
   oauthExpiresAt: string | null
+  oauthSyncStatus?: 'running' | 'done' | 'failed' | null
+  oauthSyncError?: string | null
   adsReadConnected?: boolean
   adAccountCount?: number
 }

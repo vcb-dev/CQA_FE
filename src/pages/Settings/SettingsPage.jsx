@@ -54,6 +54,8 @@ Các tiêu chí cần đánh giá:
   const { data: pagesData, isLoading: isLoadingPages, isFetching: isFetchingPages } = useQuery({
     queryKey: ['cskh', 'pages'],
     queryFn: () => fetchCskhPages(),
+    refetchInterval: (query) =>
+      query.state.data?.oauthSyncStatus === 'running' ? 2_000 : false,
   });
 
   // Toggle active/inactive status
@@ -122,6 +124,7 @@ Các tiêu chí cần đánh giá:
   });
 
   const isPagesBusy = isLoadingPages || isFetchingPages || isRefreshing;
+  const isOAuthSyncing = pagesData?.oauthSyncStatus === 'running';
 
   useEffect(() => {
     setTimeout(() => setAnim(true), 200);
@@ -544,22 +547,32 @@ Các tiêu chí cần đánh giá:
                       : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
                   </p>
                   {pagesData?.oauthConnected && !isPagesBusy && (
-                    <p style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      marginTop: '6px',
-                      color: pagesData.adAccountCount === undefined
-                        ? '#6b7280'
-                        : pagesData.adsReadConnected
-                          ? '#15803d'
-                          : '#b45309',
-                    }}>
-                      {pagesData.adAccountCount === undefined
-                        ? 'Trạng thái Marketing API: cần cập nhật server mới'
-                        : pagesData.adsReadConnected
-                          ? `✓ Marketing API: ${pagesData.adAccountCount} tài khoản quảng cáo`
-                          : '⚠ Chưa thấy tài khoản quảng cáo — OAuth bằng admin QC trên Business Manager'}
-                    </p>
+                    <>
+                      <p style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        marginTop: '6px',
+                        color: pagesData.adAccountCount === undefined
+                          ? '#6b7280'
+                          : pagesData.adsReadConnected
+                            ? '#15803d'
+                            : '#b45309',
+                      }}>
+                        {pagesData.adAccountCount === undefined
+                          ? 'Trạng thái Marketing API: cần cập nhật server mới'
+                          : pagesData.adsReadConnected
+                            ? `✓ Marketing API: ${pagesData.adAccountCount} tài khoản QC (Ads Manager)`
+                            : '⚠ Chưa thấy tài khoản QC — OAuth bằng admin trên Business Manager'}
+                      </p>
+                      {pagesData.adsReadConnected && pagesData.adAccountCount != null && (
+                        <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', lineHeight: 1.45, maxWidth: '420px' }}>
+                          Đây là số <strong>tài khoản chi tiêu QC</strong> trên Ads Manager —{' '}
+                          <strong>không phải</strong> số Fanpage đang chạy quảng cáo.
+                          Nhiều Page có thể chạy QC qua chung một tài khoản; bạn đang quản lý{' '}
+                          <strong>{pagesData.pages.length} Fanpage</strong> bên dưới.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -586,6 +599,41 @@ Các tiêu chí cần đánh giá:
                 {pagesData?.oauthConnected ? 'Cập nhật kết nối Facebook' : 'Kết nối tài khoản Facebook'}
               </button>
             </div>
+
+            {isOAuthSyncing && (
+              <div style={{
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#1d4ed8',
+                lineHeight: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <Loader2 size={14} className="animate-spin" style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>Đang đồng bộ Fanpage từ Facebook...</strong> Bạn có thể dùng hệ thống ngay;
+                  danh sách Page sẽ cập nhật tự động trong vài giây.
+                </span>
+              </div>
+            )}
+
+            {pagesData?.oauthSyncStatus === 'failed' && pagesData?.oauthSyncError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#b91c1c',
+                lineHeight: 1.5,
+              }}>
+                <strong>Đồng bộ Page thất bại:</strong> {pagesData.oauthSyncError}
+              </div>
+            )}
 
             {pagesData?.oauthConnected && pagesData.adsReadConnected === false && (
               <div style={{

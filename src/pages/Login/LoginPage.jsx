@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Sparkles, MessageSquare, BarChart3, Shield } from 'lucide-react';
-import { apiClient } from '../../lib/axios';
+import { Sparkles, MessageSquare, BarChart3, Shield, Loader2 } from 'lucide-react';
+import { apiClient, getApiErrorMessage } from '../../lib/axios';
 
 const FEATURES = [
   { icon: MessageSquare, title: 'Inbox đa kênh' },
@@ -13,6 +13,9 @@ const FEATURES = [
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let token = null;
@@ -43,9 +46,34 @@ export default function LoginPage() {
     window.location.assign(`${apiClient.defaults.baseURL}/auth/google`);
   };
 
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault();
+    if (!username.trim() || !password) {
+      toast.error('Vui lòng nhập tài khoản và mật khẩu');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { data } = await apiClient.post('/auth/login', {
+        email: username.trim(),
+        password,
+      });
+      const accessToken = data?.data?.accessToken;
+      const refreshToken = data?.data?.refreshToken;
+      if (!accessToken) throw new Error('Không nhận được token đăng nhập');
+      localStorage.setItem('authToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      toast.success('Đăng nhập thành công!');
+      navigate('/', { replace: true });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="login-page relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#0b1020] px-4 py-10 sm:px-6">
-      {/* Background */}
       <div className="pointer-events-none absolute inset-0">
         <div className="login-blob login-blob-1 absolute -left-24 -top-24 h-80 w-80 rounded-full bg-indigo-600/35 blur-3xl" />
         <div className="login-blob login-blob-2 absolute -bottom-20 -right-16 h-96 w-96 rounded-full bg-violet-600/30 blur-3xl" />
@@ -60,7 +88,6 @@ export default function LoginPage() {
       </div>
 
       <div className="relative z-10 grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[1fr_400px] lg:gap-16 xl:gap-20">
-        {/* Branding — hiện trên mọi màn hình */}
         <div className="text-center lg:text-left">
           <div className="mb-6 flex items-center justify-center gap-3 lg:justify-start">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/40 ring-1 ring-white/20">
@@ -97,14 +124,64 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Login card */}
         <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl shadow-black/30 backdrop-blur-xl ring-1 ring-white/10">
             <div className="mb-7 text-center">
               <h3 className="text-xl font-bold text-white">Chào mừng trở lại</h3>
               <p className="mt-1.5 text-sm text-slate-400">
-                Đăng nhập bằng tài khoản Google
+                Đăng nhập bằng tài khoản hoặc Google
               </p>
+            </div>
+
+            <form onSubmit={handlePasswordLogin} className="space-y-4">
+              <div>
+                <label htmlFor="login-username" className="mb-1.5 block text-left text-xs font-medium text-slate-300">
+                  Tài khoản
+                </label>
+                <input
+                  id="login-username"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="user1 hoặc email"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-500/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+              <div>
+                <label htmlFor="login-password" className="mb-1.5 block text-left text-xs font-medium text-slate-300">
+                  Mật khẩu
+                </label>
+                <input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-500/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-400 hover:to-violet-500 active:scale-[0.98] disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang đăng nhập...
+                  </>
+                ) : (
+                  'Đăng nhập'
+                )}
+              </button>
+            </form>
+
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-[11px] text-slate-500">hoặc</span>
+              <div className="h-px flex-1 bg-white/10" />
             </div>
 
             <button
