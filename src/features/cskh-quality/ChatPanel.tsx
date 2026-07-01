@@ -60,17 +60,16 @@ export function ChatPanel({
   })
 
   const rawMessages = messagesData?.messages ?? []
+  const hasRealMessages = rawMessages.some((m) => !isInboxMessagePreview(m.id))
   const messages = useMemo(() => {
-    const hasReal = rawMessages.some((m) => !isInboxMessagePreview(m.id))
-    return hasReal
-      ? rawMessages.filter((m) => !isInboxMessagePreview(m.id))
-      : rawMessages
-  }, [rawMessages])
+    if (!hasRealMessages) return []
+    return rawMessages.filter((m) => !isInboxMessagePreview(m.id))
+  }, [rawMessages, hasRealMessages])
 
   const conversationWithLabels = messagesData?.conversation ?? conversation
   const showInitialLoader =
-    !isFetched && (isLoading || isPending) && messages.length === 0
-  const showHydratingHint = isFetching && messages.length > 0
+    !hasRealMessages && (!isFetched || isLoading || isPending || isFetching)
+  const showHydratingHint = isFetching && hasRealMessages
 
   // Send message mutation
   const sendMut = useMutation({
@@ -270,11 +269,8 @@ export function ChatPanel({
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white"
       >
         {showInitialLoader ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
-              <span className="text-[11px] text-slate-400">Đang tải tin nhắn...</span>
-            </div>
+          <div className="flex items-center justify-center h-full min-h-[200px]">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
           </div>
         ) : displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400">
@@ -296,15 +292,19 @@ export function ChatPanel({
         )}
       </div>
 
-      {/* Label bar + Input */}
-      <ChatLabelBar conversation={conversationWithLabels} />
-      <ChatMessageInput
-        onSend={(text) => { sendMut.mutate(text) }}
-        onTyping={handleTyping}
-        disabled={sendMut.isPending}
-        draftText={draftText}
-        onDraftApplied={onDraftApplied}
-      />
+      {/* Label bar + Input — chỉ hiện khi đã có tin thật */}
+      {!showInitialLoader && (
+        <>
+          <ChatLabelBar conversation={conversationWithLabels} />
+          <ChatMessageInput
+            onSend={(text) => { sendMut.mutate(text) }}
+            onTyping={handleTyping}
+            disabled={sendMut.isPending}
+            draftText={draftText}
+            onDraftApplied={onDraftApplied}
+          />
+        </>
+      )}
     </div>
   )
 }

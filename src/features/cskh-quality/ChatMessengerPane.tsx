@@ -26,7 +26,7 @@ import { ChatRightSidebar } from './ChatRightSidebar'
 import { prefetchInboxViewHistory } from './ConversationViewHistory'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
-import { patchInboxConversationInCache, isInboxMessagePreview, buildInboxMessagesPreview } from './inboxRealtimeCache'
+import { patchInboxConversationInCache, isInboxMessagePreview } from './inboxRealtimeCache'
 import {
   Select,
   SelectContent,
@@ -312,11 +312,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       ...conv,
       unreadCount: 0,
     }
-
-    qc.setQueryData(
-      ['cskh', 'inbox', 'messages', conv.id],
-      buildInboxMessagesPreview(opened),
-    )
 
     setSelectedConversation(opened)
     setInputDraft('')
