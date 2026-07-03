@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -24,7 +24,26 @@ import {
   pauseCskhBackfill,
   cancelCskhBackfill,
   fetchCskhBackfillStatus,
+  CSKH_PAGES_LITE_QUERY_KEY,
 } from '@/features/cskh-quality/api';
+
+function buildPagesPlaceholderFromLite(lite, selectedDate) {
+  if (!lite?.pages?.length) return undefined;
+  return {
+    ...lite,
+    pages: lite.pages.map((p) => ({
+      ...p,
+      conversationCount: p.conversationCount ?? 0,
+      messageCount: p.messageCount ?? 0,
+      unreadConversationCount: p.unreadConversationCount ?? 0,
+      inboundMessageCount: undefined,
+      adSpend: null,
+      adCostPerConversation: null,
+    })),
+    inboundDay: { date: selectedDate, totalInbound: null, totalAdSpend: null, adSpendSyncPending: false },
+    statsMeta: { inboundDayStats: true, requestedDate: selectedDate, buildTag: 'inbound-day-v1' },
+  };
+}
 
 function getVNDateValue(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
@@ -184,6 +203,7 @@ const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
 
 export default function PagesPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,7 +215,8 @@ export default function PagesPage() {
     queryFn: () => fetchCskhPages({ date: selectedDate }),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    placeholderData: keepPreviousData,
+    placeholderData: (prev) =>
+      prev ?? buildPagesPlaceholderFromLite(queryClient.getQueryData(CSKH_PAGES_LITE_QUERY_KEY), selectedDate),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -514,7 +535,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     [performance]
   );
 
-  const isInitialPagesLoad = isLoadingPages && !pagesData;
+  const isInitialPagesLoad = isLoadingPages && !pagesData?.pages?.length;
 
   if (isInitialPagesLoad) {
     return (
