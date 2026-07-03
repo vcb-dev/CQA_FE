@@ -268,15 +268,6 @@ export default function PagesPage() {
     }
   }, [backfillScanActive, backfillPaused, backfillStatus?.completedPageIds, refetch]);
 
-  /** Trong lúc quét — poll bảng (chi phí QC Meta có thể về chậm hơn vài giây). */
-  useEffect(() => {
-    if (!backfillScanActive) return undefined;
-    const timer = setInterval(() => {
-      void refetch();
-    }, 8_000);
-    return () => clearInterval(timer);
-  }, [backfillScanActive, refetch]);
-
   const handleStartBackfill = async (force = false) => {
     if (backfillRunning || startingBackfill) return;
     setStartingBackfill(true);
