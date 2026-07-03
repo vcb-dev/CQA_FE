@@ -886,6 +886,7 @@ export interface CskhBackfillStatus {
   addedMessages: number
   okPages: number
   errorPages: Array<{ page: string; error: string; pageId?: string }>
+  completedPageIds?: string[]
   startedAt: string | null
   finishedAt: string | null
   jobId?: string | null

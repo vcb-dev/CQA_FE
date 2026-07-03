@@ -226,6 +226,7 @@ export default function PagesPage() {
   const backfillStopping = Boolean(backfillStatus?.pauseRequested) || pausingBackfill;
   const backfillScanActive = backfillRunning && !backfillStopping;
   const prevBackfillRunning = useRef(false);
+  const prevBackfillDone = useRef(0);
 
   useEffect(() => {
     if (prevBackfillRunning.current && !backfillRunning) {
@@ -237,6 +238,28 @@ export default function PagesPage() {
     }
     prevBackfillRunning.current = backfillRunning;
   }, [backfillRunning, backfillStatus?.pauseRequested, refetch]);
+
+  /** Mỗi khi quét xong thêm 1 kênh → tải lại bảng (tin mới, chi phí QC, CP/HT). */
+  useEffect(() => {
+    if (!backfillScanActive && !backfillPaused) {
+      prevBackfillDone.current = backfillStatus?.done ?? 0;
+      return;
+    }
+    const done = backfillStatus?.done ?? 0;
+    if (done > prevBackfillDone.current) {
+      prevBackfillDone.current = done;
+      void refetch();
+    }
+  }, [backfillScanActive, backfillPaused, backfillStatus?.done, refetch]);
+
+  /** Trong lúc quét — poll bảng định kỳ (chi phí QC Meta có thể về chậm hơn vài giây). */
+  useEffect(() => {
+    if (!backfillScanActive) return undefined;
+    const timer = setInterval(() => {
+      void refetch();
+    }, 12_000);
+    return () => clearInterval(timer);
+  }, [backfillScanActive, refetch]);
 
   const handleStartBackfill = async (force = false) => {
     if (backfillRunning || startingBackfill) return;
@@ -341,6 +364,11 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     adSpendUnavailableReason: p.adSpendUnavailableReason,
     pictureUrl: p.pagePictureUrl,
   })), [pages]);
+
+  const scannedPageIds = useMemo(
+    () => new Set(backfillStatus?.completedPageIds ?? []),
+    [backfillStatus?.completedPageIds],
+  );
 
   const totalNewInbound = inboundDaySummary?.totalInbound
     ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
@@ -849,8 +877,23 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                     </td>
                   </tr>
                 )}
-                {filteredPerformance.map((p) => (
-                  <tr key={p.pageId} className="hover:bg-slate-50/30 transition-colors">
+                {filteredPerformance.map((p) => {
+                  const isScanned = scannedPageIds.has(p.pageId);
+                  const isScanningNow =
+                    backfillScanActive &&
+                    backfillStatus?.currentPage &&
+                    (p.name === backfillStatus.currentPage || p.pageId === backfillStatus.currentPage);
+                  return (
+                  <tr
+                    key={p.pageId}
+                    className={`transition-colors ${
+                      isScanningNow
+                        ? 'bg-indigo-50/50'
+                        : isScanned && (backfillScanActive || backfillPaused)
+                          ? 'bg-emerald-50/35'
+                          : 'hover:bg-slate-50/30'
+                    }`}
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8 rounded-full bg-slate-50 border border-slate-200/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -861,7 +904,19 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                           )}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-800">{p.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">{p.name}</span>
+                            {isScanningNow && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">
+                                Đang quét
+                              </span>
+                            )}
+                            {isScanned && !isScanningNow && (backfillScanActive || backfillPaused) && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                Đã quét
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-400 font-semibold">{p.type}</div>
                         </div>
                       </div>
@@ -889,7 +944,8 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                         : <span className="text-slate-300 font-normal text-xs">—</span>}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
