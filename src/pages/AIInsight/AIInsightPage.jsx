@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useMemo, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ChartBar,
@@ -41,6 +41,14 @@ function defaultRange() {
   const from = new Date();
   from.setDate(from.getDate() - 29);
   return { from: formatYmd(from), to: formatYmd(to) };
+}
+
+function isRealStrengthLabel(label) {
+  const t = (label || '').toLowerCase();
+  if (!t || t.length < 10) return false;
+  if (/kh[oô]ng c[oó] (ưu đi[ểe]m|đi[ểe]m mạnh)/.test(t)) return false;
+  if (/chưa có (ưu đi[ểe]m|phản hồi)/.test(t)) return false;
+  return true;
 }
 
 function StatusTag({ status, label }) {
@@ -191,9 +199,29 @@ const btnPrimary = {
   gap: 6,
 };
 
+function ContentLoading({ label }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ padding: '32px 16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <ArrowCounterClockwise size={28} weight="bold" className="animate-spin" style={{ color: '#4f46e5' }} />
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{label}</p>
+        <p style={{ fontSize: 11, color: '#9ca3af' }}>Có thể mất 10–15 giây tùy khoảng ngày</p>
+      </div>
+    </div>
+  );
+}
+
+function dataMatchesSelection(data, selectedPageId) {
+  if (!data) return false;
+  const sid = selectedPageId || '';
+  const dataSid = data.selectedPageId || '';
+  return sid === dataSid;
+}
+
 export default function AIInsightPage() {
   const [range, setRange] = useState(defaultRange);
   const [selectedPageId, setSelectedPageId] = useState('');
+  const [pageDirectory, setPageDirectory] = useState([]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['cskh', 'insights', range.from, range.to, selectedPageId || 'all'],
@@ -204,16 +232,28 @@ export default function AIInsightPage() {
         pageId: selectedPageId || undefined,
       }),
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
   });
 
-  const isInitialLoad = isLoading && !data;
+  useEffect(() => {
+    const list = data?.pageDirectory ?? data?.byPage?.all;
+    if (list?.length) setPageDirectory(list);
+  }, [data?.pageDirectory, data?.byPage?.all]);
+
+  const dataReady = dataMatchesSelection(data, selectedPageId);
+  const showContentLoading = !dataReady && (isLoading || isFetching) && !isError;
+
   const isChannelDetail = Boolean(selectedPageId);
-  const byPage = data?.byPage;
-  const pageOptions = data?.pageDirectory ?? data?.byPage?.all ?? [];
+  const byPage = dataReady ? data?.byPage : null;
+  const pageOptions = pageDirectory.length > 0 ? pageDirectory : (data?.pageDirectory ?? data?.byPage?.all ?? []);
+
+  const selectedPageName = useMemo(() => {
+    if (!selectedPageId) return null;
+    if (dataReady && data?.selectedPageName) return data.selectedPageName;
+    return pageOptions.find((p) => p.pageId === selectedPageId)?.pageName ?? null;
+  }, [selectedPageId, dataReady, data?.selectedPageName, pageOptions]);
 
   const kpiItems = useMemo(() => {
-    if (!data?.kpis) return [];
+    if (!dataReady || !data?.kpis) return [];
     return data.kpis.map((kpi, i) => ({
       ...kpi,
       icon: kpiIconMap[i],
@@ -221,7 +261,21 @@ export default function AIInsightPage() {
       change: `${kpi.change} ${kpi.sub}`,
       changePositive: kpi.changePositive,
     }));
-  }, [data]);
+  }, [data, dataReady]);
+
+  const highCloseFactors = useMemo(
+    () => (dataReady ? (data?.closeRateFactors?.highClose ?? []).filter((f) => isRealStrengthLabel(f.label)) : []),
+    [data, dataReady],
+  );
+
+  const lostOrderFactors = useMemo(
+    () => (dataReady ? (data?.closeRateFactors?.lostOrders ?? []) : []),
+    [data, dataReady],
+  );
+
+  const loadingLabel = isChannelDetail && selectedPageName
+    ? `Đang tải insight kênh «${selectedPageName}»...`
+    : 'Đang tổng hợp insight tất cả kênh...';
 
   const clearChannel = () => setSelectedPageId('');
 
@@ -243,10 +297,12 @@ export default function AIInsightPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <Sparkle size={14} weight="duotone" style={{ color: '#4f46e5' }} />
                 <span style={{ fontSize: 12, color: '#6b7280' }}>
-                  {data?.intro ?? (isInitialLoad ? 'Đang tải dữ liệu chấm điểm...' : 'Chọn khoảng ngày để xem insight')}
+                  {showContentLoading
+                    ? loadingLabel
+                    : (data?.intro ?? 'Chọn khoảng ngày để xem insight')}
                 </span>
               </div>
-              {data && (
+              {dataReady && data && (
                 <div style={{ fontSize: 11, color: '#9ca3af' }}>
                   Điểm TB {data.avgScore}/100 · {data.totalAnalyzed.toLocaleString('vi-VN')} bản ghi
                   {byPage?.summary && !isChannelDetail && (
@@ -261,7 +317,8 @@ export default function AIInsightPage() {
                 <select
                   value={selectedPageId}
                   onChange={(e) => setSelectedPageId(e.target.value)}
-                  style={{ ...inputStyle, maxWidth: 220, marginLeft: 4 }}
+                  disabled={showContentLoading}
+                  style={{ ...inputStyle, maxWidth: 220, marginLeft: 4, opacity: showContentLoading ? 0.7 : 1 }}
                 >
                   <option value="">Tất cả kênh</option>
                   {pageOptions.map((p) => (
@@ -298,7 +355,7 @@ export default function AIInsightPage() {
         </div>
 
         {/* Banner chi tiết kênh */}
-        {isChannelDetail && data?.selectedPageName && (
+        {isChannelDetail && selectedPageName && (
           <div
             style={{
               borderRadius: 12,
@@ -313,20 +370,19 @@ export default function AIInsightPage() {
             }}
           >
             <span style={{ fontSize: 12, color: '#4338ca' }}>
-              Đang xem: <strong>{data.selectedPageName}</strong>
+              Đang xem: <strong>{selectedPageName}</strong>
+              {showContentLoading && (
+                <span style={{ marginLeft: 8, color: '#6366f1', fontWeight: 600 }}>· Đang tải...</span>
+              )}
             </span>
-            <button type="button" onClick={clearChannel} style={btnPrimary}>
+            <button type="button" onClick={clearChannel} style={btnPrimary} disabled={showContentLoading}>
               <ArrowLeft size={14} weight="bold" />
               Quay lại danh sách kênh
             </button>
           </div>
         )}
 
-        {isInitialLoad && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
-            Đang tổng hợp insight (~10–15 giây)...
-          </div>
-        )}
+        {showContentLoading && !isError && <ContentLoading label={loadingLabel} />}
 
         {isError && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -334,7 +390,7 @@ export default function AIInsightPage() {
           </div>
         )}
 
-        {data && (
+        {dataReady && data && (
           <>
             {!isChannelDetail && byPage && (
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
@@ -427,24 +483,36 @@ export default function AIInsightPage() {
                       <CheckCircle size={14} weight="fill" />
                       Giúp chốt cao
                     </h4>
-                    {(data.closeRateFactors?.highClose ?? []).map((f, i) => (
-                      <div key={i} className="factor-item">
-                        <span className="name">{f.label}</span>
-                        <span className="pct" style={{ color: '#16a34a' }}>{f.pct}%</span>
+                    {highCloseFactors.length > 0 ? (
+                      highCloseFactors.map((f, i) => (
+                        <div key={i} className="factor-item">
+                          <span className="name">{f.label}</span>
+                          <span className="pct" style={{ color: '#16a34a' }}>{f.pct}%</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
+                        Không có yếu tố nào giúp chốt cao
                       </div>
-                    ))}
+                    )}
                   </div>
                   <div className="factor-col">
                     <h4 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Warning size={14} weight="fill" />
                       Lý do mất đơn
                     </h4>
-                    {(data.closeRateFactors?.lostOrders ?? []).map((f, i) => (
-                      <div key={i} className="factor-item">
-                        <span className="name">{f.label}</span>
-                        <span className="pct" style={{ color: '#dc2626' }}>{f.pct}%</span>
+                    {lostOrderFactors.length > 0 ? (
+                      lostOrderFactors.map((f, i) => (
+                        <div key={i} className="factor-item">
+                          <span className="name">{f.label}</span>
+                          <span className="pct" style={{ color: '#dc2626' }}>{f.pct}%</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
+                        Không có lý do mất đơn nổi bật
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               </div>
