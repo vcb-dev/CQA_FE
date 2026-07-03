@@ -226,8 +226,10 @@ export default function PagesPage() {
   });
   const backfillRunning = Boolean(backfillStatus?.running);
   const backfillPaused = Boolean(backfillStatus?.paused && !backfillRunning);
-  const backfillStopping = Boolean(backfillStatus?.pauseRequested) || pausingBackfill || cancellingBackfill;
-  const backfillScanActive = backfillRunning && !backfillStopping;
+  const backfillPausing = Boolean(backfillStatus?.pauseRequested) || pausingBackfill;
+  const backfillCancelling = cancellingBackfill;
+  const backfillStopping = backfillPausing;
+  const backfillScanActive = backfillRunning && !backfillPausing && !backfillCancelling;
   const prevBackfillRunning = useRef(false);
   const prevBackfillDone = useRef(0);
   const prevCompletedCount = useRef(0);
@@ -645,16 +647,20 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             <button
               type="button"
               onClick={() => handleStartBackfill(false)}
-              disabled={backfillScanActive || startingBackfill}
+              disabled={backfillScanActive || startingBackfill || backfillCancelling}
               title="Quét toàn bộ kênh từ Facebook — tự bỏ qua kênh đã quét nếu tạm dừng trước đó"
               className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50 cursor-pointer ${
-                backfillStopping
+                backfillPausing
                   ? 'border border-amber-300 bg-amber-50 text-amber-800'
+                  : backfillCancelling
+                    ? 'border border-rose-300 bg-rose-50 text-rose-800'
                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
             >
               <DownloadSimple size={14} className={backfillScanActive ? 'animate-bounce' : ''} />
-              {backfillStopping
+              {backfillCancelling
+                ? 'Đang hủy...'
+                : backfillPausing
                 ? 'Đang dừng...'
                 : backfillScanActive
                   ? 'Đang quét...'
@@ -664,7 +670,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                       ? 'Đang khởi động...'
                       : 'Quét đầy đủ'}
             </button>
-            {(backfillScanActive || backfillPaused || backfillStopping) && (
+            {(backfillScanActive || backfillPaused || backfillPausing || backfillCancelling) && (
               <button
                 type="button"
                 onClick={handleCancelBackfill}
@@ -676,7 +682,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                 {cancellingBackfill ? 'Đang hủy...' : 'Hủy quét'}
               </button>
             )}
-            {backfillScanActive && !cancellingBackfill && (
+            {backfillScanActive && !backfillCancelling && (
               <button
                 type="button"
                 onClick={handlePauseBackfill}
@@ -696,9 +702,11 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
         </div>
 
-        {(backfillRunning || backfillPaused || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
+        {(backfillRunning || backfillPaused || backfillCancelling || (backfillStatus && backfillStatus.finishedAt && backfillStatus.done > 0)) && (
           <div className={`rounded-xl border px-4 py-3 shadow-sm ${
-            backfillStopping
+            backfillCancelling
+              ? 'border-rose-200 bg-rose-50/80'
+              : backfillPausing
               ? 'border-amber-200 bg-amber-50/80'
               : backfillScanActive
               ? 'border-indigo-200 bg-indigo-50/80'
@@ -708,9 +716,11 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           }`}>
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className={`text-xs font-bold ${
-                backfillStopping ? 'text-amber-900' : backfillScanActive ? 'text-indigo-900' : backfillPaused ? 'text-amber-900' : 'text-emerald-900'
+                backfillCancelling ? 'text-rose-900' : backfillPausing ? 'text-amber-900' : backfillScanActive ? 'text-indigo-900' : backfillPaused ? 'text-amber-900' : 'text-emerald-900'
               }`}>
-                {backfillStopping
+                {backfillCancelling
+                  ? 'Đang hủy quét — dừng ngay'
+                  : backfillPausing
                   ? 'Đang dừng — chờ xong kênh hiện tại'
                   : backfillScanActive
                   ? 'Đang quét tin nhắn từ Facebook'
@@ -719,7 +729,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                     : 'Đã quét xong'}
                 {' '}
                 <span className={
-                  backfillStopping ? 'text-amber-700' : backfillScanActive ? 'text-indigo-600' : backfillPaused ? 'text-amber-700' : 'text-emerald-700'
+                  backfillCancelling ? 'text-rose-700' : backfillPausing ? 'text-amber-700' : backfillScanActive ? 'text-indigo-600' : backfillPaused ? 'text-amber-700' : 'text-emerald-700'
                 }>
                   {backfillStatus.done}/{backfillStatus.total} kênh
                 </span>
@@ -731,7 +741,9 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             <div className="relative h-2 overflow-hidden rounded-full bg-white/70">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  backfillStopping
+                  backfillCancelling
+                    ? 'bg-gradient-to-r from-rose-300 to-rose-500'
+                    : backfillPausing
                     ? 'bg-gradient-to-r from-amber-300 to-amber-500'
                     : backfillScanActive ? 'bg-gradient-to-r from-indigo-400 to-indigo-600' : 'bg-emerald-500'
                 }`}
@@ -740,9 +752,11 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className={`text-[10px] font-medium truncate ${
-                backfillStopping ? 'text-amber-700/80' : backfillScanActive ? 'text-indigo-700/80' : 'text-emerald-700/80'
+                backfillCancelling ? 'text-rose-700/80' : backfillPausing ? 'text-amber-700/80' : backfillScanActive ? 'text-indigo-700/80' : 'text-emerald-700/80'
               }`}>
-                {backfillStopping && backfillStatus.currentPage
+                {backfillCancelling
+                  ? 'Đang ngắt tiến trình quét...'
+                  : backfillPausing && backfillStatus.currentPage
                   ? `Đang kết thúc kênh: ${backfillStatus.currentPage}`
                   : backfillScanActive && backfillStatus.currentPage
                   ? `Đang xử lý: ${backfillStatus.currentPage}${
