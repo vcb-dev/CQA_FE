@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BarChart3,
@@ -213,6 +213,26 @@ function ChannelCard({ page, onSelect }) {
   );
 }
 
+function InsightSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
+      <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-52 animate-pulse rounded-xl bg-muted" />
+        <div className="h-52 animate-pulse rounded-xl bg-muted" />
+      </div>
+      <p className="text-center text-xs text-muted-foreground">
+        Đang tổng hợp từ ~10k bản ghi chấm điểm — có thể mất 10–15 giây...
+      </p>
+    </div>
+  );
+}
+
 function KpiCards({ items }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -261,7 +281,10 @@ export default function AIInsightPage() {
         pageId: selectedPageId || undefined,
       }),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
+
+  const isInitialLoad = isLoading && !data;
 
   const kpiItems = useMemo(() => data?.kpis ?? [], [data]);
   const byPage = data?.byPage;
@@ -271,48 +294,48 @@ export default function AIInsightPage() {
   const clearChannel = () => setSelectedPageId('');
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-4">
-      {/* Toolbar */}
-      <Card className="shadow-sm">
-        <CardHeader className="border-b pb-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                {isChannelDetail && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={clearChannel}
-                    className="shrink-0 gap-1.5"
-                  >
-                    <ArrowLeft className="size-3.5" />
-                    Chọn kênh khác
-                  </Button>
-                )}
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="size-4 text-primary" />
-                  {isChannelDetail ? 'Chi tiết kênh' : 'Tổng quan AI Insight'}
-                </CardTitle>
-              </div>
-              <CardDescription className="max-w-3xl text-sm leading-relaxed">
-                {data?.intro ?? 'Đang tải dữ liệu từ bản ghi chấm điểm...'}
-              </CardDescription>
-              {data && (
-                <p className="text-xs text-muted-foreground">
-                  Điểm TB {data.avgScore}/100 · {data.totalAnalyzed.toLocaleString('vi-VN')} bản ghi
-                  {byPage?.summary && !isChannelDetail && (
-                    <>
-                      {' '}
-                      · {byPage.summary.good} ổn · {byPage.summary.warning} cần cải thiện ·{' '}
-                      {byPage.summary.critical} cần xử lý
-                    </>
-                  )}
+    <div className="page-scroll pb-2">
+      {/* Toolbar — CardContent only (tránh dải trống do py Card khi không có content) */}
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 flex-1 space-y-2">
+              {isChannelDetail && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearChannel}
+                  className="gap-1.5"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  Chọn kênh khác
+                </Button>
+              )}
+              {data ? (
+                <>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{data.intro}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Điểm TB {data.avgScore}/100 · {data.totalAnalyzed.toLocaleString('vi-VN')} bản ghi
+                    {byPage?.summary && !isChannelDetail && (
+                      <>
+                        {' '}
+                        · {byPage.summary.good} ổn · {byPage.summary.warning} cần cải thiện ·{' '}
+                        {byPage.summary.critical} cần xử lý
+                      </>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {isInitialLoad
+                    ? 'Đang tải dữ liệu insight từ bản ghi chấm điểm...'
+                    : 'Chọn khoảng ngày và kênh để xem phân tích'}
                 </p>
               )}
             </div>
 
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="flex shrink-0 flex-wrap items-end gap-2">
               <div className="w-[min(100%,220px)]">
                 <p className="mb-1 text-[11px] font-medium text-muted-foreground">Kênh</p>
                 <Select
@@ -367,7 +390,7 @@ export default function AIInsightPage() {
               </Button>
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       {/* Channel detail banner */}
@@ -388,14 +411,7 @@ export default function AIInsightPage() {
         </Card>
       )}
 
-      {isLoading && (
-        <Card>
-          <CardContent className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Đang tổng hợp insight...
-          </CardContent>
-        </Card>
-      )}
+      {isInitialLoad && <InsightSkeleton />}
 
       {isError && (
         <Card className="border-destructive/30 bg-destructive/5">
@@ -405,7 +421,7 @@ export default function AIInsightPage() {
         </Card>
       )}
 
-      {data && !isLoading && (
+      {data && (
         <>
           {/* Channel health — overview only */}
           {!isChannelDetail && byPage && (
