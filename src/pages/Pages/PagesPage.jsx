@@ -227,6 +227,7 @@ export default function PagesPage() {
   const backfillScanActive = backfillRunning && !backfillStopping;
   const prevBackfillRunning = useRef(false);
   const prevBackfillDone = useRef(0);
+  const prevCompletedCount = useRef(0);
 
   useEffect(() => {
     if (prevBackfillRunning.current && !backfillRunning) {
@@ -252,12 +253,24 @@ export default function PagesPage() {
     }
   }, [backfillScanActive, backfillPaused, backfillStatus?.done, refetch]);
 
-  /** Trong lúc quét — poll bảng định kỳ (chi phí QC Meta có thể về chậm hơn vài giây). */
+  /** Refetch khi danh sách kênh đã quét tăng (đáng tin cậy hơn done). */
+  useEffect(() => {
+    const count = backfillStatus?.completedPageIds?.length ?? 0;
+    if ((backfillScanActive || backfillPaused) && count > prevCompletedCount.current) {
+      prevCompletedCount.current = count;
+      void refetch();
+    }
+    if (!backfillScanActive && !backfillPaused) {
+      prevCompletedCount.current = count;
+    }
+  }, [backfillScanActive, backfillPaused, backfillStatus?.completedPageIds, refetch]);
+
+  /** Trong lúc quét — poll bảng (chi phí QC Meta có thể về chậm hơn vài giây). */
   useEffect(() => {
     if (!backfillScanActive) return undefined;
     const timer = setInterval(() => {
       void refetch();
-    }, 12_000);
+    }, 8_000);
     return () => clearInterval(timer);
   }, [backfillScanActive, refetch]);
 
@@ -370,6 +383,28 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     [backfillStatus?.completedPageIds],
   );
 
+  const sortedPerformance = useMemo(() => {
+    const completed = backfillStatus?.completedPageIds ?? [];
+    const completedRank = new Map(completed.map((id, i) => [id, i]));
+    const currentName = backfillStatus?.currentPage;
+    return [...performance].sort((a, b) => {
+      const aDone = completedRank.has(a.pageId);
+      const bDone = completedRank.has(b.pageId);
+      if (aDone && !bDone) return -1;
+      if (!aDone && bDone) return 1;
+      if (aDone && bDone) {
+        return (completedRank.get(a.pageId) ?? 0) - (completedRank.get(b.pageId) ?? 0);
+      }
+      const aScanning =
+        backfillScanActive && currentName && (a.name === currentName || a.pageId === currentName);
+      const bScanning =
+        backfillScanActive && currentName && (b.name === currentName || b.pageId === currentName);
+      if (aScanning && !bScanning) return -1;
+      if (!aScanning && bScanning) return 1;
+      return a.name.localeCompare(b.name, 'vi');
+    });
+  }, [performance, backfillStatus?.completedPageIds, backfillStatus?.currentPage, backfillScanActive]);
+
   const totalNewInbound = inboundDaySummary?.totalInbound
     ?? performance.reduce((sum, p) => sum + p.newInbound, 0);
   const totalAdSpend = inboundDaySummary?.totalAdSpend
@@ -451,7 +486,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     return list.slice(0, 4);
   }, [pages, performance, selectedDateLabel, totalNewInbound, totalAdSpend, adSpendCurrency]);
 
-  const filteredPerformance = useMemo(() => performance.filter(p => {
+  const filteredPerformance = useMemo(() => sortedPerformance.filter(p => {
     if (performanceFilter === 'all') return true;
     if (performanceFilter === 'facebook' && p.type === 'Facebook Page') return true;
     if (performanceFilter === 'instagram' && p.type === 'Instagram') return true;
@@ -461,7 +496,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     if (performanceFilter === 'lazada' && p.type === 'Lazada') return true;
     if (performanceFilter === 'website' && p.type === 'Website') return true;
     return false;
-  }), [performance, performanceFilter]);
+  }), [sortedPerformance, performanceFilter]);
 
   const platformTypes = useMemo(
     () => [...new Set(performance.map((p) => p.type))].sort(),
