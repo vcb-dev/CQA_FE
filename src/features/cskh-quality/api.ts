@@ -33,6 +33,8 @@ export interface CskhPagesInboundDaySummary {
   totalInbound: number
   totalAdSpend?: number | null
   adSpendCurrency?: string | null
+  /** BE đang đồng bộ chi tiêu QC nền — FE có thể poll lại. */
+  adSpendSyncPending?: boolean
 }
 
 export interface CskhPagesStatsMeta {

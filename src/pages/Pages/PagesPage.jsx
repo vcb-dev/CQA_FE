@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -193,9 +193,20 @@ export default function PagesPage() {
     queryFn: () => fetchCskhPages({ date: selectedDate }),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+
+  const adSpendSyncPending = pagesData?.inboundDay?.adSpendSyncPending === true;
+
+  useEffect(() => {
+    if (!adSpendSyncPending) return undefined;
+    const timer = setInterval(() => {
+      void refetch();
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [adSpendSyncPending, refetch]);
 
   const [startingBackfill, setStartingBackfill] = useState(false);
   const [pausingBackfill, setPausingBackfill] = useState(false);
@@ -429,7 +440,9 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     [performance]
   );
 
-  if (isLoadingPages) {
+  const isInitialPagesLoad = isLoadingPages && !pagesData;
+
+  if (isInitialPagesLoad) {
     return (
       <div className="flex flex-col justify-center items-center h-full text-slate-400 gap-4 py-20">
         <Globe size={44} className="animate-spin text-indigo-600" />
@@ -719,7 +732,12 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
         )}
 
-        <DayStatsProgress active={isFetchingPages} dateLabel={selectedDateLabel} />
+        <DayStatsProgress active={isFetchingPages && !isInitialPagesLoad} dateLabel={selectedDateLabel} />
+        {adSpendSyncPending && (
+          <div className="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-2.5 text-xs font-medium text-violet-800">
+            Đang đồng bộ chi tiêu QC từ Meta cho ngày {selectedDateLabel} — cột Chi tiêu QC sẽ cập nhật trong vài phút.
+          </div>
+        )}
 
         <div className={`grid grid-cols-2 2xl:grid-cols-4 gap-3 2xl:gap-4 transition-opacity duration-200 ${isFetchingPages && !isLoadingPages ? 'opacity-60' : ''}`}>
           {dynamicKPIs.map((kpi, i) => (
