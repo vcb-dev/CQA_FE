@@ -880,6 +880,7 @@ export interface CskhBackfillStatus {
   total: number
   done: number
   currentPage: string | null
+  pageConvsDone?: number
   addedMessages: number
   okPages: number
   errorPages: Array<{ page: string; error: string; pageId?: string }>

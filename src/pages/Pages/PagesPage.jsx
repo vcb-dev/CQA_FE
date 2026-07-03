@@ -648,7 +648,11 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                 {backfillStopping && backfillStatus.currentPage
                   ? `Đang kết thúc kênh: ${backfillStatus.currentPage}`
                   : backfillScanActive && backfillStatus.currentPage
-                  ? `Đang xử lý: ${backfillStatus.currentPage}`
+                  ? `Đang xử lý: ${backfillStatus.currentPage}${
+                      (backfillStatus.pageConvsDone ?? 0) > 0
+                        ? ` (${backfillStatus.pageConvsDone} hội thoại)`
+                        : ''
+                    }`
                   : `Hoàn tất ${backfillStatus.okPages} kênh`}
                 {backfillStatus.errorPages?.length > 0 && (
                   <span className="text-amber-600"> · {backfillStatus.errorPages.length} kênh Facebook báo lỗi (sẽ thử lại sau)</span>
