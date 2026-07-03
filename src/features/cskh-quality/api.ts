@@ -912,6 +912,20 @@ export async function pauseCskhBackfill(): Promise<{ paused: boolean; message?: 
   return data
 }
 
+/** Hủy toàn bộ quét — dừng ngay, xóa hàng đợi Redis. */
+export async function cancelCskhBackfill(): Promise<{
+  cancelled: number
+  queueCleared: number
+  message: string
+}> {
+  const { data } = await apiClient.post<{
+    cancelled: number
+    queueCleared: number
+    message: string
+  }>('/cskh/inbox/backfill/cancel')
+  return data
+}
+
 /** Lấy tiến độ quét đầy đủ để hiển thị thanh tiến trình. */
 export async function fetchCskhBackfillStatus(): Promise<CskhBackfillStatus> {
   const { data } = await apiClient.get<CskhBackfillStatus>('/cskh/inbox/backfill')

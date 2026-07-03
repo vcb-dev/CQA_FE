@@ -16,11 +16,13 @@ import {
   CalendarBlank,
   DownloadSimple,
   Pause,
+  X,
 } from '@phosphor-icons/react';
 import {
   fetchCskhPages,
   startCskhBackfill,
   pauseCskhBackfill,
+  cancelCskhBackfill,
   fetchCskhBackfillStatus,
 } from '@/features/cskh-quality/api';
 
@@ -210,6 +212,7 @@ export default function PagesPage() {
 
   const [startingBackfill, setStartingBackfill] = useState(false);
   const [pausingBackfill, setPausingBackfill] = useState(false);
+  const [cancellingBackfill, setCancellingBackfill] = useState(false);
   const { data: backfillStatus, refetch: refetchBackfill } = useQuery({
     queryKey: ['cskh', 'backfill'],
     queryFn: fetchCskhBackfillStatus,
@@ -223,7 +226,7 @@ export default function PagesPage() {
   });
   const backfillRunning = Boolean(backfillStatus?.running);
   const backfillPaused = Boolean(backfillStatus?.paused && !backfillRunning);
-  const backfillStopping = Boolean(backfillStatus?.pauseRequested) || pausingBackfill;
+  const backfillStopping = Boolean(backfillStatus?.pauseRequested) || pausingBackfill || cancellingBackfill;
   const backfillScanActive = backfillRunning && !backfillStopping;
   const prevBackfillRunning = useRef(false);
   const prevBackfillDone = useRef(0);
@@ -294,6 +297,21 @@ export default function PagesPage() {
       await pauseCskhBackfill();
       await refetchBackfill();
     } catch {
+      setPausingBackfill(false);
+    }
+  };
+
+  const handleCancelBackfill = async () => {
+    if ((!backfillRunning && !backfillPaused) || cancellingBackfill) return;
+    setCancellingBackfill(true);
+    try {
+      await cancelCskhBackfill();
+      await refetchBackfill();
+      await refetch();
+    } catch {
+      // poll sẽ cập nhật trạng thái
+    } finally {
+      setCancellingBackfill(false);
       setPausingBackfill(false);
     }
   };
@@ -655,7 +673,19 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                       ? 'Đang khởi động...'
                       : 'Quét đầy đủ'}
             </button>
-            {backfillScanActive && (
+            {(backfillScanActive || backfillPaused || backfillStopping) && (
+              <button
+                type="button"
+                onClick={handleCancelBackfill}
+                disabled={cancellingBackfill}
+                title="Hủy ngay — dừng toàn bộ quét, xóa hàng đợi"
+                className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 cursor-pointer disabled:opacity-60"
+              >
+                <X size={14} weight="bold" />
+                {cancellingBackfill ? 'Đang hủy...' : 'Hủy quét'}
+              </button>
+            )}
+            {backfillScanActive && !cancellingBackfill && (
               <button
                 type="button"
                 onClick={handlePauseBackfill}
