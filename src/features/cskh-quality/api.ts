@@ -431,6 +431,61 @@ export async function fetchAuditDayStats(
   return data
 }
 
+export interface CskhInsightKpi {
+  label: string
+  value: string
+  unit: string
+  change: string
+  changePositive: boolean
+  sub: string
+}
+
+export interface CskhInsightDashboard {
+  source: 'chat_audits'
+  period: { from: string; to: string; label: string }
+  totalAnalyzed: number
+  avgScore: number
+  intro: string
+  kpis: CskhInsightKpi[]
+  customerConcerns: {
+    total: number
+    items: { label: string; count: number; pct: number; color: string }[]
+  }
+  closeRateFactors: {
+    highClose: { label: string; pct: number; count: number }[]
+    lostOrders: { label: string; pct: number; count: number }[]
+  }
+  videoTopics: {
+    question: string
+    mentions: number
+    audience: string
+    angle: string
+    hook: string
+    script: string[]
+    cta: string
+  }[]
+  products: { name: string; visits: number; closeRate: string; revenue: string }[]
+  sentiment: { positive: number; neutral: number; negative: number; positiveChange: number }
+  adEfficiency: {
+    name: string
+    quality: string
+    stars: number
+    closeRate: string
+    roas: string
+    conversationCount: number
+  }[]
+  byCountry: { country: string; flag: string; insight: string; closeRate: string }[]
+}
+
+export async function fetchCskhInsights(params: {
+  auditDateFrom: string
+  auditDateTo: string
+  pageId?: string
+}): Promise<CskhInsightDashboard> {
+  const { data } = await apiClient.get<CskhInsightDashboard>('/cskh/insights', { params })
+  return data
+}
+
 export async function fetchAuditComparisonStats(
   auditDate: string,
   auditId: string
