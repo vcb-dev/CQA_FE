@@ -440,9 +440,26 @@ export interface CskhInsightKpi {
   sub: string
 }
 
+export interface CskhInsightPageRow {
+  pageId: string
+  pageName: string
+  auditCount: number
+  avgScore: number
+  passRate: number
+  riskRate: number
+  positiveRate: number
+  scoreChange: number | null
+  status: 'good' | 'warning' | 'critical'
+  statusLabel: string
+  topIssue: string | null
+  topKeyword: string | null
+}
+
 export interface CskhInsightDashboard {
   source: 'chat_audits'
   period: { from: string; to: string; label: string }
+  selectedPageId?: string | null
+  selectedPageName?: string | null
   totalAnalyzed: number
   avgScore: number
   intro: string
@@ -474,6 +491,13 @@ export interface CskhInsightDashboard {
     roas: string
     conversationCount: number
   }[]
+  byPage?: {
+    all: CskhInsightPageRow[]
+    needsAttention: CskhInsightPageRow[]
+    topPerformers: CskhInsightPageRow[]
+    summary: { good: number; warning: number; critical: number; total: number }
+  } | null
+  pageDirectory?: CskhInsightPageRow[]
   byCountry: { country: string; flag: string; insight: string; closeRate: string }[]
 }
 
