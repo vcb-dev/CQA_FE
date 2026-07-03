@@ -275,7 +275,7 @@ export default function AIInsightPage() {
 
   const loadingLabel = isChannelDetail && selectedPageName
     ? `Đang tải insight kênh «${selectedPageName}»...`
-    : 'Đang tổng hợp insight tất cả kênh...';
+    : 'Đang tải danh sách kênh...';
 
   const clearChannel = () => setSelectedPageId('');
 
@@ -299,15 +299,20 @@ export default function AIInsightPage() {
                 <span style={{ fontSize: 12, color: '#6b7280' }}>
                   {showContentLoading
                     ? loadingLabel
-                    : (data?.intro ?? 'Chọn khoảng ngày để xem insight')}
+                    : isChannelDetail
+                      ? (data?.intro ?? '')
+                      : 'Chọn một kênh bên dưới để xem insight chi tiết (KPI, chủ đề quan tâm, yếu tố chốt...)'}
                 </span>
               </div>
-              {dataReady && data && (
+              {dataReady && data && isChannelDetail && (
                 <div style={{ fontSize: 11, color: '#9ca3af' }}>
                   Điểm TB {data.avgScore}/100 · {data.totalAnalyzed.toLocaleString('vi-VN')} bản ghi
-                  {byPage?.summary && !isChannelDetail && (
-                    <> · {byPage.summary.good} ổn · {byPage.summary.warning} cần cải thiện · {byPage.summary.critical} cần xử lý</>
-                  )}
+                </div>
+              )}
+              {dataReady && !isChannelDetail && byPage?.summary && (
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  {byPage.summary.total} kênh · {byPage.summary.good} ổn · {byPage.summary.warning} cần cải thiện ·{' '}
+                  {byPage.summary.critical} cần xử lý
                 </div>
               )}
             </div>
@@ -320,7 +325,7 @@ export default function AIInsightPage() {
                   disabled={showContentLoading}
                   style={{ ...inputStyle, maxWidth: 220, marginLeft: 4, opacity: showContentLoading ? 0.7 : 1 }}
                 >
-                  <option value="">Tất cả kênh</option>
+                  <option value="">— Chọn kênh —</option>
                   {pageOptions.map((p) => (
                     <option key={p.pageId} value={p.pageId}>
                       {p.pageName} ({p.avgScore}đ)
@@ -458,12 +463,14 @@ export default function AIInsightPage() {
               </div>
             )}
 
+            {isChannelDetail && (
+              <>
             <KpiGrid items={kpiItems} columns={4} />
 
             <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, minWidth: 280 }}>
                 <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span>{isChannelDetail ? 'Khách quan tâm gì ở kênh này?' : 'Khách hàng quan tâm điều gì nhất?'}</span>
+                  <span>Khách quan tâm gì ở kênh này?</span>
                   <MagnifyingGlass size={13} weight="bold" style={{ color: '#4f46e5' }} />
                 </div>
                 {(data.customerConcerns?.items?.length ?? 0) > 0 ? (
@@ -627,6 +634,8 @@ export default function AIInsightPage() {
                 </tbody>
               </table>
             </div>
+              </>
+            )}
           </>
         )}
       </div>
