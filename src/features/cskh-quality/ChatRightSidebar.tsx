@@ -333,6 +333,23 @@ export function ChatRightSidebar({
                       )}
                     </p>
                   )}
+                  {isRefreshingAdInsights || isLoadingAdInsights ? (
+                    <p className="text-[9px] text-amber-600 font-medium">
+                      Đang quét lại từ Meta...
+                    </p>
+                  ) : adInsights?.metaFetchedAt ? (
+                    <p className="text-[9px] text-slate-400">
+                      {adInsights.refreshedFromMeta
+                        ? 'Vừa lấy từ Meta'
+                        : 'Từ cache'}
+                      {' · '}
+                      {new Date(adInsights.metaFetchedAt).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </p>
+                  ) : null}
                   {adInsights?.connectedAdAccountName && (
                     <p className="text-[9px] text-slate-400">
                       Tài khoản QC: {adInsights.connectedAdAccountName}

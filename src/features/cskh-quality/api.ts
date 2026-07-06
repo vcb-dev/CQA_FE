@@ -618,6 +618,8 @@ export interface CskhAdInsights {
     spend: number | null
     messagingConversations: number | null
   }>
+  metaFetchedAt?: string | null
+  refreshedFromMeta?: boolean
 }
 
 export async function fetchConversationAdInsights(

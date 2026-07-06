@@ -328,12 +328,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       queryKey: ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
       queryFn: ({ signal }) => {
         if (!selectedId) return null
-        const refresh = adInsightsVisitGen > 1
+        const refresh = adInsightsVisitGen >= 2
         return fetchConversationAdInsights(selectedId, signal, refresh)
       },
       enabled: shouldLoadAdInsights && !!selectedId && messagesReady && adInsightsVisitGen > 0,
       staleTime: 0,
-      placeholderData: (prev) => prev,
+      gcTime: 0,
+      placeholderData:
+        adInsightsVisitGen >= 2
+          ? undefined
+          : (prev) => prev,
     })
 
   const [isRefreshingAdInsights, setIsRefreshingAdInsights] = useState(false)
