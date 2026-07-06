@@ -2,12 +2,13 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
-import { Loader2, AlertCircle, X } from 'lucide-react'
+import { Loader2, AlertCircle, X, Mail } from 'lucide-react'
 import {
   fetchInboxMessages,
   fetchInboxMessagesProgressive,
   sendInboxMessage,
   notifyInboxTyping,
+  markInboxAsUnread,
   type CskhInboxConversation,
   type CskhInboxMessage,
 } from './api'
@@ -47,6 +48,25 @@ export function ChatPanel({
     hasScrolledForConvRef.current = false
   }
   const qc = useQueryClient()
+
+  const markUnreadMutation = useMutation({
+    mutationFn: markInboxAsUnread,
+    onSuccess: () => {
+      patchInboxConversationInCache(qc, {
+        id: conversation.id,
+        unreadCount: 1,
+      })
+      toast.success('Đã đánh dấu cuộc trò chuyện là chưa đọc')
+      if (onClose) onClose()
+    },
+    onError: (err) => {
+      toast.error(`Lỗi: ${getApiErrorMessage(err)}`)
+    },
+  })
+
+  const handleMarkAsUnread = () => {
+    markUnreadMutation.mutate(conversation.id)
+  }
 
   // Fetch messages — dùng chung cache với ChatMessengerPane (prefetch khi click)
   const { data: messagesData, isLoading, isFetching, isPending, isFetched } = useQuery({
@@ -251,6 +271,14 @@ export function ChatPanel({
               conversationWithLabels.viewers?.filter((v) => !v.hasChot).length ?? 0
             }
           />
+          <button
+            onClick={handleMarkAsUnread}
+            disabled={markUnreadMutation.isPending}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 cursor-pointer disabled:opacity-50"
+            title="Đánh dấu chưa đọc"
+          >
+            <Mail className="w-4 h-4" />
+          </button>
           {onClose && (
             <button
               onClick={onClose}

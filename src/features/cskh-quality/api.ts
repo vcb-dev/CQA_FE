@@ -944,6 +944,13 @@ export async function markInboxAsRead(conversationId: string): Promise<{ markedA
   return data
 }
 
+export async function markInboxAsUnread(conversationId: string): Promise<{ markedAsUnread: number }> {
+  const { data } = await apiClient.post<{ markedAsUnread: number }>(
+    `/cskh/inbox/conversations/${conversationId}/mark-as-unread`
+  )
+  return data
+}
+
 export async function syncInboxFromGraph(
   pageId?: string
 ): Promise<{ synced: number; pageCount: number }> {

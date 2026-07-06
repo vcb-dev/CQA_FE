@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -254,7 +254,7 @@ export function ChatListPanel({
   // Cập nhật "Vừa xong" / "5p trước" mà không cần reload list
   const [, timeTick] = useState(0)
   useEffect(() => {
-    const t = window.setInterval(() => timeTick((n) => n + 1), 30_000)
+    const t = window.setInterval(() => timeTick((n: number) => n + 1), 30_000)
     return () => window.clearInterval(t)
   }, [])
 
