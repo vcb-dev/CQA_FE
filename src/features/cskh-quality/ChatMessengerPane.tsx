@@ -326,10 +326,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const { data: adInsights, isLoading: isLoadingAdInsights, isFetching: isFetchingAdInsights } =
     useQuery({
       queryKey: ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
-      queryFn: ({ signal }) => {
-        if (!selectedId) return null
-        const refresh = adInsightsVisitGen >= 2
-        return fetchConversationAdInsights(selectedId, signal, refresh)
+      queryFn: ({ signal, queryKey }) => {
+        const convId = queryKey[3] as string
+        const visitGen = Number(queryKey[4] ?? 1)
+        if (!convId) return null
+        return fetchConversationAdInsights(convId, signal, visitGen >= 2)
       },
       enabled: shouldLoadAdInsights && !!selectedId && messagesReady && adInsightsVisitGen > 0,
       staleTime: 0,
@@ -358,16 +359,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
   }, [selectedId, isRefreshingAdInsights, qc, adInsightsVisitGen])
 
+  const adInsightsVisitCountsRef = useRef(new Map<string, number>())
+
   const handlePrefetchConversation = useCallback(
     (conv: CskhInboxConversation) => {
       prefetchInboxMessages(qc, conv)
-      if (conv.fromAd || conv.referralSource === 'HEURISTIC') {
-        void qc.prefetchQuery({
-          queryKey: ['cskh', 'inbox', 'ad-insights', conv.id, 1],
-          queryFn: ({ signal }) => fetchConversationAdInsights(conv.id, signal),
-          staleTime: 0,
-        })
-      }
     },
     [qc],
   )
@@ -379,12 +375,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       unreadCount: 0,
     }
 
+    const visitGen = (adInsightsVisitCountsRef.current.get(conv.id) ?? 0) + 1
+    adInsightsVisitCountsRef.current.set(conv.id, visitGen)
+
     setSelectedConversation(opened)
     setInputDraft('')
-    setAdInsightsSelectGen((prev) => {
-      const gen = prev?.id === conv.id ? prev.gen + 1 : 1
-      return { id: conv.id, gen }
-    })
+    setAdInsightsSelectGen({ id: conv.id, gen: visitGen })
 
     patchInboxConversationInCache(qc, {
       id: conv.id,
