@@ -622,11 +622,15 @@ export interface CskhAdInsights {
 
 export async function fetchConversationAdInsights(
   conversationId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  refresh = false
 ): Promise<CskhAdInsights> {
   const { data } = await apiClient.get<CskhAdInsights>(
     `/cskh/inbox/conversations/${conversationId}/ad-insights`,
-    { signal }
+    {
+      signal,
+      params: refresh ? { refresh: 'true' } : undefined,
+    }
   )
   return data
 }

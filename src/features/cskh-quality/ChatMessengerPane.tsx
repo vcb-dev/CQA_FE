@@ -325,6 +325,21 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     staleTime: 300_000,
   })
 
+  const [isRefreshingAdInsights, setIsRefreshingAdInsights] = useState(false)
+  const handleRefreshAdInsights = useCallback(async () => {
+    if (!selectedId || isRefreshingAdInsights) return
+    setIsRefreshingAdInsights(true)
+    try {
+      const freshData = await fetchConversationAdInsights(selectedId, undefined, true)
+      qc.setQueryData(['cskh', 'inbox', 'ad-insights', selectedId], freshData)
+      toast.success('Đã làm mới dữ liệu quảng cáo từ Meta')
+    } catch (e) {
+      toast.error(`Lỗi: ${getApiErrorMessage(e)}`)
+    } finally {
+      setIsRefreshingAdInsights(false)
+    }
+  }, [selectedId, isRefreshingAdInsights, qc])
+
   const handlePrefetchConversation = useCallback(
     (conv: CskhInboxConversation) => {
       prefetchInboxMessages(qc, conv)
@@ -638,6 +653,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 adInsights={adInsights}
                 isLoadingAdInsights={isLoadingAdInsights}
                 onApplySuggestedReply={(text) => setInputDraft(text)}
+                onRefreshAdInsights={handleRefreshAdInsights}
+                isRefreshingAdInsights={isRefreshingAdInsights}
               />
             </div>
           </div>

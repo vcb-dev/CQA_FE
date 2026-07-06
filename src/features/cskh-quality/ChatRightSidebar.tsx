@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, Sparkles, User, Megaphone, MessageSquare, Zap, Loader2 } from 'lucide-react'
+import { Copy, Check, Sparkles, User, Megaphone, MessageSquare, Zap, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhInboxConversation, CskhCustomerIntent, CskhAdInsights } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
@@ -12,6 +12,8 @@ type ChatRightSidebarProps = {
   adInsights?: CskhAdInsights | null
   isLoadingAdInsights?: boolean
   onApplySuggestedReply: (text: string) => void
+  onRefreshAdInsights?: () => void
+  isRefreshingAdInsights?: boolean
 }
 
 function formatAdMoney(amount: number | null | undefined, currency?: string | null): string {
@@ -70,6 +72,8 @@ export function ChatRightSidebar({
   adInsights,
   isLoadingAdInsights,
   onApplySuggestedReply,
+  onRefreshAdInsights,
+  isRefreshingAdInsights,
 }: ChatRightSidebarProps) {
   const [copied, setCopied] = useState(false)
 
@@ -193,9 +197,22 @@ export function ChatRightSidebar({
         {/* Ads Campaign Details */}
         {showAdDetails && (
           <div className="mt-2 bg-gradient-to-br from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-100/60 p-3 space-y-3 text-[11px]">
-            <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[10px]">
-              <Megaphone className="w-3 h-3 text-amber-600" />
-              Quảng cáo Facebook
+            <div className="flex items-center justify-between font-bold text-amber-800 text-[10px]">
+              <div className="flex items-center gap-1.5">
+                <Megaphone className="w-3 h-3 text-amber-600" />
+                Quảng cáo Facebook
+              </div>
+              {onRefreshAdInsights && (
+                <button
+                  type="button"
+                  onClick={onRefreshAdInsights}
+                  disabled={isRefreshingAdInsights || isLoadingAdInsights}
+                  className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:text-amber-800 hover:bg-amber-100/50 transition-all duration-200 cursor-pointer disabled:opacity-50"
+                  title="Làm mới số liệu chi phí từ Meta"
+                >
+                  <RefreshCw className={cn("w-3 h-3", (isRefreshingAdInsights || isLoadingAdInsights) && "animate-spin")} />
+                </button>
+              )}
             </div>
 
             {showCampaignBlock ? (
