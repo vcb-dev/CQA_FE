@@ -33,7 +33,7 @@ const STATUS_STYLE = {
 };
 
 function formatYmd(d) {
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
 }
 
 function defaultRange() {
