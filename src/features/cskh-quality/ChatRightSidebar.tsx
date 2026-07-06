@@ -103,7 +103,8 @@ export function ChatRightSidebar({
   const hasSpecificAd =
     adInsights?.insightsScope === 'ad' || Boolean(conversation.adId || adInsights?.adId)
 
-  const isCampaignEstimate = adInsights?.insightsScope === 'campaign'
+  const isCampaignEstimate =
+    adInsights?.insightsScope === 'campaign' || adInsights?.insightsScope === 'adset'
 
   const isPageEstimate =
     adInsights?.insightsScope === 'page' || adInsights?.isPageLevelEstimate === true
@@ -318,7 +319,9 @@ export function ChatRightSidebar({
                           {hasSpecificAd
                             ? ' hội thoại từ QC này'
                             : isCampaignEstimate
-                              ? ' hội thoại từ chiến dịch'
+                              ? adInsights?.insightsScope === 'adset'
+                                ? ' hội thoại từ nhóm QC'
+                                : ' hội thoại từ chiến dịch'
                               : ' hội thoại QC trên Page'}
                         </>
                       )}

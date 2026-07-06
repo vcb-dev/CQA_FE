@@ -607,7 +607,7 @@ export interface CskhAdInsights {
   localConversationCount: number
   unavailableReason: string | null
   isPageLevelEstimate?: boolean
-  insightsScope?: 'ad' | 'campaign' | 'page' | null
+  insightsScope?: 'ad' | 'campaign' | 'adset' | 'page' | null
   /** @deprecated */
   isAccountLevelEstimate?: boolean
   estimateNote?: string | null
