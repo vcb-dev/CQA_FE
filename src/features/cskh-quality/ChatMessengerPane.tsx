@@ -44,6 +44,9 @@ type FilterTab = 'all' | 'unread' | 'ads' | 'normal'
 
 export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [selectedConversation, setSelectedConversation] = useState<CskhInboxConversation | null>(null)
+  const [adInsightsSelectGen, setAdInsightsSelectGen] = useState<{ id: string; gen: number } | null>(
+    null,
+  )
   const qc = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -317,13 +320,21 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     staleTime: 180_000,
   })
 
-  const { data: adInsights, isLoading: isLoadingAdInsights } = useQuery({
-    queryKey: ['cskh', 'inbox', 'ad-insights', selectedId],
-    queryFn: ({ signal }) =>
-      selectedId ? fetchConversationAdInsights(selectedId, signal) : null,
-    enabled: shouldLoadAdInsights && !!selectedId && messagesReady,
-    staleTime: 300_000,
-  })
+  const adInsightsVisitGen =
+    selectedId && adInsightsSelectGen?.id === selectedId ? adInsightsSelectGen.gen : 0
+
+  const { data: adInsights, isLoading: isLoadingAdInsights, isFetching: isFetchingAdInsights } =
+    useQuery({
+      queryKey: ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
+      queryFn: ({ signal }) => {
+        if (!selectedId) return null
+        const refresh = adInsightsVisitGen > 1
+        return fetchConversationAdInsights(selectedId, signal, refresh)
+      },
+      enabled: shouldLoadAdInsights && !!selectedId && messagesReady && adInsightsVisitGen > 0,
+      staleTime: 0,
+      placeholderData: (prev) => prev,
+    })
 
   const [isRefreshingAdInsights, setIsRefreshingAdInsights] = useState(false)
   const handleRefreshAdInsights = useCallback(async () => {
@@ -331,23 +342,26 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     setIsRefreshingAdInsights(true)
     try {
       const freshData = await fetchConversationAdInsights(selectedId, undefined, true)
-      qc.setQueryData(['cskh', 'inbox', 'ad-insights', selectedId], freshData)
+      qc.setQueryData(
+        ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
+        freshData,
+      )
       toast.success('Đã làm mới dữ liệu quảng cáo từ Meta')
     } catch (e) {
       toast.error(`Lỗi: ${getApiErrorMessage(e)}`)
     } finally {
       setIsRefreshingAdInsights(false)
     }
-  }, [selectedId, isRefreshingAdInsights, qc])
+  }, [selectedId, isRefreshingAdInsights, qc, adInsightsVisitGen])
 
   const handlePrefetchConversation = useCallback(
     (conv: CskhInboxConversation) => {
       prefetchInboxMessages(qc, conv)
       if (conv.fromAd || conv.referralSource === 'HEURISTIC') {
         void qc.prefetchQuery({
-          queryKey: ['cskh', 'inbox', 'ad-insights', conv.id],
+          queryKey: ['cskh', 'inbox', 'ad-insights', conv.id, 1],
           queryFn: ({ signal }) => fetchConversationAdInsights(conv.id, signal),
-          staleTime: 300_000,
+          staleTime: 0,
         })
       }
     },
@@ -363,6 +377,10 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
     setSelectedConversation(opened)
     setInputDraft('')
+    setAdInsightsSelectGen((prev) => {
+      const gen = prev?.id === conv.id ? prev.gen + 1 : 1
+      return { id: conv.id, gen }
+    })
 
     patchInboxConversationInCache(qc, {
       id: conv.id,
@@ -654,7 +672,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 isLoadingAdInsights={isLoadingAdInsights}
                 onApplySuggestedReply={(text) => setInputDraft(text)}
                 onRefreshAdInsights={handleRefreshAdInsights}
-                isRefreshingAdInsights={isRefreshingAdInsights}
+                isRefreshingAdInsights={
+                  isRefreshingAdInsights || (isFetchingAdInsights && !isLoadingAdInsights)
+                }
               />
             </div>
           </div>
