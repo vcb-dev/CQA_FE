@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useTransition } from 'react'
+import { useState, useMemo, useEffect, useCallback, useTransition, useRef } from 'react'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { InfiniteData } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw, Search, MessageCircle, Wifi, WifiOff, Inbox } from 'lucide-react'
@@ -67,9 +67,38 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
   }, [selectedPageId, selectedConversation])
 
+  const bumpTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [bumpedConversationIds, setBumpedConversationIds] = useState<Set<string>>(() => new Set())
+
+  const handleRealtimeMessage = useCallback((conversationId: string) => {
+    setBumpedConversationIds((prev) => new Set([...prev, conversationId]))
+    const existing = bumpTimeoutsRef.current.get(conversationId)
+    if (existing) clearTimeout(existing)
+    bumpTimeoutsRef.current.set(
+      conversationId,
+      setTimeout(() => {
+        setBumpedConversationIds((prev) => {
+          const next = new Set(prev)
+          next.delete(conversationId)
+          return next
+        })
+        bumpTimeoutsRef.current.delete(conversationId)
+      }, 2500),
+    )
+  }, [])
+
+  useEffect(() => {
+    const timeouts = bumpTimeoutsRef.current
+    return () => {
+      timeouts.forEach((t) => clearTimeout(t))
+      timeouts.clear()
+    }
+  }, [])
+
   const { connected, typingConversationIds } = useCskhInboxStream({
     enabled: true,
     activeConversationId: selectedConversation?.id ?? null,
+    onNewMessage: handleRealtimeMessage,
   })
 
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
@@ -561,6 +590,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             emptyHint={listEmptyHint}
             pageId={selectedPageId}
             typingConversationIds={typingConversationIds}
+            bumpedConversationIds={bumpedConversationIds}
             connected={connected}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}

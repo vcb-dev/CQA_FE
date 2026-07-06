@@ -16,6 +16,7 @@ type ChatListPanelProps = {
   emptyHint?: string
   pageId?: string
   typingConversationIds?: Set<string>
+  bumpedConversationIds?: Set<string>
   connected?: boolean
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
@@ -74,6 +75,7 @@ type ConversationRowProps = {
   conv: CskhInboxConversation
   isSelected: boolean
   isTyping: boolean
+  isRecentlyBumped?: boolean
   onSelect: (conversation: CskhInboxConversation) => void
   onPrefetch?: (conversation: CskhInboxConversation) => void
 }
@@ -82,6 +84,7 @@ const ConversationRow = memo(function ConversationRow({
   conv,
   isSelected,
   isTyping,
+  isRecentlyBumped,
   onSelect,
   onPrefetch,
 }: ConversationRowProps) {
@@ -95,8 +98,10 @@ const ConversationRow = memo(function ConversationRow({
       onClick={() => onSelect(conv)}
       onMouseEnter={() => onPrefetch?.(conv)}
       className={cn(
-        'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-200 rounded-xl relative group border',
-        isSelected
+        'w-[calc(100%-16px)] mx-2 my-1 text-left px-3 py-3 transition-all duration-300 rounded-xl relative group border',
+        isRecentlyBumped && !isSelected
+          ? 'bg-emerald-50/90 border-emerald-300/80 shadow-md shadow-emerald-100/50 scale-[1.01]'
+          : isSelected
           ? 'bg-gradient-to-r from-indigo-50/70 to-indigo-50/30 border-indigo-100/70 shadow-sm shadow-indigo-100/20'
           : hasUnread || needsLabel
             ? 'bg-slate-50/40 hover:bg-slate-50 border-slate-200/20'
@@ -239,12 +244,19 @@ export function ChatListPanel({
   isError = false,
   emptyHint,
   typingConversationIds = new Set(),
+  bumpedConversationIds = new Set(),
   hasNextPage = false,
   isFetchingNextPage = false,
   onLoadMore,
   manualLoadMore = false,
 }: ChatListPanelProps) {
   const parentRef = useRef<HTMLDivElement>(null)
+  // Cập nhật "Vừa xong" / "5p trước" mà không cần reload list
+  const [, timeTick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => timeTick((n) => n + 1), 30_000)
+    return () => window.clearInterval(t)
+  }, [])
 
   const rowCount = conversations.length + (hasNextPage ? 1 : 0)
 
@@ -377,6 +389,7 @@ export function ChatListPanel({
                 conv={conv}
                 isSelected={selectedConversationId === conv.id}
                 isTyping={typingConversationIds.has(conv.id)}
+                isRecentlyBumped={bumpedConversationIds.has(conv.id)}
                 onSelect={onSelect}
                 onPrefetch={onPrefetch}
               />

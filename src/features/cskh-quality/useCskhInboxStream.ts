@@ -21,6 +21,8 @@ type UseCskhInboxStreamOptions = {
   activeConversationId?: string | null
   activeAuditDate?: string | null
   onIntent?: (conversationId: string, intent: CskhCustomerIntent) => void
+  /** Gọi khi có tin mới qua SSE — dùng highlight hàng trong danh sách. */
+  onNewMessage?: (conversationId: string) => void
 }
 
 /**
@@ -31,6 +33,7 @@ export function useCskhInboxStream({
   activeConversationId,
   activeAuditDate,
   onIntent,
+  onNewMessage,
 }: UseCskhInboxStreamOptions = {}) {
   const qc = useQueryClient()
   const [connected, setConnected] = useState(false)
@@ -115,6 +118,8 @@ export function useCskhInboxStream({
               lastMessageAt: last.sentAt,
             })
           }
+          void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
+          onNewMessage?.(data.conversationId)
           if (data.conversationId === activeConversationId) {
             const cached = qc.getQueryData<{ conversation: { labels?: { id: string }[] } }>([
               'cskh',
@@ -175,7 +180,7 @@ export function useCskhInboxStream({
       typingTimeouts.forEach((timeout) => clearTimeout(timeout))
       typingTimeouts.clear()
     }
-  }, [enabled, qc, activeConversationId, activeAuditDate, onIntent])
+  }, [enabled, qc, activeConversationId, activeAuditDate, onIntent, onNewMessage])
 
   return { connected, typingConversationIds }
 }
