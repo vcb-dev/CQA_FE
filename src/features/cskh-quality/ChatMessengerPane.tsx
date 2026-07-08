@@ -16,7 +16,6 @@ import {
   fetchInboxConversationsPage,
   fetchInboxConversationStats,
   fetchInboxLabels,
-  backfillInboxAdReferrals,
   type CskhInboxConversation,
   type CskhInboxConversationPage,
   type CskhInboxMessage,
@@ -27,7 +26,7 @@ import { ChatRightSidebar } from './ChatRightSidebar'
 import { prefetchInboxViewHistory } from './ConversationViewHistory'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
-import { patchInboxConversationInCache, isInboxMessagePreview } from './inboxRealtimeCache'
+import { patchInboxConversationInCache, isInboxMessagePreview, mergeInboxConversationPages } from './inboxRealtimeCache'
 import {
   Select,
   SelectContent,
@@ -198,7 +197,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const isRefreshingList = isFetching && !isFetchingNextPage && !isLoadingConversations
 
   const allConversations = useMemo(
-    () => conversationPages?.pages.flatMap((p) => p.items) ?? [],
+    () => mergeInboxConversationPages(conversationPages?.pages),
     [conversationPages],
   )
 
@@ -228,25 +227,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
   }, [listError, listErr])
 
-  // Lần đầu xem tất cả page: quét DB gắn tag Ads (Việt/Anh/Thái) rồi refresh list
-  useEffect(() => {
-    if (selectedPageId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const { updated } = await backfillInboxAdReferrals()
-        if (!cancelled && updated > 0) {
-          await qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
-          toast.success(`Đã nhận diện thêm ${updated} hội thoại từ quảng cáo`)
-        }
-      } catch {
-        /* backfill optional */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [selectedPageId, qc])
+  // BE tự chạy ad-backfill khi tải danh sách — không gọi thêm từ FE (tránh tranh pool DB).
 
   const sidebarConversation = selectedConversation
 

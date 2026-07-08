@@ -12,6 +12,27 @@ function sortConversationsByRecent(a: CskhInboxConversation, b: CskhInboxConvers
   return new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
 }
 
+/** Gộp các trang infinite query, khử trùng, sort theo tin mới nhất — tránh list nhảy loạn sau SSE. */
+export function mergeInboxConversationPages(
+  pages: CskhInboxConversationPage[] | undefined,
+): CskhInboxConversation[] {
+  if (!pages?.length) return []
+  const byId = new Map<string, CskhInboxConversation>()
+  for (const page of pages) {
+    for (const conv of page.items) {
+      const prev = byId.get(conv.id)
+      if (!prev) {
+        byId.set(conv.id, conv)
+        continue
+      }
+      const prevAt = new Date(prev.lastMessageAt ?? 0).getTime()
+      const nextAt = new Date(conv.lastMessageAt ?? 0).getTime()
+      byId.set(conv.id, nextAt >= prevAt ? { ...prev, ...conv } : prev)
+    }
+  }
+  return [...byId.values()].sort(sortConversationsByRecent)
+}
+
 function isInfiniteConversationData(
   data: unknown,
 ): data is InfiniteData<CskhInboxConversationPage> {
@@ -22,12 +43,18 @@ function matchesConversationFilter(
   conv: CskhInboxConversation,
   pageIdFilter: string | undefined,
   activeFilter: string | undefined,
+  search: string | undefined,
   labelFilter: string | undefined,
 ): boolean {
   if (pageIdFilter && conv.pageId !== pageIdFilter) return false
   if (activeFilter === 'ads' && !conv.fromAd) return false
   if (activeFilter === 'unread' && !(conv.unreadCount > 0 || conv.awaitingLabel)) return false
   if (activeFilter === 'normal' && conv.fromAd) return false
+  const q = search?.trim().toLowerCase()
+  if (q) {
+    const hay = `${conv.customerName ?? ''} ${conv.lastMessage ?? ''} ${conv.pageName ?? ''}`.toLowerCase()
+    if (!hay.includes(q)) return false
+  }
   if (labelFilter === 'unlabeled') {
     if ((conv.labels?.length ?? 0) > 0) return false
   } else if (labelFilter && labelFilter !== 'all') {
@@ -66,7 +93,8 @@ function patchInfiniteConversationList(
 
   const pageIdFilter = key[3] === 'all' ? undefined : (key[3] as string | undefined)
   const activeFilter = key[4] as string | undefined
-  const labelFilter = (key[5] as string | undefined) ?? 'all'
+  const search = (key[5] as string | undefined) || undefined
+  const labelFilter = (key[6] as string | undefined) ?? 'all'
 
   const pages = prev.pages.map((p) => ({ ...p, items: [...p.items] }))
   let foundPage = -1
@@ -87,6 +115,7 @@ function patchInfiniteConversationList(
       merged as CskhInboxConversation,
       pageIdFilter,
       activeFilter,
+      search,
       labelFilter,
     )
     if (!stillMatches) {
@@ -94,12 +123,7 @@ function patchInfiniteConversationList(
     } else if (patch.lastMessageAt) {
       pages[foundPage].items.splice(foundIdx, 1)
       pages[0].items = [merged, ...pages[0].items.filter((c) => c.id !== patch.id)]
-      if (
-        pages[0].items.length > 1 &&
-        sortConversationsByRecent(pages[0].items[0], pages[0].items[1]) < 0
-      ) {
-        pages[0].items.sort(sortConversationsByRecent)
-      }
+      pages[0].items.sort(sortConversationsByRecent)
       const seen = new Set<string>()
       for (const page of pages) {
         page.items = page.items.filter((c) => {
@@ -113,14 +137,9 @@ function patchInfiniteConversationList(
     }
   } else {
     const row = patch as CskhInboxConversation
-    if (matchesConversationFilter(row, pageIdFilter, activeFilter, labelFilter)) {
+    if (matchesConversationFilter(row, pageIdFilter, activeFilter, search, labelFilter)) {
       pages[0].items = [row, ...pages[0].items.filter((c) => c.id !== row.id)]
-      if (
-        pages[0].items.length > 1 &&
-        sortConversationsByRecent(pages[0].items[0], pages[0].items[1]) < 0
-      ) {
-        pages[0].items.sort(sortConversationsByRecent)
-      }
+      pages[0].items.sort(sortConversationsByRecent)
     }
   }
 

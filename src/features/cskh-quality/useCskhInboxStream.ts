@@ -155,8 +155,12 @@ export function useCskhInboxStream({
           return
         }
 
-        // 6. If we have a conversation event, we already patched it above, so we can just return
+        // 6. Conversation-only SSE — đẩy hội thoại lên đầu danh sách
         if (data.type === 'conversation') {
+          if (data.conversationId && data.conversation?.lastMessageAt) {
+            void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
+            onNewMessage?.(data.conversationId)
+          }
           return
         }
 
