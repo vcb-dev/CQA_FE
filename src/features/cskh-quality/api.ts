@@ -512,12 +512,13 @@ export interface CskhInsightPageRow {
   pageId: string
   pageName: string
   auditCount: number
-  avgScore: number
-  passRate: number
-  riskRate: number
-  positiveRate: number
+  audited?: boolean
+  avgScore: number | null
+  passRate: number | null
+  riskRate: number | null
+  positiveRate: number | null
   scoreChange: number | null
-  status: 'good' | 'warning' | 'critical'
+  status: 'good' | 'warning' | 'critical' | 'pending'
   statusLabel: string
   topIssue: string | null
   topKeyword: string | null

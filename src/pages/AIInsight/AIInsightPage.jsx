@@ -30,6 +30,7 @@ const STATUS_STYLE = {
   good: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
   warning: { bg: '#fffbeb', border: '#fde68a', color: '#b45309' },
   critical: { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c' },
+  pending: { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b' },
 };
 
 function formatYmd(d) {
@@ -71,7 +72,14 @@ function StatusTag({ status, label }) {
   );
 }
 
-function ScoreBar({ score }) {
+function ScoreBar({ score, audited = true }) {
+  if (!audited || score == null) {
+    return (
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
+        Chưa audit
+      </span>
+    );
+  }
   const color = score >= 70 ? '#22c55e' : score >= 55 ? '#f59e0b' : '#ef4444';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
@@ -151,9 +159,14 @@ function ChannelCard({ page, onSelect }) {
         <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{page.pageName}</div>
         <StatusTag status={page.status} label={page.statusLabel} />
       </div>
-      <ScoreBar score={page.avgScore} />
+      <ScoreBar score={page.avgScore} audited={page.audited !== false} />
       <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280' }}>
-        {page.auditCount.toLocaleString('vi-VN')} HT · Rủi ro {page.riskRate}% · QA {page.passRate}%
+        {page.auditCount.toLocaleString('vi-VN')} HT
+        {page.audited !== false ? (
+          <> · Rủi ro {page.riskRate}% · QA {page.passRate}%</>
+        ) : (
+          <> · Chưa có điểm QA</>
+        )}
       </div>
       {page.topIssue && (
         <div style={{ marginTop: 6, fontSize: 11, color: s.color, fontWeight: 600 }}>{page.topIssue}</div>
@@ -336,7 +349,8 @@ export default function AIInsightPage() {
                   <option value="">— Chọn kênh —</option>
                   {pageOptions.map((p) => (
                     <option key={p.pageId} value={p.pageId}>
-                      {p.pageName} ({p.avgScore}đ)
+                      {p.pageName}
+                      {p.audited === false ? ' (Chưa audit)' : ` (${p.avgScore}đ)`}
                     </option>
                   ))}
                 </select>
@@ -469,9 +483,11 @@ export default function AIInsightPage() {
                           <tr key={p.pageId} style={{ cursor: 'pointer' }} onClick={() => setSelectedPageId(p.pageId)}>
                             <td style={{ fontWeight: 600, maxWidth: 180 }}>{p.pageName}</td>
                             <td><StatusTag status={p.status} label={p.statusLabel} /></td>
-                            <td><ScoreBar score={p.avgScore} /></td>
-                            <td>{p.passRate}%</td>
-                            <td style={{ color: p.riskRate >= 75 ? '#dc2626' : undefined, fontWeight: p.riskRate >= 75 ? 700 : 400 }}>{p.riskRate}%</td>
+                            <td><ScoreBar score={p.avgScore} audited={p.audited !== false} /></td>
+                            <td>{p.audited === false ? '—' : `${p.passRate}%`}</td>
+                            <td style={{ color: p.riskRate >= 75 ? '#dc2626' : undefined, fontWeight: p.riskRate >= 75 ? 700 : 400 }}>
+                              {p.audited === false ? '—' : `${p.riskRate}%`}
+                            </td>
                             <td>{p.auditCount.toLocaleString('vi-VN')}</td>
                             <td style={{ fontSize: 11, color: '#6b7280', maxWidth: 220 }}>{p.topIssue || '—'}</td>
                             <td><CaretRight size={14} style={{ color: '#9ca3af' }} /></td>

@@ -125,6 +125,8 @@ export function SapoCreateOrderDialog({
     },
   })
 
+  const catalogLoading = isLoadingStatus || isLoadingCatalog
+
   const availableToAdd = useMemo(() => {
     const q = productSearch.trim().toLowerCase()
     return (catalogData?.items ?? [])
@@ -237,12 +239,7 @@ export function SapoCreateOrderDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-          {isLoadingStatus || isLoadingCatalog ? (
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 py-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Đang tải catalog...
-            </div>
-          ) : !sapoReady ? (
+          {!catalogLoading && !sapoReady ? (
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-[11px] text-amber-900">
               <p className="font-semibold">Chưa có sản phẩm trong hệ thống</p>
               <p className="text-amber-800/90 mt-1">Liên hệ admin để import catalog sản phẩm.</p>
@@ -312,9 +309,21 @@ export function SapoCreateOrderDialog({
             )}
           </div>
 
-          {(catalogData?.items.length ?? 0) > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Thêm sản phẩm</h3>
+          <div className="space-y-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Thêm sản phẩm</h3>
+            {catalogLoading ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-10 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+                <p className="text-[12px] font-semibold text-slate-700">Đang tải danh sách sản phẩm...</p>
+                <p className="text-[10px] text-slate-400">Có thể mất vài giây nếu catalog lớn</p>
+                <div className="w-full max-w-xs space-y-2 mt-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-9 rounded-lg bg-slate-200/70 animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ) : (catalogData?.items.length ?? 0) > 0 ? (
+              <>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
@@ -354,8 +363,9 @@ export function SapoCreateOrderDialog({
                 ))}
                 </div>
               )}
-            </div>
-          )}
+              </>
+            ) : null}
+          </div>
 
           <label className="block space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ghi chú đơn</span>
@@ -374,10 +384,10 @@ export function SapoCreateOrderDialog({
             </button>
             <button
               type="submit"
-              disabled={!sapoReady || !lineItems.length || createMutation.isPending}
+              disabled={catalogLoading || !sapoReady || !lineItems.length || createMutation.isPending}
               className={cn(
                 'flex-1 rounded-xl px-4 py-2.5 text-[11px] font-bold text-white transition-colors',
-                sapoReady && lineItems.length ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed',
+                !catalogLoading && sapoReady && lineItems.length ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed',
               )}
             >
               {createMutation.isPending ? (
