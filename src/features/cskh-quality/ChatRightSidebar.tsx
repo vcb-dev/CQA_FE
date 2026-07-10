@@ -132,7 +132,8 @@ export function ChatRightSidebar({
   const adPeriod = formatAdPeriod(adInsights?.dateStart, adInsights?.dateStop)
 
   return (
-    <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full overflow-y-auto font-sans">
+    <div className="w-[300px] border-l border-slate-200/60 bg-gradient-to-b from-slate-50/80 to-white flex flex-col h-full font-sans">
+      <div className="flex-1 overflow-y-auto min-h-0">
       {/* Customer Profile */}
       <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center">
         {conversation.customerPictureUrl ? (
@@ -196,15 +197,6 @@ export function ChatRightSidebar({
             </span>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setSapoOrderOpen(true)}
-          className="w-full mt-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2.5 text-[11px] font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99]"
-        >
-          <ShoppingCart className="w-3.5 h-3.5" />
-          Tạo đơn hàng
-        </button>
 
         {/* Ads Campaign Details */}
         {showAdDetails && (
@@ -546,6 +538,18 @@ export function ChatRightSidebar({
             </div>
           </div>
         )}
+      </div>
+      </div>
+
+      <div className="shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setSapoOrderOpen(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99]"
+        >
+          <ShoppingCart className="w-4 h-4" />
+          Tạo đơn hàng
+        </button>
       </div>
 
       <SapoCreateOrderDialog
