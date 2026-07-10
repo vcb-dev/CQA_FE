@@ -260,7 +260,7 @@ export default function AIInsightPage() {
   }, [data?.pageDirectory, data?.byPage?.all]);
 
   const dataReady = dataMatchesSelection(data, selectedPageId);
-  const showContentLoading = !dataReady && isLoading && !isError;
+  const showContentLoading = !dataReady && (isLoading || isFetching) && !isError;
   const isRefreshing = isFetching && !isLoading;
 
   const isChannelDetail = Boolean(selectedPageId);
