@@ -728,7 +728,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             </div>
 
             {/* Right Sidebar */}
-            <div className="hidden lg:block shrink-0">
+            <div className="hidden lg:flex shrink-0 h-full min-h-0">
               <ChatRightSidebar
                 conversation={sidebarConversation ?? selectedConversation}
                 intent={intent}

@@ -244,6 +244,6 @@ export function useCskhInboxStream({
       typingTimeouts.clear()
     }
   }, [enabled, qc])
-§
+
   return { connected, typingConversationIds }
 }

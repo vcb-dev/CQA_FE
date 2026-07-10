@@ -539,17 +539,19 @@ export function ChatRightSidebar({
           </div>
         )}
       </div>
-      </div>
 
-      <div className="shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur px-4 py-3">
+      <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+      <div className="px-5 py-4 pb-6">
         <button
           type="button"
           onClick={() => setSapoOrderOpen(true)}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99]"
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99] cursor-pointer"
         >
           <ShoppingCart className="w-4 h-4" />
           Tạo đơn hàng
         </button>
+      </div>
       </div>
 
       <SapoCreateOrderDialog
