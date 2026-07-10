@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { Copy, Check, Sparkles, User, Megaphone, MessageSquare, Zap, Loader2, RefreshCw } from 'lucide-react'
+import { Copy, Check, Sparkles, User, Megaphone, MessageSquare, Zap, Loader2, RefreshCw, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhInboxConversation, CskhCustomerIntent, CskhAdInsights } from './api'
 import { cskhMediaProxySrc } from './messageMedia'
+import { SapoCreateOrderDialog } from './SapoCreateOrderDialog'
 import { cn } from '@/lib/utils'
 
 type ChatRightSidebarProps = {
@@ -76,6 +77,7 @@ export function ChatRightSidebar({
   isRefreshingAdInsights,
 }: ChatRightSidebarProps) {
   const [copied, setCopied] = useState(false)
+  const [sapoOrderOpen, setSapoOrderOpen] = useState(false)
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -194,6 +196,15 @@ export function ChatRightSidebar({
             </span>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setSapoOrderOpen(true)}
+          className="w-full mt-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2.5 text-[11px] font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99]"
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          Tạo đơn hàng
+        </button>
 
         {/* Ads Campaign Details */}
         {showAdDetails && (
@@ -536,6 +547,13 @@ export function ChatRightSidebar({
           </div>
         )}
       </div>
+
+      <SapoCreateOrderDialog
+        open={sapoOrderOpen}
+        onClose={() => setSapoOrderOpen(false)}
+        conversation={conversation}
+        intent={intent}
+      />
     </div>
   )
 }

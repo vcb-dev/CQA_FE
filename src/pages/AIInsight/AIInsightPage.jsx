@@ -232,6 +232,12 @@ export default function AIInsightPage() {
         pageId: selectedPageId || undefined,
       }),
     staleTime: 60_000,
+    retry: (failureCount, err) => {
+      const status = err?.response?.status;
+      if (status === 503 && failureCount < 4) return true;
+      return failureCount < 1;
+    },
+    retryDelay: (attempt) => Math.min(800 * 2 ** attempt, 6000),
   });
 
   useEffect(() => {
@@ -390,8 +396,21 @@ export default function AIInsightPage() {
         {showContentLoading && !isError && <ContentLoading label={loadingLabel} />}
 
         {isError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            Không tải được insight: {error?.message || 'Lỗi không xác định'}
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 space-y-2">
+            <p>
+              Không tải được insight:{' '}
+              {error?.response?.data?.message ||
+                error?.message ||
+                'Lỗi không xác định'}
+            </p>
+            {error?.response?.status === 503 && (
+              <p className="text-xs text-red-600/90">
+                Hệ thống đang đồng bộ inbox — trang sẽ tự thử lại, hoặc bấm «Tải lại» sau vài giây.
+              </p>
+            )}
+            <button type="button" onClick={() => refetch()} style={btnOutline}>
+              Tải lại
+            </button>
           </div>
         )}
 

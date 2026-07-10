@@ -247,6 +247,74 @@ export function getCskhOAuthStartUrl(returnUrl?: string): string {
   return `${base}/cskh/oauth/start?returnUrl=${encodeURIComponent(ret)}`
 }
 
+export function getCskhSapoOAuthStartUrl(): string {
+  const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003/api/v1').replace(/\/$/, '')
+  return `${base}/cskh/sapo/oauth/start`
+}
+
+export interface CskhSapoStatus {
+  oauthReady: boolean
+  apiReady: boolean
+  ordersReady?: boolean
+  dbCatalogReady?: boolean
+  catalogSource?: 'api' | 'db' | null
+  redirectUri: string | null
+  authorizeUrl: string | null
+  oauthStartUrl?: string | null
+  variantCount: number
+}
+
+export interface CskhSapoCatalogItem {
+  productId: number
+  variantId: number
+  name: string
+  variantTitle: string
+  price: number
+  priceLabel: string
+  sku: string | null
+  imageUrl: string | null
+  inStock: boolean
+  inventoryQuantity: number | null
+}
+
+export async function fetchCskhSapoCatalog(): Promise<{
+  source: 'api' | 'db' | null
+  items: CskhSapoCatalogItem[]
+}> {
+  const { data } = await apiClient.get<{ source: 'api' | 'db' | null; items: CskhSapoCatalogItem[] }>(
+    '/cskh/sapo/catalog',
+  )
+  return data
+}
+
+export async function fetchCskhSapoStatus(): Promise<CskhSapoStatus> {
+  const { data } = await apiClient.get<CskhSapoStatus>('/cskh/sapo/status')
+  return data
+}
+
+export interface CreateSapoOrderPayload {
+  customerName: string
+  phone?: string
+  address?: string
+  note?: string
+  psid?: string
+  conversationId?: string
+  lineItems: Array<{ variantId: number; quantity: number }>
+}
+
+export interface CreateSapoOrderResult {
+  orderId: number
+  orderName: string | null
+  totalPrice: string | null
+  adminUrl: string | null
+  source?: 'sapo_api' | 'db'
+}
+
+export async function createSapoOrder(payload: CreateSapoOrderPayload): Promise<CreateSapoOrderResult> {
+  const { data } = await apiClient.post<CreateSapoOrderResult>('/cskh/sapo/orders', payload)
+  return data
+}
+
 export async function fetchCskhPages(options?: {
   month?: string
   date?: string
