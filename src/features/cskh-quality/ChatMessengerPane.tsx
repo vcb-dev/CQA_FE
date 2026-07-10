@@ -265,26 +265,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     wasStreamConnectedRef.current = connected
   }, [connected, scheduleListHeadRefresh])
 
-  const listTopSnapshot = useMemo(
-    () =>
-      allConversations.slice(0, 3).map((c) => ({
-        id: c.id.slice(0, 8),
-        name: c.customerName,
-        lastMessage: c.lastMessage?.slice(0, 40),
-        lastMessageAt: c.lastMessageAt,
-        lagMs: c.lastMessageAt ? Date.now() - new Date(c.lastMessageAt).getTime() : null,
-      })),
-    [allConversations],
-  )
-
   useEffect(() => {
     inboxRtLog(connected ? 'UI status: Live (SSE)' : 'UI status: Offline (SSE)', {
       filter: `${pageKey}|${activeFilter}|${labelFilter}`,
       search: debouncedSearch || '(none)',
       listCount: allConversations.length,
-      top3: listTopSnapshot,
     })
-  }, [connected, pageKey, activeFilter, labelFilter, debouncedSearch, allConversations.length, listTopSnapshot])
+  }, [connected, pageKey, activeFilter, labelFilter, debouncedSearch, allConversations.length])
 
   const listEmptyHint = useMemo(() => {
     if (listError) return getApiErrorMessage(listErr) || 'Không tải được danh sách hội thoại'

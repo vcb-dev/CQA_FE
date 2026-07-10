@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/axios'
 import { markInboxAsRead, type CskhCustomerIntent } from './api'
@@ -29,6 +29,7 @@ type UseCskhInboxStreamOptions = {
 
 /**
  * SSE từ BE — push tin + intent ngay khi webhook Facebook có sự kiện mới.
+ * Giữ 1 kết nối EventSource ổn định — callback/context đọc qua ref, không remount SSE.
  */
 export function useCskhInboxStream({
   enabled = true,
@@ -40,6 +41,24 @@ export function useCskhInboxStream({
   const qc = useQueryClient()
   const [connected, setConnected] = useState(false)
   const [typingConversationIds, setTypingConversationIds] = useState<Set<string>>(new Set())
+
+  const onIntentRef = useRef(onIntent)
+  const onNewMessageRef = useRef(onNewMessage)
+  const activeConversationIdRef = useRef(activeConversationId)
+  const activeAuditDateRef = useRef(activeAuditDate)
+
+  useEffect(() => {
+    onIntentRef.current = onIntent
+  }, [onIntent])
+  useEffect(() => {
+    onNewMessageRef.current = onNewMessage
+  }, [onNewMessage])
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId
+  }, [activeConversationId])
+  useEffect(() => {
+    activeAuditDateRef.current = activeAuditDate
+  }, [activeAuditDate])
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return
@@ -66,7 +85,6 @@ export function useCskhInboxStream({
       if (disconnectTimer) clearTimeout(disconnectTimer)
       setConnected(true)
       inboxRtLog('SSE connected (Live)', { readyState: es.readyState })
-      // Chỉ refresh số tab — KHÔNG refetch infinite list (đã load nhiều trang sẽ treo)
       void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
     }
     es.onerror = () => {
@@ -94,16 +112,13 @@ export function useCskhInboxStream({
           customerName: data.conversation?.customerName,
         })
 
-        // 1. Handle typing indicator
         if (data.type === 'typing' && data.conversationId) {
           setTypingConversationIds((prev) => new Set([...prev, data.conversationId!]))
 
-          // Clear previous timeout if exists
           if (typingTimeouts.has(data.conversationId)) {
             clearTimeout(typingTimeouts.get(data.conversationId)!)
           }
 
-          // Hide typing indicator after 3 seconds
           const timeout = setTimeout(() => {
             setTypingConversationIds((prev) => {
               const next = new Set(prev)
@@ -117,24 +132,21 @@ export function useCskhInboxStream({
           return
         }
 
-        // 2. Handle intent updates (from AI analysis completion)
         if (data.type === 'intent' && data.conversationId && data.intent) {
           qc.setQueryData(['cskh', 'inbox', 'intent', data.conversationId], data.intent)
-          onIntent?.(data.conversationId, data.intent)
+          onIntentRef.current?.(data.conversationId, data.intent)
           return
         }
 
-        // 3. Update conversation info in cache if present
         if (data.conversation) {
           patchInboxConversationInCache(qc, data.conversation, 'sse-conversation-patch')
         }
 
-        // 4. Handle incoming/outgoing message payload
         if (data.type === 'message' && data.messages?.length && data.conversationId) {
           appendInboxMessagesToCache(
             qc,
             data.conversationId,
-            activeAuditDate ?? undefined,
+            activeAuditDateRef.current ?? undefined,
             data.messages,
             data.conversation,
           )
@@ -155,8 +167,9 @@ export function useCskhInboxStream({
             conversationId: data.conversationId,
             lastMessageAt: data.conversation?.lastMessageAt ?? lastMsg?.sentAt,
           })
-          onNewMessage?.(data.conversationId)
-          if (data.conversationId === activeConversationId) {
+          onNewMessageRef.current?.(data.conversationId)
+          const activeId = activeConversationIdRef.current
+          if (data.conversationId === activeId) {
             const cached = qc.getQueryData<{ conversation: { labels?: { id: string }[] } }>([
               'cskh',
               'inbox',
@@ -174,7 +187,6 @@ export function useCskhInboxStream({
           return
         }
 
-        // 5. Handle read-receipt event (local cache update for messages)
         if (data.type === 'read-receipt' && data.conversationId) {
           qc.setQueryData<{ conversation: any; messages: any[] }>(
             ['cskh', 'inbox', 'messages', data.conversationId],
@@ -183,15 +195,14 @@ export function useCskhInboxStream({
               return {
                 ...prev,
                 messages: prev.messages.map((m) =>
-                  m.status !== 'read' ? { ...m, status: 'read' } : m
+                  m.status !== 'read' ? { ...m, status: 'read' } : m,
                 ),
               }
-            }
+            },
           )
           return
         }
 
-        // 6. Conversation-only SSE — đẩy hội thoại lên đầu danh sách
         if (data.type === 'conversation') {
           if (data.conversationId && data.conversation?.lastMessageAt) {
             void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
@@ -199,7 +210,7 @@ export function useCskhInboxStream({
               conversationId: data.conversationId,
               lastMessageAt: data.conversation.lastMessageAt,
             })
-            onNewMessage?.(data.conversationId)
+            onNewMessageRef.current?.(data.conversationId)
           } else {
             inboxRtLog('SSE conversation (labels only, no reorder)', {
               conversationId: data.conversationId,
@@ -209,12 +220,10 @@ export function useCskhInboxStream({
           return
         }
 
-        // Fallback: Only invalidate specific queries if we receive an unhandled event type
         inboxRtWarn('SSE unhandled event type', {
           type: data.type,
           conversationId: data.conversationId,
         })
-        // DO NOT invalidate ['cskh', 'inbox'] globally as it causes huge API overhead (refetching intents, etc.)
         if (data.conversationId) {
           void qc.invalidateQueries({
             queryKey: ['cskh', 'inbox', 'messages', data.conversationId],
@@ -234,7 +243,7 @@ export function useCskhInboxStream({
       typingTimeouts.forEach((timeout) => clearTimeout(timeout))
       typingTimeouts.clear()
     }
-  }, [enabled, qc, activeConversationId, activeAuditDate, onIntent, onNewMessage])
+  }, [enabled, qc])
 
   return { connected, typingConversationIds }
 }
