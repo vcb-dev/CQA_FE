@@ -216,7 +216,15 @@ export function ChatRightSidebar({
               )}
             </div>
 
-            {showCampaignBlock ? (
+            {isLoadingAdInsights ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg bg-white/70 border border-amber-100/80 px-3 py-6 text-center">
+                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+                <p className="text-[11px] font-medium text-slate-600">Đang tải quảng cáo Facebook...</p>
+                <p className="text-[9px] text-slate-400 leading-relaxed max-w-[220px]">
+                  Lấy chiến dịch và chi phí từ Meta cho hội thoại này
+                </p>
+              </div>
+            ) : showCampaignBlock ? (
               <div className="space-y-2 rounded-lg bg-white/70 border border-amber-100/80 px-2.5 py-2.5">
                 {campaignName && (
                   <div className="flex flex-col gap-0.5">
@@ -252,11 +260,6 @@ export function ChatRightSidebar({
                   </p>
                 )}
               </div>
-            ) : isLoadingAdInsights ? (
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 rounded-lg bg-white/60 px-2.5 py-2">
-                <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                Đang lấy thông tin quảng cáo...
-              </div>
             ) : (
               <div className="rounded-lg bg-white/60 border border-amber-100/60 px-2.5 py-2 text-[10px] text-slate-500 leading-relaxed">
                 Khách vào từ quảng cáo Click-to-Messenger. Chi tiết camp sẽ hiện khi Meta trả dữ liệu.
@@ -264,13 +267,9 @@ export function ChatRightSidebar({
             )}
 
             {/* Chi phí */}
+            {!isLoadingAdInsights && (
             <div className="pt-0.5 space-y-2">
-              {isLoadingAdInsights && !hasCostData ? (
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />
-                  Đang tính chi phí...
-                </div>
-              ) : adInsights?.unavailableReason ? (
+              {adInsights?.unavailableReason ? (
                 <div className="rounded-lg bg-white/60 border border-slate-200/60 px-2.5 py-2 space-y-1">
                   <p className="text-[10px] text-slate-600 leading-relaxed">
                     {adInsightsHint(adInsights.unavailableReason)}
@@ -358,6 +357,7 @@ export function ChatRightSidebar({
                 </>
               ) : null}
             </div>
+            )}
           </div>
         )}
       </div>

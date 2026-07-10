@@ -28,6 +28,7 @@ import { prefetchInboxViewHistory } from './ConversationViewHistory'
 import { InboxLabelFilterPopover, type InboxLabelFilterValue } from './InboxLabelFilterPopover'
 import { useCskhInboxStream } from './useCskhInboxStream'
 import { patchInboxConversationInCache, isInboxMessagePreview, mergeInboxConversationPages } from './inboxRealtimeCache'
+import { inboxRtLog } from './inboxRealtimeDebug'
 import {
   Select,
   SelectContent,
@@ -74,6 +75,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [bumpedConversationIds, setBumpedConversationIds] = useState<Set<string>>(() => new Set())
 
   const handleRealtimeMessage = useCallback((conversationId: string) => {
+    inboxRtLog('UI bump highlight', { conversationId })
     setBumpedConversationIds((prev) => new Set([...prev, conversationId]))
     const existing = bumpTimeoutsRef.current.get(conversationId)
     if (existing) clearTimeout(existing)
@@ -202,6 +204,27 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     [conversationPages],
   )
 
+  const listTopSnapshot = useMemo(
+    () =>
+      allConversations.slice(0, 3).map((c) => ({
+        id: c.id.slice(0, 8),
+        name: c.customerName,
+        lastMessage: c.lastMessage?.slice(0, 40),
+        lastMessageAt: c.lastMessageAt,
+        lagMs: c.lastMessageAt ? Date.now() - new Date(c.lastMessageAt).getTime() : null,
+      })),
+    [allConversations],
+  )
+
+  useEffect(() => {
+    inboxRtLog(connected ? 'UI status: Live (SSE)' : 'UI status: Offline (SSE)', {
+      filter: `${pageKey}|${activeFilter}|${labelFilter}`,
+      search: debouncedSearch || '(none)',
+      listCount: allConversations.length,
+      top3: listTopSnapshot,
+    })
+  }, [connected, pageKey, activeFilter, labelFilter, debouncedSearch, allConversations.length, listTopSnapshot])
+
   const listEmptyHint = useMemo(() => {
     if (listError) return getApiErrorMessage(listErr) || 'Không tải được danh sách hội thoại'
     if (labelFilter === 'unlabeled' && (convStats?.total ?? 0) > 0) {
@@ -309,23 +332,31 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const adInsightsVisitGen =
     selectedId && adInsightsSelectGen?.id === selectedId ? adInsightsSelectGen.gen : 0
 
-  const { data: adInsights, isLoading: isLoadingAdInsights, isFetching: isFetchingAdInsights } =
-    useQuery({
-      queryKey: ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
-      queryFn: ({ signal, queryKey }) => {
-        const convId = queryKey[3] as string
-        const visitGen = Number(queryKey[4] ?? 1)
-        if (!convId) return null
-        return fetchConversationAdInsights(convId, signal, visitGen >= 2)
-      },
-      enabled: shouldLoadAdInsights && !!selectedId && messagesReady && adInsightsVisitGen > 0,
-      staleTime: 0,
-      gcTime: 0,
-      placeholderData:
-        adInsightsVisitGen >= 2
-          ? undefined
-          : (prev) => prev,
-    })
+  const {
+    data: adInsights,
+    isLoading: isLoadingAdInsights,
+    isFetching: isFetchingAdInsights,
+    isPlaceholderData: isAdInsightsPlaceholder,
+  } = useQuery({
+    queryKey: ['cskh', 'inbox', 'ad-insights', selectedId, adInsightsVisitGen],
+    queryFn: ({ signal, queryKey }) => {
+      const convId = queryKey[3] as string
+      const visitGen = Number(queryKey[4] ?? 1)
+      if (!convId) return null
+      return fetchConversationAdInsights(convId, signal, visitGen >= 2)
+    },
+    enabled: shouldLoadAdInsights && !!selectedId && messagesReady && adInsightsVisitGen > 0,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
+  const adInsightsPending =
+    shouldLoadAdInsights &&
+    !!selectedId &&
+    (!messagesReady ||
+      isLoadingAdInsights ||
+      isFetchingAdInsights ||
+      isAdInsightsPlaceholder)
 
   const [isRefreshingAdInsights, setIsRefreshingAdInsights] = useState(false)
   const handleRefreshAdInsights = useCallback(async () => {
@@ -654,13 +685,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 conversation={sidebarConversation ?? selectedConversation}
                 intent={intent}
                 isLoadingIntent={isLoadingIntent}
-                adInsights={adInsights}
-                isLoadingAdInsights={isLoadingAdInsights}
+                adInsights={adInsightsPending ? undefined : adInsights}
+                isLoadingAdInsights={adInsightsPending}
                 onApplySuggestedReply={(text) => setInputDraft(text)}
                 onRefreshAdInsights={handleRefreshAdInsights}
-                isRefreshingAdInsights={
-                  isRefreshingAdInsights || (isFetchingAdInsights && !isLoadingAdInsights)
-                }
+                isRefreshingAdInsights={isRefreshingAdInsights}
               />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query'
 import type { CskhInboxConversation, CskhInboxConversationPage, CskhInboxMessage } from './api'
+import { inboxRtLog, inboxRtWarn } from './inboxRealtimeDebug'
 
 export type InboxRealtimeMessagePayload = CskhInboxMessage
 
@@ -88,8 +89,8 @@ function patchInfiniteConversationList(
   prev: InfiniteData<CskhInboxConversationPage>,
   patch: InboxRealtimeConversationPatch,
   key: readonly unknown[],
-): InfiniteData<CskhInboxConversationPage> {
-  if (!prev?.pages?.length) return prev
+): { next: InfiniteData<CskhInboxConversationPage>; action: string } {
+  if (!prev?.pages?.length) return { next: prev, action: 'no-pages' }
 
   const pageIdFilter = key[3] === 'all' ? undefined : (key[3] as string | undefined)
   const activeFilter = key[4] as string | undefined
@@ -99,6 +100,7 @@ function patchInfiniteConversationList(
   const pages = prev.pages.map((p) => ({ ...p, items: [...p.items] }))
   let foundPage = -1
   let foundIdx = -1
+  let action = 'noop'
 
   for (let pi = 0; pi < pages.length; pi++) {
     const idx = pages[pi].items.findIndex((c) => c.id === patch.id)
@@ -120,6 +122,7 @@ function patchInfiniteConversationList(
     )
     if (!stillMatches) {
       pages[foundPage].items.splice(foundIdx, 1)
+      action = 'removed-filter-mismatch'
     } else if (patch.lastMessageAt) {
       pages[foundPage].items.splice(foundIdx, 1)
       pages[0].items = [merged, ...pages[0].items.filter((c) => c.id !== patch.id)]
@@ -132,18 +135,23 @@ function patchInfiniteConversationList(
           return true
         })
       }
+      action = foundPage === 0 && foundIdx === 0 ? 'updated-top-in-place' : 'moved-to-top'
     } else {
       pages[foundPage].items[foundIdx] = merged
+      action = 'updated-in-place'
     }
   } else {
     const row = patch as CskhInboxConversation
     if (matchesConversationFilter(row, pageIdFilter, activeFilter, search, labelFilter)) {
       pages[0].items = [row, ...pages[0].items.filter((c) => c.id !== row.id)]
       pages[0].items.sort(sortConversationsByRecent)
+      action = 'inserted-top'
+    } else {
+      action = 'skipped-filter-mismatch'
     }
   }
 
-  return { ...prev, pages }
+  return { next: { ...prev, pages }, action }
 }
 
 export function appendInboxMessagesToCache(
@@ -205,17 +213,47 @@ export function appendInboxMessagesToCache(
 export function patchInboxConversationInCache(
   qc: QueryClient,
   patch: InboxRealtimeConversationPatch,
+  source = 'unknown',
 ) {
   const queries = qc.getQueryCache().findAll({
     queryKey: ['cskh', 'inbox', 'conversations'],
   })
+  if (!queries.length) {
+    inboxRtWarn('cache patch — no conversation queries in cache', {
+      source,
+      conversationId: patch.id,
+      hint: 'List chưa load — SSE tới trước khi API list trả về',
+    })
+    return
+  }
   for (const q of queries) {
     const key = q.queryKey
     const prev = q.state.data
     if (isInfiniteConversationData(prev)) {
-      qc.setQueryData(key, patchInfiniteConversationList(prev, patch, key))
+      const { next, action } = patchInfiniteConversationList(prev, patch, key)
+      qc.setQueryData(key, next)
+      const mergedTop = mergeInboxConversationPages(next.pages).slice(0, 3).map((c) => ({
+        id: c.id.slice(0, 8),
+        name: c.customerName,
+        lastMessage: c.lastMessage?.slice(0, 40),
+        lastMessageAt: c.lastMessageAt,
+      }))
+      inboxRtLog('cache patch list', {
+        source,
+        action,
+        conversationId: patch.id,
+        queryKey: key.slice(3).join('|'),
+        lastMessageAt: patch.lastMessageAt,
+        lastMessage: patch.lastMessage?.slice(0, 60),
+        top3After: mergedTop,
+      })
     } else if (Array.isArray(prev)) {
       qc.setQueryData<CskhInboxConversation[]>(key, patchFlatConversationList(prev, patch, key))
+      inboxRtLog('cache patch flat list', {
+        source,
+        conversationId: patch.id,
+        queryKey: key.slice(3).join('|'),
+      })
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/lib/axios'
 import { markInboxAsRead, type CskhCustomerIntent } from './api'
 import {
   appendInboxMessagesToCache,
@@ -7,6 +8,7 @@ import {
   type InboxRealtimeConversationPatch,
   type InboxRealtimeMessagePayload,
 } from './inboxRealtimeCache'
+import { inboxRtLog, inboxRtWarn } from './inboxRealtimeDebug'
 
 export type InboxRealtimeEvent = {
   type?: string
@@ -42,22 +44,36 @@ export function useCskhInboxStream({
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return
 
-    const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+    inboxRtLog('Debug ON — lọc Console: CSKH Inbox RT', {
+      disable: "localStorage.setItem('cskh_inbox_debug', '0')",
+    })
+
+    const base = (apiClient.defaults.baseURL || 'http://localhost:3000/api/v1').replace(/\/$/, '')
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null
-    const url = token
+    const streamUrl = token
       ? `${base}/cskh/inbox/stream?token=${encodeURIComponent(token)}`
       : `${base}/cskh/inbox/stream`
-    const es = new EventSource(url, { withCredentials: true })
+    inboxRtLog('SSE connecting', {
+      base,
+      hasToken: Boolean(token),
+      streamPath: '/cskh/inbox/stream',
+    })
+    const es = new EventSource(streamUrl, { withCredentials: true })
     let disconnectTimer: ReturnType<typeof setTimeout> | null = null
     const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
     es.onopen = () => {
       if (disconnectTimer) clearTimeout(disconnectTimer)
       setConnected(true)
+      inboxRtLog('SSE connected (Live)', { readyState: es.readyState })
       // Chỉ refresh số tab — KHÔNG refetch infinite list (đã load nhiều trang sẽ treo)
       void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
     }
     es.onerror = () => {
+      inboxRtWarn('SSE error — sẽ hiện Offline sau 4s nếu không reconnect', {
+        readyState: es.readyState,
+        hint: 'readyState 0=CLOSED 1=OPEN 2=CONNECTING',
+      })
       if (disconnectTimer) clearTimeout(disconnectTimer)
       disconnectTimer = setTimeout(() => setConnected(false), 4000)
     }
@@ -65,6 +81,18 @@ export function useCskhInboxStream({
       try {
         const data = JSON.parse(ev.data as string) as InboxRealtimeEvent
         if (!data || data.type === 'ping') return
+
+        const lastMsg = data.messages?.[data.messages.length - 1]
+        inboxRtLog('SSE event received', {
+          type: data.type,
+          conversationId: data.conversationId,
+          messageCount: data.messages?.length ?? 0,
+          messagePreview: lastMsg?.text?.slice(0, 80),
+          messageSentAt: lastMsg?.sentAt,
+          lastMessageAt: data.conversation?.lastMessageAt,
+          lastMessage: data.conversation?.lastMessage?.slice(0, 80),
+          customerName: data.conversation?.customerName,
+        })
 
         // 1. Handle typing indicator
         if (data.type === 'typing' && data.conversationId) {
@@ -98,7 +126,7 @@ export function useCskhInboxStream({
 
         // 3. Update conversation info in cache if present
         if (data.conversation) {
-          patchInboxConversationInCache(qc, data.conversation)
+          patchInboxConversationInCache(qc, data.conversation, 'sse-conversation-patch')
         }
 
         // 4. Handle incoming/outgoing message payload
@@ -112,13 +140,21 @@ export function useCskhInboxStream({
           )
           if (!data.conversation) {
             const last = data.messages[data.messages.length - 1]
-            patchInboxConversationInCache(qc, {
-              id: data.conversationId,
-              lastMessage: last.text || undefined,
-              lastMessageAt: last.sentAt,
-            })
+            patchInboxConversationInCache(
+              qc,
+              {
+                id: data.conversationId,
+                lastMessage: last.text || undefined,
+                lastMessageAt: last.sentAt,
+              },
+              'sse-message-fallback-patch',
+            )
           }
           void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
+          inboxRtLog('SSE message applied → bump list', {
+            conversationId: data.conversationId,
+            lastMessageAt: data.conversation?.lastMessageAt ?? lastMsg?.sentAt,
+          })
           onNewMessage?.(data.conversationId)
           if (data.conversationId === activeConversationId) {
             const cached = qc.getQueryData<{ conversation: { labels?: { id: string }[] } }>([
@@ -159,12 +195,25 @@ export function useCskhInboxStream({
         if (data.type === 'conversation') {
           if (data.conversationId && data.conversation?.lastMessageAt) {
             void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversation-stats'] })
+            inboxRtLog('SSE conversation bump', {
+              conversationId: data.conversationId,
+              lastMessageAt: data.conversation.lastMessageAt,
+            })
             onNewMessage?.(data.conversationId)
+          } else {
+            inboxRtLog('SSE conversation (labels only, no reorder)', {
+              conversationId: data.conversationId,
+              labelCount: data.conversation?.labels?.length ?? 0,
+            })
           }
           return
         }
 
         // Fallback: Only invalidate specific queries if we receive an unhandled event type
+        inboxRtWarn('SSE unhandled event type', {
+          type: data.type,
+          conversationId: data.conversationId,
+        })
         // DO NOT invalidate ['cskh', 'inbox'] globally as it causes huge API overhead (refetching intents, etc.)
         if (data.conversationId) {
           void qc.invalidateQueries({
@@ -178,6 +227,7 @@ export function useCskhInboxStream({
     }
 
     return () => {
+      inboxRtLog('SSE disconnect (unmount)')
       if (disconnectTimer) clearTimeout(disconnectTimer)
       es.close()
       setConnected(false)
