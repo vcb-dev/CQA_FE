@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, Loader2, Plus, ShoppingCart, X } from 'lucide-react'
+import { Loader2, Plus, Search, ShoppingCart, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhCustomerIntent, CskhInboxConversation, CskhSapoCatalogItem } from './api'
 import {
   createSapoOrder,
   fetchCskhSapoCatalog,
   fetchCskhSapoStatus,
-  getCskhSapoOAuthStartUrl,
 } from './api'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +47,7 @@ export function SapoCreateOrderDialog({
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [note, setNote] = useState('')
+  const [productSearch, setProductSearch] = useState('')
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([])
 
   const { data: sapoStatus, isLoading: isLoadingStatus } = useQuery({
@@ -92,9 +92,10 @@ export function SapoCreateOrderDialog({
     if (!open || isLoadingCatalog) return
     setPhone('')
     setAddress('')
-    setNote(intent?.summary ? `Nhu cầu: ${intent.summary}` : '')
+    setNote('')
+    setProductSearch('')
     setLineItems(defaultLineItems)
-  }, [open, conversation.id, defaultLineItems, intent?.summary, isLoadingCatalog])
+  }, [open, conversation.id, defaultLineItems, isLoadingCatalog])
 
   const createMutation = useMutation({
     mutationFn: createSapoOrder,
@@ -104,8 +105,8 @@ export function SapoCreateOrderDialog({
       if (result.source === 'db') {
         toast.success(
           result.orderName
-            ? `Đã tạo đơn test ${result.orderName} · ${result.totalPrice ? `${Number(result.totalPrice).toLocaleString('vi-VN')}đ` : ''}`
-            : `Đã tạo đơn test #${result.orderId}`,
+            ? `Đã tạo đơn ${result.orderName} · ${result.totalPrice ? `${Number(result.totalPrice).toLocaleString('vi-VN')}đ` : ''}`
+            : `Đã tạo đơn #${result.orderId}`,
         )
       } else {
         toast.success(
@@ -124,13 +125,22 @@ export function SapoCreateOrderDialog({
     },
   })
 
+  const availableToAdd = useMemo(() => {
+    const q = productSearch.trim().toLowerCase()
+    return (catalogData?.items ?? [])
+      .filter((p) => !lineItems.some((l) => l.variantId === p.variantId))
+      .filter((p) => {
+        if (!q) return true
+        const hay = `${p.name} ${p.sku ?? ''} ${p.priceLabel}`.toLowerCase()
+        return hay.includes(q)
+      })
+  }, [catalogData?.items, lineItems, productSearch])
+
   if (!open) return null
 
   const customerName = conversation.customerName?.trim() || 'Khách Messenger'
   const catalogReady = (sapoStatus?.variantCount ?? 0) > 0 || (catalogData?.items.length ?? 0) > 0
   const sapoReady = Boolean(sapoStatus?.ordersReady || catalogReady)
-  const isDbCatalog = sapoStatus?.catalogSource === 'db' || sapoStatus?.dbCatalogReady
-  const oauthUrl = sapoStatus?.oauthStartUrl || sapoStatus?.authorizeUrl || getCskhSapoOAuthStartUrl()
 
   const updateQuantity = (variantId: number, quantity: number) => {
     setLineItems((prev) =>
@@ -191,10 +201,6 @@ export function SapoCreateOrderDialog({
     })
   }
 
-  const availableToAdd = (catalogData?.items ?? []).filter(
-    (p) => !lineItems.some((l) => l.variantId === p.variantId),
-  )
-
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <button
@@ -218,9 +224,7 @@ export function SapoCreateOrderDialog({
               <h2 id="sapo-create-order-title" className="text-sm font-bold text-slate-800">
                 Tạo đơn hàng
               </h2>
-              <p className="text-[10px] text-slate-400">
-                {isDbCatalog ? 'Catalog test trong DB' : 'Từ hội thoại Messenger'}
-              </p>
+              <p className="text-[10px] text-slate-400">Từ hội thoại Messenger</p>
             </div>
           </div>
           <button
@@ -239,26 +243,11 @@ export function SapoCreateOrderDialog({
               Đang tải catalog...
             </div>
           ) : !sapoReady ? (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-[11px] text-amber-900 space-y-2">
-              <p className="font-semibold">Chưa có catalog — chạy seed SQL hoặc kết nối Sapo</p>
-              <p className="text-amber-800/90">
-                BE: chạy file <code className="text-[10px] bg-white/70 px-1 rounded">prisma/manual-sapo-catalog-seed.sql</code> trên Supabase.
-              </p>
-              <a
-                href={oauthUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-amber-700"
-              >
-                Kết nối Sapo OAuth (sau khi duyệt app)
-                <ExternalLink className="h-3 w-3" />
-              </a>
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-[11px] text-amber-900">
+              <p className="font-semibold">Chưa có sản phẩm trong hệ thống</p>
+              <p className="text-amber-800/90 mt-1">Liên hệ admin để import catalog sản phẩm.</p>
             </div>
-          ) : (
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 px-3 py-2 text-[10px] text-emerald-800">
-              {isDbCatalog ? 'Catalog DB (test)' : 'Sapo API'} · {catalogData?.items.length ?? sapoStatus?.variantCount ?? 0} sản phẩm
-            </div>
-          )}
+          ) : null}
 
           <div className="space-y-2">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Thông tin khách</h3>
@@ -323,11 +312,26 @@ export function SapoCreateOrderDialog({
             )}
           </div>
 
-          {availableToAdd.length > 0 && (
+          {(catalogData?.items.length ?? 0) > 0 && (
             <div className="space-y-2">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Thêm sản phẩm</h3>
-              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
-                {availableToAdd.map((p) => (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="search"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Tìm theo tên, SKU, giá..."
+                  className="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-[11px] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+              {availableToAdd.length === 0 ? (
+                <p className="text-[11px] text-slate-400 italic py-2">
+                  {productSearch.trim() ? 'Không tìm thấy sản phẩm.' : 'Đã thêm hết sản phẩm trong đơn.'}
+                </p>
+              ) : (
+                <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                  {availableToAdd.map((p) => (
                   <button
                     key={p.variantId}
                     type="button"
@@ -348,7 +352,8 @@ export function SapoCreateOrderDialog({
                     </span>
                   </button>
                 ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -358,6 +363,7 @@ export function SapoCreateOrderDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
+              placeholder="Ghi chú cho đơn hàng..."
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[11px] resize-none focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
             />
           </label>
@@ -379,10 +385,8 @@ export function SapoCreateOrderDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Đang tạo...
                 </span>
-              ) : isDbCatalog ? (
-                'Tạo đơn (test DB)'
               ) : (
-                'Tạo đơn trên Sapo'
+                'Tạo đơn'
               )}
             </button>
           </div>

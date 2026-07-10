@@ -205,7 +205,7 @@ function ContentLoading({ label }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <ArrowCounterClockwise size={28} weight="bold" className="animate-spin" style={{ color: '#4f46e5' }} />
         <p style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{label}</p>
-        <p style={{ fontSize: 11, color: '#9ca3af' }}>Có thể mất 10–15 giây tùy khoảng ngày</p>
+        <p style={{ fontSize: 11, color: '#9ca3af' }}>Có thể mất vài giây tùy khoảng ngày</p>
       </div>
     </div>
   );
@@ -232,6 +232,7 @@ export default function AIInsightPage() {
         pageId: selectedPageId || undefined,
       }),
     staleTime: 60_000,
+    placeholderData: (previousData) => previousData,
     retry: (failureCount, err) => {
       const status = err?.response?.status;
       if (status === 503 && failureCount < 4) return true;
@@ -246,7 +247,8 @@ export default function AIInsightPage() {
   }, [data?.pageDirectory, data?.byPage?.all]);
 
   const dataReady = dataMatchesSelection(data, selectedPageId);
-  const showContentLoading = !dataReady && (isLoading || isFetching) && !isError;
+  const showContentLoading = !dataReady && isLoading && !isError;
+  const isRefreshing = isFetching && !isLoading;
 
   const isChannelDetail = Boolean(selectedPageId);
   const byPage = dataReady ? data?.byPage : null;
@@ -328,8 +330,8 @@ export default function AIInsightPage() {
                 <select
                   value={selectedPageId}
                   onChange={(e) => setSelectedPageId(e.target.value)}
-                  disabled={showContentLoading}
-                  style={{ ...inputStyle, maxWidth: 220, marginLeft: 4, opacity: showContentLoading ? 0.7 : 1 }}
+                  disabled={showContentLoading && pageOptions.length === 0}
+                  style={{ ...inputStyle, maxWidth: 220, marginLeft: 4, opacity: showContentLoading && pageOptions.length === 0 ? 0.7 : 1 }}
                 >
                   <option value="">— Chọn kênh —</option>
                   {pageOptions.map((p) => (
@@ -359,7 +361,7 @@ export default function AIInsightPage() {
               </label>
               <button type="button" onClick={() => refetch()} disabled={isFetching} style={btnOutline}>
                 <ArrowCounterClockwise size={14} className={isFetching ? 'animate-spin' : ''} />
-                {isFetching ? 'Đang tải...' : 'Làm mới'}
+                {isRefreshing ? 'Đang tải...' : 'Làm mới'}
               </button>
             </div>
           </div>
@@ -586,7 +588,8 @@ export default function AIInsightPage() {
                     <tr><th>Chủ đề</th><th>Lượt nhắc</th></tr>
                   </thead>
                   <tbody>
-                    {(data.products ?? []).map((p, i) => (
+                    {(data.products ?? []).length > 0 ? (
+                    (data.products ?? []).map((p, i) => (
                       <tr key={i}>
                         <td>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -596,7 +599,14 @@ export default function AIInsightPage() {
                         </td>
                         <td>{p.visits.toLocaleString('vi-VN')}</td>
                       </tr>
-                    ))}
+                    ))
+                    ) : (
+                      <tr>
+                        <td colSpan={2} style={{ fontSize: 12, color: '#9ca3af', padding: 16, textAlign: 'center' }}>
+                          Chưa nhận diện được sản phẩm trong hội thoại — cần import catalog SP hoặc khách chưa nhắc tên SP cụ thể.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
