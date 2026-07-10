@@ -9,6 +9,7 @@ import {
   fetchCskhPages,
   CSKH_PAGES_LITE_QUERY_KEY,
   syncInboxFromGraph,
+  isAsyncInboxSync,
   fetchCustomerIntent,
   fetchInboxMessagesProgressive,
   fetchConversationAdInsights,
@@ -260,6 +261,10 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     mutationFn: () => syncInboxFromGraph(selectedPageId),
     onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'conversations'] })
+      if (isAsyncInboxSync(result)) {
+        toast.info(result.message || 'Đang đồng bộ nền — làm mới danh sách sau vài phút')
+        return
+      }
       toast.success(`Đã đồng bộ ${result.synced} tin nhắn từ ${result.pageCount} kênh`)
     },
     onError: () => {

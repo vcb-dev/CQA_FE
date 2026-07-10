@@ -957,10 +957,18 @@ export async function markInboxAsUnread(conversationId: string): Promise<{ marke
   return data
 }
 
-export async function syncInboxFromGraph(
-  pageId?: string
-): Promise<{ synced: number; pageCount: number }> {
-  const { data } = await apiClient.post<{ synced: number; pageCount: number }>('/cskh/inbox/sync', {
+export type SyncInboxFromGraphResult =
+  | { synced: number; pageCount: number; okPages?: number; failedPages?: number }
+  | { started: true; syncing: true; message: string }
+
+export function isAsyncInboxSync(
+  res: SyncInboxFromGraphResult,
+): res is { started: true; syncing: true; message: string } {
+  return 'syncing' in res && res.syncing === true
+}
+
+export async function syncInboxFromGraph(pageId?: string): Promise<SyncInboxFromGraphResult> {
+  const { data } = await apiClient.post<SyncInboxFromGraphResult>('/cskh/inbox/sync', {
     pageId,
   })
   return data
