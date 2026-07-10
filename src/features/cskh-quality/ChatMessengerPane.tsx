@@ -72,38 +72,23 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   }, [selectedPageId, selectedConversation])
 
   const bumpTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const listHeadRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onNewMessageRef = useRef<(conversationId: string) => void>(() => {})
   const [bumpedConversationIds, setBumpedConversationIds] = useState<Set<string>>(() => new Set())
-
-  const handleRealtimeMessage = useCallback((conversationId: string) => {
-    inboxRtLog('UI bump highlight', { conversationId })
-    setBumpedConversationIds((prev) => new Set([...prev, conversationId]))
-    const existing = bumpTimeoutsRef.current.get(conversationId)
-    if (existing) clearTimeout(existing)
-    bumpTimeoutsRef.current.set(
-      conversationId,
-      setTimeout(() => {
-        setBumpedConversationIds((prev) => {
-          const next = new Set(prev)
-          next.delete(conversationId)
-          return next
-        })
-        bumpTimeoutsRef.current.delete(conversationId)
-      }, 2500),
-    )
-  }, [])
 
   useEffect(() => {
     const timeouts = bumpTimeoutsRef.current
     return () => {
       timeouts.forEach((t) => clearTimeout(t))
       timeouts.clear()
+      if (listHeadRefreshTimerRef.current) clearTimeout(listHeadRefreshTimerRef.current)
     }
   }, [])
 
   const { connected, typingConversationIds } = useCskhInboxStream({
     enabled: true,
     activeConversationId: selectedConversation?.id ?? null,
-    onNewMessage: handleRealtimeMessage,
+    onNewMessage: (conversationId) => onNewMessageRef.current(conversationId),
   })
 
   const { data: pagesData, isLoading: isLoadingPages } = useQuery({
@@ -203,6 +188,82 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     () => mergeInboxConversationPages(conversationPages?.pages),
     [conversationPages],
   )
+
+  const scheduleListHeadRefresh = useCallback(() => {
+    if (listHeadRefreshTimerRef.current) clearTimeout(listHeadRefreshTimerRef.current)
+    listHeadRefreshTimerRef.current = setTimeout(() => {
+      inboxRtLog('Safety refresh — fetch lại trang đầu list sau SSE')
+      void fetchInboxConversationsPage({
+        ...conversationFetchOpts,
+        search: debouncedSearch || undefined,
+        limit: 50,
+      })
+        .then((firstPage) => {
+          qc.setQueryData<InfiniteData<CskhInboxConversationPage>>(listQueryKey, (prev) => {
+            if (!prev?.pages?.length) {
+              return { pages: [firstPage], pageParams: [undefined] }
+            }
+            const byId = new Map<string, CskhInboxConversation>()
+            for (const c of firstPage.items) byId.set(c.id, c)
+            for (const c of prev.pages[0].items) {
+              const fromApi = byId.get(c.id)
+              if (!fromApi) {
+                byId.set(c.id, c)
+                continue
+              }
+              const localAt = new Date(c.lastMessageAt ?? 0).getTime()
+              const apiAt = new Date(fromApi.lastMessageAt ?? 0).getTime()
+              byId.set(c.id, localAt >= apiAt ? { ...fromApi, ...c } : fromApi)
+            }
+            const merged = [...byId.values()].sort(
+              (a, b) =>
+                new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime(),
+            )
+            const pages = [...prev.pages]
+            pages[0] = { ...firstPage, items: merged }
+            return { ...prev, pages }
+          })
+        })
+        .catch((err: unknown) => {
+          inboxRtLog('Safety refresh failed', { error: String(err) })
+        })
+    }, 1200)
+  }, [qc, listQueryKey, conversationFetchOpts, debouncedSearch])
+
+  const handleRealtimeMessage = useCallback(
+    (conversationId: string) => {
+      inboxRtLog('UI bump highlight', { conversationId })
+      setBumpedConversationIds((prev) => new Set([...prev, conversationId]))
+      const existing = bumpTimeoutsRef.current.get(conversationId)
+      if (existing) clearTimeout(existing)
+      bumpTimeoutsRef.current.set(
+        conversationId,
+        setTimeout(() => {
+          setBumpedConversationIds((prev) => {
+            const next = new Set(prev)
+            next.delete(conversationId)
+            return next
+          })
+          bumpTimeoutsRef.current.delete(conversationId)
+        }, 2500),
+      )
+      scheduleListHeadRefresh()
+    },
+    [scheduleListHeadRefresh],
+  )
+
+  useEffect(() => {
+    onNewMessageRef.current = handleRealtimeMessage
+  }, [handleRealtimeMessage])
+
+  const wasStreamConnectedRef = useRef(false)
+  useEffect(() => {
+    if (connected && !wasStreamConnectedRef.current) {
+      inboxRtLog('SSE reconnected — refresh đầu list')
+      scheduleListHeadRefresh()
+    }
+    wasStreamConnectedRef.current = connected
+  }, [connected, scheduleListHeadRefresh])
 
   const listTopSnapshot = useMemo(
     () =>
