@@ -525,12 +525,14 @@ export interface CskhInsightPageRow {
 }
 
 export interface CskhInsightDashboard {
-  source: 'chat_audits'
+  source: 'chat_audits' | 'cskh_inbox'
   period: { from: string; to: string; label: string }
   selectedPageId?: string | null
   selectedPageName?: string | null
+  audited?: boolean
+  auditCount?: number
   totalAnalyzed: number
-  avgScore: number
+  avgScore: number | null
   intro: string
   kpis: CskhInsightKpi[]
   customerConcerns: {

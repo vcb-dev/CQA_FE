@@ -49,14 +49,6 @@ function defaultRange() {
   return { from: formatYmd(from), to: formatYmd(to) };
 }
 
-function isRealStrengthLabel(label) {
-  const t = (label || '').toLowerCase();
-  if (!t || t.length < 10) return false;
-  if (/kh[oô]ng c[oó] (ưu đi[ểe]m|đi[ểe]m mạnh)/.test(t)) return false;
-  if (/chưa có (ưu đi[ểe]m|phản hồi)/.test(t)) return false;
-  return true;
-}
-
 function StatusTag({ status, label }) {
   const s = STATUS_STYLE[status] || STATUS_STYLE.warning;
   return (
@@ -340,7 +332,7 @@ export default function AIInsightPage() {
   }, [data, dataReady]);
 
   const highCloseFactors = useMemo(
-    () => (dataReady ? (data?.closeRateFactors?.highClose ?? []).filter((f) => isRealStrengthLabel(f.label)) : []),
+    () => (dataReady ? (data?.closeRateFactors?.highClose ?? []) : []),
     [data, dataReady],
   );
 
@@ -382,7 +374,9 @@ export default function AIInsightPage() {
               </div>
               {dataReady && data && isChannelDetail && (
                 <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                  Điểm TB {data.avgScore}/100 · {data.totalAnalyzed.toLocaleString('vi-VN')} bản ghi
+                  {data.audited && data.avgScore != null
+                    ? `Điểm TB ${data.avgScore}/100 · ${data.auditCount ?? 0} audit · ${data.totalAnalyzed.toLocaleString('vi-VN')} hội thoại inbox`
+                    : `Chưa audit · ${data.totalAnalyzed.toLocaleString('vi-VN')} hội thoại inbox`}
                 </div>
               )}
               {dataReady && !isChannelDetail && byPage?.summary && (
@@ -596,6 +590,12 @@ export default function AIInsightPage() {
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1.2, minWidth: 320 }}>
                 <div className="card-title">Yếu tố chốt & mất đơn</div>
                 <div className="factors-grid" style={{ padding: '0 14px 14px' }}>
+                  {!data.audited ? (
+                    <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
+                      Kênh chưa có bản ghi trong <strong>chat_audits</strong> trong kỳ này — chạy audit AI để có yếu tố chốt / mất đơn chuẩn.
+                    </div>
+                  ) : (
+                    <>
                   <div className="factor-col">
                     <h4 style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <CheckCircle size={14} weight="fill" />
@@ -610,7 +610,7 @@ export default function AIInsightPage() {
                       ))
                     ) : (
                       <div style={{ fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
-                        Không có yếu tố nào giúp chốt cao
+                        Audit chưa ghi nhận ưu điểm nổi bật
                       </div>
                     )}
                   </div>
@@ -628,10 +628,12 @@ export default function AIInsightPage() {
                       ))
                     ) : (
                       <div style={{ fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
-                        Không có lý do mất đơn nổi bật
+                        Audit chưa ghi nhận điểm yếu nổi bật
                       </div>
                     )}
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -703,6 +705,7 @@ export default function AIInsightPage() {
 
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, minWidth: 280 }}>
                 <div className="card-title">Cảm xúc khách hàng (AI)</div>
+                {data.audited ? (
                 <div className="sentiment-row" style={{ gap: 20, padding: '8px 16px 16px' }}>
                   <div className="sentiment-item">
                     <Smiley size={24} weight="duotone" style={{ color: '#22c55e' }} />
@@ -720,6 +723,11 @@ export default function AIInsightPage() {
                     <div className="sentiment-label">Tiêu cực</div>
                   </div>
                 </div>
+                ) : (
+                  <div style={{ padding: '16px 16px 20px', fontSize: 12, color: '#9ca3af', lineHeight: 1.5 }}>
+                    Chưa audit — cảm xúc lấy từ chat_audits sau khi chạy audit AI.
+                  </div>
+                )}
               </div>
             </div>
 
