@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -25,6 +25,10 @@ import { fetchCskhInsights } from '@/features/cskh-quality/api';
 
 const kpiIconMap = [Lightbulb, Warning, TrendUp, MagnifyingGlass];
 const kpiColors = ['var(--primary-500)', '#ef4444', '#22c55e', '#f59e0b'];
+/** Debounce đổi ngày để không spam /cskh/insights khi kéo date picker. */
+const RANGE_DEBOUNCE_MS = 700;
+/** Cache FE dài hơn — khớp cache BE ~180s, giảm gọi lại khi đổi kênh rồi quay lại. */
+const INSIGHT_STALE_MS = 180_000;
 
 const STATUS_STYLE = {
   good: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
@@ -40,7 +44,8 @@ function formatYmd(d) {
 function defaultRange() {
   const to = new Date();
   const from = new Date();
-  from.setDate(from.getDate() - 29);
+  // 14 ngày mặc định — đủ insight, nhẹ hơn 30 ngày rõ rệt.
+  from.setDate(from.getDate() - 13);
   return { from: formatYmd(from), to: formatYmd(to) };
 }
 
@@ -232,26 +237,45 @@ function dataMatchesSelection(data, selectedPageId) {
 }
 
 export default function AIInsightPage() {
-  const [range, setRange] = useState(defaultRange);
+  const initialRange = useMemo(() => defaultRange(), []);
+  const [draftRange, setDraftRange] = useState(initialRange);
+  const [appliedRange, setAppliedRange] = useState(initialRange);
   const [selectedPageId, setSelectedPageId] = useState('');
   const [pageDirectory, setPageDirectory] = useState([]);
+  const rangeDebounceRef = useRef(null);
+
+  // Chỉ commit khoảng ngày sau khi user dừng chỉnh — tránh nhiều request chồng nhau.
+  useEffect(() => {
+    if (draftRange.from === appliedRange.from && draftRange.to === appliedRange.to) return;
+    if (rangeDebounceRef.current) clearTimeout(rangeDebounceRef.current);
+    rangeDebounceRef.current = setTimeout(() => {
+      if (draftRange.from && draftRange.to && draftRange.from <= draftRange.to) {
+        setAppliedRange(draftRange);
+      }
+    }, RANGE_DEBOUNCE_MS);
+    return () => {
+      if (rangeDebounceRef.current) clearTimeout(rangeDebounceRef.current);
+    };
+  }, [draftRange, appliedRange.from, appliedRange.to]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['cskh', 'insights', range.from, range.to, selectedPageId || 'all'],
+    queryKey: ['cskh', 'insights', appliedRange.from, appliedRange.to, selectedPageId || 'all'],
     queryFn: () =>
       fetchCskhInsights({
-        auditDateFrom: range.from,
-        auditDateTo: range.to,
+        auditDateFrom: appliedRange.from,
+        auditDateTo: appliedRange.to,
         pageId: selectedPageId || undefined,
       }),
-    staleTime: 60_000,
+    staleTime: INSIGHT_STALE_MS,
+    gcTime: INSIGHT_STALE_MS * 2,
     placeholderData: (previousData) => previousData,
     retry: (failureCount, err) => {
       const status = err?.response?.status;
-      if (status === 503 && failureCount < 4) return true;
+      // Ít retry hơn khi 503 — tránh đua connection pool với inbox sync.
+      if (status === 503 && failureCount < 2) return true;
       return failureCount < 1;
     },
-    retryDelay: (attempt) => Math.min(800 * 2 ** attempt, 6000),
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
   });
 
   useEffect(() => {
@@ -260,12 +284,43 @@ export default function AIInsightPage() {
   }, [data?.pageDirectory, data?.byPage?.all]);
 
   const dataReady = dataMatchesSelection(data, selectedPageId);
-  const showContentLoading = !dataReady && (isLoading || isFetching) && !isError;
-  const isRefreshing = isFetching && !isLoading;
-
   const isChannelDetail = Boolean(selectedPageId);
-  const byPage = dataReady ? data?.byPage : null;
   const pageOptions = pageDirectory.length > 0 ? pageDirectory : (data?.pageDirectory ?? data?.byPage?.all ?? []);
+  // Có sẵn danh sách kênh (cache lần trước) → hiện UI ngay, chỉ overlay khi đang đổi kênh/chi tiết.
+  const hasCachedChannelList = !isChannelDetail && pageOptions.length > 0;
+  const showContentLoading =
+    !dataReady && (isLoading || isFetching) && !isError && !hasCachedChannelList;
+  const showListRefreshing =
+    !isChannelDetail && hasCachedChannelList && (isFetching || isLoading) && !dataReady;
+  const isRefreshing = isFetching && !isLoading;
+  const rangePending =
+    draftRange.from !== appliedRange.from || draftRange.to !== appliedRange.to;
+
+  const applyRangeNow = () => {
+    if (rangeDebounceRef.current) clearTimeout(rangeDebounceRef.current);
+    if (!draftRange.from || !draftRange.to || draftRange.from > draftRange.to) return;
+    if (draftRange.from === appliedRange.from && draftRange.to === appliedRange.to) {
+      void refetch();
+      return;
+    }
+    setAppliedRange(draftRange);
+  };
+
+  const byPage = dataReady
+    ? data?.byPage
+    : hasCachedChannelList
+      ? {
+          all: pageOptions,
+          needsAttention: pageOptions.filter((p) => p.audited && p.status !== 'good').slice(0, 8),
+          topPerformers: pageOptions.filter((p) => p.audited && p.status === 'good').slice(0, 8),
+          summary: {
+            total: pageOptions.length,
+            good: pageOptions.filter((p) => p.audited && p.status === 'good').length,
+            warning: pageOptions.filter((p) => p.audited && p.status === 'warning').length,
+            critical: pageOptions.filter((p) => p.audited && p.status === 'critical').length,
+          },
+        }
+      : null;
 
   const selectedPageName = useMemo(() => {
     if (!selectedPageId) return null;
@@ -336,6 +391,9 @@ export default function AIInsightPage() {
                   {byPage.summary.critical} cần xử lý
                 </div>
               )}
+              {!dataReady && !isChannelDetail && showListRefreshing && (
+                <div style={{ fontSize: 11, color: '#6366f1' }}>Đang làm mới dữ liệu kênh…</div>
+              )}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, fontSize: 12 }}>
               <label>
@@ -359,8 +417,8 @@ export default function AIInsightPage() {
                 Từ{' '}
                 <input
                   type="date"
-                  value={range.from}
-                  onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+                  value={draftRange.from}
+                  onChange={(e) => setDraftRange((r) => ({ ...r, from: e.target.value }))}
                   style={inputStyle}
                 />
               </label>
@@ -368,14 +426,14 @@ export default function AIInsightPage() {
                 Đến{' '}
                 <input
                   type="date"
-                  value={range.to}
-                  onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+                  value={draftRange.to}
+                  onChange={(e) => setDraftRange((r) => ({ ...r, to: e.target.value }))}
                   style={inputStyle}
                 />
               </label>
-              <button type="button" onClick={() => refetch()} disabled={isFetching} style={btnOutline}>
+              <button type="button" onClick={applyRangeNow} disabled={isFetching} style={btnOutline}>
                 <ArrowCounterClockwise size={14} className={isFetching ? 'animate-spin' : ''} />
-                {isRefreshing ? 'Đang tải...' : 'Làm mới'}
+                {isRefreshing ? 'Đang tải...' : rangePending ? 'Áp dụng' : 'Làm mới'}
               </button>
             </div>
           </div>
@@ -411,6 +469,22 @@ export default function AIInsightPage() {
 
         {showContentLoading && !isError && <ContentLoading label={loadingLabel} />}
 
+        {showListRefreshing && !isError && (
+          <div
+            style={{
+              borderRadius: 10,
+              border: '1px solid #e0e7ff',
+              background: '#eef2ff',
+              padding: '8px 12px',
+              fontSize: 12,
+              color: '#4338ca',
+              fontWeight: 600,
+            }}
+          >
+            Đang cập nhật danh sách kênh…
+          </div>
+        )}
+
         {isError && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 space-y-2">
             <p>
@@ -430,7 +504,7 @@ export default function AIInsightPage() {
           </div>
         )}
 
-        {dataReady && data && (
+        {((dataReady && data) || (!isChannelDetail && byPage)) && (
           <>
             {!isChannelDetail && byPage && (
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
@@ -500,7 +574,7 @@ export default function AIInsightPage() {
               </div>
             )}
 
-            {isChannelDetail && (
+            {dataReady && data && isChannelDetail && (
               <>
             <KpiGrid items={kpiItems} columns={4} />
 
