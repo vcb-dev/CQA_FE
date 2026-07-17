@@ -7,6 +7,7 @@ import {
   fetchInboxMessages,
   fetchInboxMessagesProgressive,
   sendInboxMessage,
+  detectInboxConversationLang,
   notifyInboxTyping,
   markInboxAsUnread,
   type CskhInboxConversation,
@@ -93,8 +94,9 @@ export function ChatPanel({
 
   // Send message mutation
   const sendMut = useMutation({
-    mutationFn: (text: string) => sendInboxMessage(conversation.id, text),
-    onMutate: async (text) => {
+    mutationFn: ({ text, autoTranslate }: { text: string; autoTranslate?: boolean }) =>
+      sendInboxMessage(conversation.id, text, { autoTranslate }),
+    onMutate: async ({ text, autoTranslate }) => {
       // Cancel outgoing refetches so they don't overwrite our optimistic update
       await qc.cancelQueries({ queryKey: ['cskh', 'inbox', 'messages', conversation.id] })
 
@@ -107,6 +109,8 @@ export function ChatPanel({
         direction: 'outbound',
         senderType: 'staff',
         text,
+        originalText: autoTranslate ? text : null,
+        translatedText: autoTranslate ? text : null,
         messageType: 'text',
         attachmentUrl: null,
         sentAt: new Date().toISOString(),
@@ -134,7 +138,7 @@ export function ChatPanel({
 
       return { tempId, previousMessages }
     },
-    onSuccess: (newMessage, text, context) => {
+    onSuccess: (newMessage, _vars, context) => {
       if (newMessage && context?.tempId) {
         // Replace temp message with actual message from server
         qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
@@ -159,7 +163,7 @@ export function ChatPanel({
         })
       }
     },
-    onError: (error, text, context) => {
+    onError: (error, _vars, context) => {
       toast.error(getApiErrorMessage(error) || 'Gửi tin thất bại')
       // Rollback to previous state
       if (context?.previousMessages) {
@@ -191,6 +195,45 @@ export function ChatPanel({
       // Clear typing after 3 seconds
     }, 3000)
   }
+
+  // Phát hiện ngôn ngữ khách → lưu BE (một lần / hội thoại nếu chưa có)
+  useEffect(() => {
+    if (!hasRealMessages) return
+    if (conversationWithLabels.customerLang) return
+    let cancelled = false
+    void detectInboxConversationLang(conversation.id)
+      .then((res) => {
+        if (cancelled) return
+        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
+          ['cskh', 'inbox', 'messages', conversation.id],
+          (prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              conversation: {
+                ...prev.conversation,
+                customerLang: res.customerLang,
+                customerLangLabel: res.customerLangLabel,
+              },
+            }
+          }
+        )
+        patchInboxConversationInCache(qc, {
+          id: conversation.id,
+          customerLang: res.customerLang,
+          customerLangLabel: res.customerLangLabel,
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [
+    hasRealMessages,
+    conversation.id,
+    conversationWithLabels.customerLang,
+    qc,
+  ])
 
   // Mark-as-read được xử lý khi chọn hội thoại (ChatMessengerPane)
 
@@ -325,7 +368,12 @@ export function ChatPanel({
         <>
           <ChatLabelBar conversation={conversationWithLabels} />
           <ChatMessageInput
-            onSend={(text) => { sendMut.mutate(text) }}
+            conversationId={conversation.id}
+            customerLang={conversationWithLabels.customerLang}
+            customerLangLabel={conversationWithLabels.customerLangLabel}
+            onSend={(text, options) => {
+              sendMut.mutate({ text, autoTranslate: options?.autoTranslate })
+            }}
             onTyping={handleTyping}
             disabled={sendMut.isPending}
             draftText={draftText}

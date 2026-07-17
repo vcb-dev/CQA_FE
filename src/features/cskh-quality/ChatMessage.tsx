@@ -30,6 +30,15 @@ export const ChatMessage = memo(function ChatMessage({ message, isOwn }: ChatMes
     })
   }
 
+  const staffVi =
+    isOwn
+      ? (message.originalText || message.translatedText || '').trim()
+      : (message.translatedText || '').trim()
+  const showStaffVi =
+    Boolean(staffVi) &&
+    staffVi !== (message.text || '').trim() &&
+    message.messageType === 'text'
+
   const renderContent = () => {
     if (!message.text && !message.attachmentUrl) {
       return <p className="text-sm italic text-gray-500">[Tin nhắn không hỗ trợ]</p>
@@ -62,8 +71,21 @@ export const ChatMessage = memo(function ChatMessage({ message, isOwn }: ChatMes
     }
 
     return (
-      <div className="text-sm leading-relaxed break-words">
-        {message.text || <span className="italic text-gray-500">[Tin nhắn trống]</span>}
+      <div className="text-sm leading-relaxed break-words space-y-1.5">
+        <div>{message.text || <span className="italic text-gray-500">[Tin nhắn trống]</span>}</div>
+        {showStaffVi && (
+          <div
+            className={cn(
+              'text-[11.5px] leading-snug border-t pt-1.5',
+              isOwn ? 'border-white/25 text-blue-50/90' : 'border-gray-200 text-slate-500'
+            )}
+          >
+            <span className={cn('font-medium', isOwn ? 'text-blue-50' : 'text-slate-600')}>
+              {isOwn ? 'Tiếng Việt: ' : 'Dịch: '}
+            </span>
+            {staffVi}
+          </div>
+        )}
       </div>
     )
   }

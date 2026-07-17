@@ -464,14 +464,30 @@ export function ChatRightSidebar({
                         <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words">
                           {[
                             (() => {
+                              const missingSize = 'chưa có size'
+                              const missingColor = 'chưa có màu'
                               const vt = (p.variantTitle || '').trim()
-                              if (!vt || /^default/i.test(vt)) return null
-                              if (vt.includes('/')) return vt
-                              if (/^\d+(\.\d+)?$/.test(vt) || /^(size|kích\s*thước)\b/i.test(vt)) {
-                                return /^\d+(\.\d+)?$/.test(vt) ? `Size ${vt}` : vt
+                              if (!vt || /^default/i.test(vt)) {
+                                return `${missingSize} · ${missingColor}`
                               }
-                              if (/^màu\b/i.test(vt)) return vt
-                              return `Màu ${vt}`
+                              if (vt.includes('/')) {
+                                let size: string | null = null
+                                let color: string | null = null
+                                for (const part of vt.split('/').map((x) => x.trim()).filter(Boolean)) {
+                                  if (/size|kích\s*thước|^\d+(\.\d+)?$/i.test(part)) {
+                                    size = /^\d+(\.\d+)?$/.test(part) ? `Size ${part}` : part
+                                  } else {
+                                    color = /^màu\b/i.test(part) ? part : `Màu ${part}`
+                                  }
+                                }
+                                return `${size ?? missingSize} · ${color ?? missingColor}`
+                              }
+                              if (/^\d+(\.\d+)?$/.test(vt) || /^(size|kích\s*thước)\b/i.test(vt)) {
+                                const size = /^\d+(\.\d+)?$/.test(vt) ? `Size ${vt}` : vt
+                                return `${size} · ${missingColor}`
+                              }
+                              const color = /^màu\b/i.test(vt) ? vt : `Màu ${vt}`
+                              return `${missingSize} · ${color}`
                             })(),
                             p.sku ? `SKU ${p.sku}` : null,
                           ]

@@ -296,6 +296,84 @@ export async function fetchCskhSapoStatus(): Promise<CskhSapoStatus> {
   return data
 }
 
+export interface ProductsAnalyticsKpi {
+  key: string
+  label: string
+  value: string
+  raw: number | null
+  change: string
+  available: boolean
+  sub?: string
+}
+
+export interface ProductsAnalyticsItem {
+  productId: number
+  code: string
+  name: string
+  category: string
+  material: string | null
+  imageUrl: string | null
+  variantHint: string | null
+  messageCount: number | null
+  messageCountLabel: string
+  responseRate: number | null
+  responseRateLabel: string
+  closeRate: number | null
+  closeRateLabel: string
+  unitsSold: number
+  unitsSoldLabel: string
+  revenue: number
+  revenueLabel: string
+  revenuePerUnit: number | null
+  revenuePerUnitLabel: string
+  aiScore: number | null
+  aiScoreLabel: string
+  trend: 'up' | 'down' | 'flat'
+}
+
+export interface ProductsAnalyticsDashboard {
+  source: 'database'
+  kpis: ProductsAnalyticsKpi[]
+  categories: string[]
+  items: ProductsAnalyticsItem[]
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }
+  topByRevenue: Array<{
+    rank: number
+    productId: number
+    name: string
+    imageUrl: string | null
+    unitsSold: number
+    unitsSoldLabel: string
+    revenue: number
+    revenueLabel: string
+  }>
+  statusBreakdown: Array<{
+    key: string
+    label: string
+    count: number
+    pct: number
+    color: string
+  }>
+  charts: {
+    topSold: Array<{ productId: number; name: string; unitsSold: number; revenue: number }>
+    topCloseRate: Array<{ productId: number; name: string; closeRate: number }>
+  }
+  insights: string[]
+  naLabel: string
+}
+
+export async function fetchProductsAnalytics(params?: {
+  q?: string
+  category?: string
+  page?: number
+  pageSize?: number
+}): Promise<ProductsAnalyticsDashboard> {
+  const { data } = await apiClient.get<ProductsAnalyticsDashboard>('/cskh/products/analytics', {
+    params,
+  })
+  return data
+}
+
 export interface CreateSapoOrderPayload {
   customerName: string
   phone?: string
@@ -746,6 +824,8 @@ export interface CskhInboxConversation {
   unreadCount: number
   awaitingLabel?: boolean
   updatedAt: string
+  customerLang?: string | null
+  customerLangLabel?: string | null
   labels?: CskhInboxLabel[]
   labelsLocked?: boolean
   viewers?: CskhInboxViewer[]
@@ -758,6 +838,11 @@ export interface CskhInboxMessage {
   direction: 'inbound' | 'outbound'
   senderType: 'customer' | 'staff'
   text: string
+  /** NV gõ (VI) khi đã auto-dịch outbound */
+  originalText?: string | null
+  /** Bản dịch VI để NV đọc (inbound) hoặc mirror originalText (outbound) */
+  translatedText?: string | null
+  sourceLang?: string | null
   messageType?: 'text' | 'image' | 'sticker' | string
   attachmentUrl?: string | null
   sentAt: string
@@ -1005,11 +1090,43 @@ export async function resolveInboxMessageMedia(messageId: string): Promise<{
 
 export async function sendInboxMessage(
   conversationId: string,
-  text: string
+  text: string,
+  options?: { autoTranslate?: boolean }
 ): Promise<CskhInboxMessage> {
   const { data } = await apiClient.post<CskhInboxMessage>(
     `/cskh/inbox/conversations/${conversationId}/send`,
-    { text }
+    { text, autoTranslate: Boolean(options?.autoTranslate) }
+  )
+  return data
+}
+
+export async function previewInboxTranslate(
+  conversationId: string,
+  text: string,
+  targetLang?: string
+): Promise<{
+  originalText: string
+  translatedText: string
+  detectedLang: string
+  targetLang: string
+  customerLang: string | null
+  customerLangLabel: string | null
+  sameLanguage: boolean
+}> {
+  const { data } = await apiClient.post(
+    `/cskh/inbox/conversations/${conversationId}/translate-preview`,
+    { text, targetLang }
+  )
+  return data
+}
+
+export async function detectInboxConversationLang(conversationId: string): Promise<{
+  customerLang: string
+  customerLangLabel: string
+  confidence: string
+}> {
+  const { data } = await apiClient.post(
+    `/cskh/inbox/conversations/${conversationId}/detect-lang`
   )
   return data
 }
