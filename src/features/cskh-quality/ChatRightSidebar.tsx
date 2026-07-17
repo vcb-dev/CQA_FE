@@ -460,19 +460,21 @@ export function ChatRightSidebar({
                         </div>
                       )}
                       <div className="min-w-0 flex-1 text-[11px]">
-                        <p className="font-semibold text-slate-700 truncate">{p.name}</p>
-                        {(p.variantTitle || p.sku) && (
-                          <p className="text-[9px] text-slate-500 truncate mt-0.5">
-                            {[
-                              p.variantTitle && /^\d+(\.\d+)?$/.test(p.variantTitle.trim())
-                                ? `Size ${p.variantTitle.trim()}`
-                                : p.variantTitle?.trim() || null,
-                              p.sku ? `SKU ${p.sku}` : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                        )}
+                        <p className="font-semibold text-slate-700 leading-snug break-words whitespace-normal">{p.name}</p>
+                        <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words">
+                          {[
+                            (() => {
+                              const vt = (p.variantTitle || '').trim()
+                              if (!vt || /^default/i.test(vt)) return 'Không có size/màu'
+                              if (/size|màu|mau/i.test(vt)) return vt
+                              if (/^\d+(\.\d+)?$/.test(vt)) return `Size ${vt}`
+                              return `Màu ${vt}`
+                            })(),
+                            p.sku ? `SKU ${p.sku}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
                         <p className="text-violet-600 font-bold mt-0.5">{p.priceLabel}</p>
                       </div>
                     </div>

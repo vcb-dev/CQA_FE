@@ -45,17 +45,21 @@ function productDisplayName(p: Pick<CskhSapoCatalogItem, 'name' | 'productTitle'
 function sizeColorLabel(variantTitle: string | null | undefined): string | null {
   const vt = (variantTitle || '').trim()
   if (!vt || /^default(\s+title)?$/i.test(vt)) return null
+  // Đã có nhãn sẵn từ Sapo
   if (/size|màu|mau|kích\s*thước/i.test(vt)) return vt
+  // Số thuần = size nhẫn / số đo
   if (/^\d+(\.\d+)?$/.test(vt)) return `Size ${vt}`
-  return vt
+  // Còn lại = màu / phân loại → gắn nhãn Màu
+  return `Màu ${vt}`
 }
 
 function catalogMetaLine(p: CskhSapoCatalogItem): string | null {
   const parts: string[] = []
   const sc = sizeColorLabel(p.variantTitle)
   if (sc) parts.push(sc)
+  else parts.push('Không có size/màu')
   if (p.sku?.trim()) parts.push(`SKU ${p.sku.trim()}`)
-  return parts.length ? parts.join(' · ') : null
+  return parts.join(' · ')
 }
 
 function catalogToLineItem(p: CskhSapoCatalogItem, quantity = 1): LineItemDraft {
@@ -324,18 +328,21 @@ export function SapoCreateOrderDialog({
                 {lineItems.map((item) => (
                   <div
                     key={item.variantId}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 p-2.5"
+                    className="flex items-start gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 p-2.5"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-slate-700 truncate">{item.name}</p>
-                      {(item.sizeColor || item.sku) && (
-                        <p className="text-[9px] text-slate-500 truncate">
-                          {[item.sizeColor, item.sku ? `SKU ${item.sku}` : null]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-violet-600 font-bold">{item.priceLabel}</p>
+                      <p className="text-[11px] font-semibold text-slate-700 leading-snug break-words whitespace-normal">
+                        {item.name}
+                      </p>
+                      <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words whitespace-normal">
+                        {[
+                          item.sizeColor || 'Không có size/màu',
+                          item.sku ? `SKU ${item.sku}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                      <p className="text-[10px] text-violet-600 font-bold mt-0.5">{item.priceLabel}</p>
                       {item.maxQty != null && (
                         <p className="text-[9px] text-slate-400">Tồn: {item.maxQty}</p>
                       )}
@@ -346,9 +353,9 @@ export function SapoCreateOrderDialog({
                       max={item.maxQty ?? undefined}
                       value={item.quantity}
                       onChange={(e) => updateQuantity(item.variantId, Number(e.target.value))}
-                      className="w-14 rounded-lg border border-slate-200 px-2 py-1 text-center text-[11px]"
+                      className="w-14 shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-center text-[11px] mt-0.5"
                     />
-                    <button type="button" onClick={() => removeLineItem(item.variantId)} className="text-[10px] text-slate-400 hover:text-rose-500 px-1">
+                    <button type="button" onClick={() => removeLineItem(item.variantId)} className="shrink-0 text-[10px] text-slate-400 hover:text-rose-500 px-1 mt-1">
                       Xóa
                     </button>
                   </div>
@@ -387,7 +394,7 @@ export function SapoCreateOrderDialog({
                   {productSearch.trim() ? 'Không tìm thấy sản phẩm.' : 'Đã thêm hết sản phẩm trong đơn.'}
                 </p>
               ) : (
-                <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
                   {availableToAdd.map((p) => {
                     const meta = catalogMetaLine(p)
                     return (
@@ -397,25 +404,25 @@ export function SapoCreateOrderDialog({
                     disabled={!p.inStock}
                     onClick={() => addCatalogItem(p)}
                     className={cn(
-                      'w-full flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
+                      'w-full flex items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
                       p.inStock
                         ? 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
                         : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed',
                     )}
                   >
-                    <Plus className="h-3 w-3 shrink-0 text-emerald-600" />
+                    <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-600 mt-0.5" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-slate-700">
+                      <span className="block font-medium text-slate-700 leading-snug break-words whitespace-normal">
                         {productDisplayName(p)}
                       </span>
                       {meta && (
-                        <span className="block truncate text-[9px] text-emerald-700/80 font-medium">
+                        <span className="block text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words whitespace-normal">
                           {meta}
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] text-violet-600 font-bold shrink-0">{p.priceLabel}</span>
-                    <span className={cn('text-[9px] shrink-0', p.inStock ? 'text-slate-400' : 'text-rose-500')}>
+                    <span className="text-[10px] text-violet-600 font-bold shrink-0 pt-0.5">{p.priceLabel}</span>
+                    <span className={cn('text-[9px] shrink-0 pt-0.5', p.inStock ? 'text-slate-400' : 'text-rose-500')}>
                       {p.inventoryQuantity != null ? `Tồn ${p.inventoryQuantity}` : '—'}
                     </span>
                   </button>
