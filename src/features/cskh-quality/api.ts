@@ -312,23 +312,29 @@ export interface ProductsAnalyticsItem {
   name: string
   category: string
   material: string | null
+  craftType?: string | null
   imageUrl: string | null
-  variantHint: string | null
-  messageCount: number | null
-  messageCountLabel: string
-  responseRate: number | null
-  responseRateLabel: string
-  closeRate: number | null
-  closeRateLabel: string
+  size?: string
+  color?: string
+  price?: number | null
+  priceLabel?: string
+  variantCount?: number
+  variantHint?: string | null
+  messageCount?: number | null
+  messageCountLabel?: string
+  responseRate?: number | null
+  responseRateLabel?: string
+  closeRate?: number | null
+  closeRateLabel?: string
   unitsSold: number
   unitsSoldLabel: string
   revenue: number
   revenueLabel: string
-  revenuePerUnit: number | null
-  revenuePerUnitLabel: string
-  aiScore: number | null
-  aiScoreLabel: string
-  trend: 'up' | 'down' | 'flat'
+  revenuePerUnit?: number | null
+  revenuePerUnitLabel?: string
+  aiScore?: number | null
+  aiScoreLabel?: string
+  trend?: 'up' | 'down' | 'flat'
 }
 
 export interface ProductsAnalyticsDashboard {
