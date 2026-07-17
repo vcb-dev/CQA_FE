@@ -268,7 +268,11 @@ export interface CskhSapoCatalogItem {
   productId: number
   variantId: number
   name: string
+  productTitle?: string
   variantTitle: string
+  category?: string | null
+  material?: string | null
+  unit?: string | null
   price: number
   priceLabel: string
   sku: string | null

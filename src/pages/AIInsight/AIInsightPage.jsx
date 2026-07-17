@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   ChartBar,
@@ -29,6 +30,16 @@ const kpiColors = ['var(--primary-500)', '#ef4444', '#22c55e', '#f59e0b'];
 const RANGE_DEBOUNCE_MS = 700;
 /** Cache FE dài hơn — khớp cache BE ~180s, giảm gọi lại khi đổi kênh rồi quay lại. */
 const INSIGHT_STALE_MS = 180_000;
+
+const QUALITY_HINT = (
+  <>
+    Chưa có dữ liệu audit — vào mục{' '}
+    <Link to="/quality" style={{ color: '#4f46e5', fontWeight: 700, textDecoration: 'underline' }}>
+      Chất lượng CSKH
+    </Link>{' '}
+    để chạy audit AI cho kênh này.
+  </>
+);
 
 const STATUS_STYLE = {
   good: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
@@ -221,11 +232,15 @@ function ContentLoading({ label }) {
   );
 }
 
-function dataMatchesSelection(data, selectedPageId) {
+function dataMatchesSelection(data, selectedPageId, range) {
   if (!data) return false;
   const sid = selectedPageId || '';
   const dataSid = data.selectedPageId || '';
-  return sid === dataSid;
+  if (sid !== dataSid) return false;
+  // placeholderData giữ data kỳ cũ — phải khớp khoảng ngày đang applied.
+  if (range?.from && data.period?.from && data.period.from !== range.from) return false;
+  if (range?.to && data.period?.to && data.period.to !== range.to) return false;
+  return true;
 }
 
 export default function AIInsightPage() {
@@ -275,15 +290,11 @@ export default function AIInsightPage() {
     if (list?.length) setPageDirectory(list);
   }, [data?.pageDirectory, data?.byPage?.all]);
 
-  const dataReady = dataMatchesSelection(data, selectedPageId);
+  const dataReady = dataMatchesSelection(data, selectedPageId, appliedRange);
   const isChannelDetail = Boolean(selectedPageId);
   const pageOptions = pageDirectory.length > 0 ? pageDirectory : (data?.pageDirectory ?? data?.byPage?.all ?? []);
-  // Có sẵn danh sách kênh (cache lần trước) → hiện UI ngay, chỉ overlay khi đang đổi kênh/chi tiết.
-  const hasCachedChannelList = !isChannelDetail && pageOptions.length > 0;
-  const showContentLoading =
-    !dataReady && (isLoading || isFetching) && !isError && !hasCachedChannelList;
-  const showListRefreshing =
-    !isChannelDetail && hasCachedChannelList && (isFetching || isLoading) && !dataReady;
+  // Đổi ngày / đang fetch → loading full UI bên dưới (không giữ list cũ).
+  const showContentLoading = !dataReady && (isLoading || isFetching) && !isError;
   const isRefreshing = isFetching && !isLoading;
   const rangePending =
     draftRange.from !== appliedRange.from || draftRange.to !== appliedRange.to;
@@ -298,21 +309,7 @@ export default function AIInsightPage() {
     setAppliedRange(draftRange);
   };
 
-  const byPage = dataReady
-    ? data?.byPage
-    : hasCachedChannelList
-      ? {
-          all: pageOptions,
-          needsAttention: pageOptions.filter((p) => p.audited && p.status !== 'good').slice(0, 8),
-          topPerformers: pageOptions.filter((p) => p.audited && p.status === 'good').slice(0, 8),
-          summary: {
-            total: pageOptions.length,
-            good: pageOptions.filter((p) => p.audited && p.status === 'good').length,
-            warning: pageOptions.filter((p) => p.audited && p.status === 'warning').length,
-            critical: pageOptions.filter((p) => p.audited && p.status === 'critical').length,
-          },
-        }
-      : null;
+  const byPage = dataReady && !isChannelDetail ? data?.byPage : null;
 
   const selectedPageName = useMemo(() => {
     if (!selectedPageId) return null;
@@ -338,6 +335,11 @@ export default function AIInsightPage() {
 
   const lostOrderFactors = useMemo(
     () => (dataReady ? (data?.closeRateFactors?.lostOrders ?? []) : []),
+    [data, dataReady],
+  );
+
+  const topProducts = useMemo(
+    () => (dataReady ? (data?.products ?? []).slice(0, 3) : []),
     [data, dataReady],
   );
 
@@ -385,8 +387,8 @@ export default function AIInsightPage() {
                   {byPage.summary.critical} cần xử lý
                 </div>
               )}
-              {!dataReady && !isChannelDetail && showListRefreshing && (
-                <div style={{ fontSize: 11, color: '#6366f1' }}>Đang làm mới dữ liệu kênh…</div>
+              {showContentLoading && !isChannelDetail && (
+                <div style={{ fontSize: 11, color: '#6366f1' }}>Đang tải dữ liệu theo khoảng ngày…</div>
               )}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, fontSize: 12 }}>
@@ -463,22 +465,6 @@ export default function AIInsightPage() {
 
         {showContentLoading && !isError && <ContentLoading label={loadingLabel} />}
 
-        {showListRefreshing && !isError && (
-          <div
-            style={{
-              borderRadius: 10,
-              border: '1px solid #e0e7ff',
-              background: '#eef2ff',
-              padding: '8px 12px',
-              fontSize: 12,
-              color: '#4338ca',
-              fontWeight: 600,
-            }}
-          >
-            Đang cập nhật danh sách kênh…
-          </div>
-        )}
-
         {isError && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 space-y-2">
             <p>
@@ -498,7 +484,7 @@ export default function AIInsightPage() {
           </div>
         )}
 
-        {((dataReady && data) || (!isChannelDetail && byPage)) && (
+        {dataReady && data && (
           <>
             {!isChannelDetail && byPage && (
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
@@ -592,7 +578,7 @@ export default function AIInsightPage() {
                 <div className="factors-grid" style={{ padding: '0 14px 14px' }}>
                   {!data.audited ? (
                     <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#9ca3af', padding: '10px 0', lineHeight: 1.5 }}>
-                      Kênh chưa có bản ghi trong <strong>chat_audits</strong> trong kỳ này — chạy audit AI để có yếu tố chốt / mất đơn chuẩn.
+                      {QUALITY_HINT}
                     </div>
                   ) : (
                     <>
@@ -641,34 +627,45 @@ export default function AIInsightPage() {
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
               <div className="card-title">
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkle size={14} weight="duotone" style={{ color: '#4f46e5' }} />
-                  Gợi ý content video
+                  <Diamond size={14} weight="duotone" style={{ color: '#f59e0b' }} />
+                  Top 3 sản phẩm khách hàng quan tâm nhiều nhất
                 </span>
               </div>
-              {(data.videoTopics ?? []).length > 0 ? (
+              {topProducts.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, padding: '0 14px 14px' }}>
-                  {(data.videoTopics ?? []).map((item, i) => (
+                  {topProducts.map((item, i) => (
                     <div
-                      key={i}
+                      key={`${item.name}-${i}`}
                       style={{
                         border: '1px solid #e5e7eb',
                         borderRadius: 8,
-                        padding: 10,
-                        background: i === 0 ? '#eef2ff' : '#fff',
+                        padding: 12,
+                        background: i === 0 ? '#fffbeb' : '#fff',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.35 }}>{item.question}</div>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: '#4f46e5', whiteSpace: 'nowrap' }}>{item.mentions} lần</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#b45309', marginBottom: 4 }}>
+                            #{i + 1}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.35 }}>
+                            {item.name}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: '#4f46e5', whiteSpace: 'nowrap' }}>
+                          {(item.visits ?? 0).toLocaleString('vi-VN')} lần
+                        </span>
                       </div>
-                      <div style={{ fontSize: 12, color: '#d97706', background: '#fffbeb', borderRadius: 6, padding: '5px 7px', fontWeight: 700 }}>
-                        {item.angle}
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8 }}>
+                        Từ hội thoại inbox trong khoảng ngày đã chọn
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Chưa có gợi ý</div>
+                <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13, lineHeight: 1.5 }}>
+                  Chưa nhận diện được sản phẩm trong hội thoại inbox kỳ này.
+                </div>
               )}
             </div>
 
@@ -725,7 +722,7 @@ export default function AIInsightPage() {
                 </div>
                 ) : (
                   <div style={{ padding: '16px 16px 20px', fontSize: 12, color: '#9ca3af', lineHeight: 1.5 }}>
-                    Chưa audit — cảm xúc lấy từ chat_audits sau khi chạy audit AI.
+                    {QUALITY_HINT}
                   </div>
                 )}
               </div>

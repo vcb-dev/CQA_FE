@@ -73,20 +73,24 @@ export function SapoCreateOrderDialog({
   }, [catalogData?.items])
 
   const defaultLineItems = useMemo<LineItemDraft[]>(() => {
-    const fromIntent = (intent?.products ?? []).map((p) => {
-      const cat = catalogByVariant.get(p.variantId)
-      return {
-        variantId: p.variantId,
-        productId: p.productId,
-        name: p.name,
-        priceLabel: p.priceLabel,
-        quantity: 1,
-        maxQty: cat?.inventoryQuantity ?? p.inStock ? null : 0,
-      }
-    })
-    if (fromIntent.length) return fromIntent
-    return (catalogData?.items ?? []).slice(0, 1).map((p) => catalogToLineItem(p, 1))
-  }, [intent?.products, catalogData?.items, catalogByVariant])
+    // Chỉ tự thêm sản phẩm khách thực sự quan tâm (từ intent hội thoại).
+    // Không auto-thêm SP đầu catalog — tránh tạo đơn nhầm sản phẩm bất kỳ.
+    return (intent?.products ?? [])
+      .filter((p) => p.variantId != null)
+      .map((p) => {
+        const cat = catalogByVariant.get(p.variantId)
+        // Ưu tiên tồn kho thực tế từ catalog; nếu không có thì suy ra từ inStock.
+        const maxQty = cat?.inventoryQuantity ?? (p.inStock ? null : 0)
+        return {
+          variantId: p.variantId,
+          productId: p.productId,
+          name: cat?.name ?? p.name,
+          priceLabel: cat?.priceLabel ?? p.priceLabel,
+          quantity: 1,
+          maxQty,
+        }
+      })
+  }, [intent?.products, catalogByVariant])
 
   useEffect(() => {
     if (!open || isLoadingCatalog) return
@@ -133,7 +137,7 @@ export function SapoCreateOrderDialog({
       .filter((p) => !lineItems.some((l) => l.variantId === p.variantId))
       .filter((p) => {
         if (!q) return true
-        const hay = `${p.name} ${p.sku ?? ''} ${p.priceLabel}`.toLowerCase()
+        const hay = `${p.name} ${p.sku ?? ''} ${p.category ?? ''} ${p.material ?? ''} ${p.priceLabel}`.toLowerCase()
         return hay.includes(q)
       })
   }, [catalogData?.items, lineItems, productSearch])
@@ -354,7 +358,16 @@ export function SapoCreateOrderDialog({
                     )}
                   >
                     <Plus className="h-3 w-3 shrink-0 text-emerald-600" />
-                    <span className="flex-1 truncate font-medium text-slate-700">{p.name}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-slate-700">{p.name}</span>
+                      {(p.category || p.material || p.variantTitle || p.sku) && (
+                        <span className="block truncate text-[9px] text-slate-400">
+                          {[p.category, p.material, p.variantTitle, p.sku]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      )}
+                    </span>
                     <span className="text-[10px] text-violet-600 font-bold shrink-0">{p.priceLabel}</span>
                     <span className={cn('text-[9px] shrink-0', p.inStock ? 'text-slate-400' : 'text-rose-500')}>
                       {p.inventoryQuantity != null ? `Tồn ${p.inventoryQuantity}` : '—'}
