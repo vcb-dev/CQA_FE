@@ -962,7 +962,7 @@ export async function fetchInboxMessages(
   }
 }
 
-const INBOX_MESSAGES_OPEN_LIMIT = 50
+const INBOX_MESSAGES_OPEN_LIMIT = 120
 const INBOX_BACKGROUND_REFRESH_MS = 5 * 60_000
 const lastInboxBackgroundRefresh = new Map<string, number>()
 

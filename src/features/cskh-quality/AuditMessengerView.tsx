@@ -349,7 +349,7 @@ function LiveBubble({ msg }: { msg: CskhInboxMessage & { attachmentUrls?: string
   const isStaff = msg.direction === 'outbound' || msg.senderType === 'staff'
   const staffVi = isStaff
     ? (msg.originalText || msg.translatedText || '').trim()
-    : (msg.translatedText || '').trim()
+    : (msg.translatedText || msg.originalText || '').trim()
   const showStaffVi =
     Boolean(staffVi) &&
     staffVi !== (msg.text || '').trim() &&

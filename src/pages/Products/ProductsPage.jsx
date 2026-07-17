@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   MagnifyingGlass,
   Package,
@@ -21,6 +21,72 @@ const kpiMeta = [
   { key: 'productsWithSales', icon: ChartBar, color: '#3b82f6' },
 ];
 
+const ProductRow = memo(function ProductRow({ p }) {
+  return (
+    <tr>
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              background: '#f9fafb',
+              border: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {p.imageUrl ? (
+              <img
+                src={p.imageUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <Diamond size={18} weight="duotone" style={{ color: '#f59e0b' }} />
+            )}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: '12px',
+                lineHeight: 1.35,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+              }}
+            >
+              {p.name}
+            </div>
+            <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.code}</div>
+            {p.craftType ? (
+              <div style={{ fontSize: '9px', color: '#6366f1', marginTop: 2 }}>{p.craftType}</div>
+            ) : null}
+          </div>
+        </div>
+      </td>
+      <td>
+        <span className="tag tag-gray">{p.category}</span>
+      </td>
+      <td style={{ fontSize: '12px' }}>{p.material || '—'}</td>
+      <td style={{ fontSize: '12px', color: p.size?.includes('chưa có') ? '#9ca3af' : undefined }}>
+        {p.size || 'chưa có size'}
+      </td>
+      <td style={{ fontSize: '12px', color: p.color?.includes('chưa có') ? '#9ca3af' : undefined }}>
+        {p.color || 'chưa có màu'}
+      </td>
+      <td style={{ fontWeight: 600 }}>{p.unitsSoldLabel}</td>
+      <td style={{ fontWeight: 500 }}>{p.revenueLabel}</td>
+    </tr>
+  );
+});
+
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -32,11 +98,11 @@ export default function ProductsPage() {
     const t = setTimeout(() => {
       setAppliedSearch(search.trim());
       setPage(1);
-    }, 400);
+    }, 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isLoading, isError, error, isFetching } = useQuery({
+  const { data, isLoading, isError, error, isFetching, isPlaceholderData } = useQuery({
     queryKey: ['cskh', 'products', 'analytics', appliedSearch, category, page, pageSize],
     queryFn: () =>
       fetchProductsAnalytics({
@@ -45,7 +111,9 @@ export default function ProductsPage() {
         page,
         pageSize,
       }),
-    staleTime: 60_000,
+    staleTime: 90_000,
+    gcTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const kpiItems = useMemo(() => {
@@ -55,14 +123,14 @@ export default function ProductsPage() {
       return {
         key: meta.key,
         label: kpi?.label ?? '…',
-        value: kpi?.value ?? (isLoading ? '…' : '0'),
+        value: kpi?.value ?? (isLoading && !data ? '…' : '0'),
         change: '',
         sub: kpi?.sub,
         icon: meta.icon,
         color: meta.color,
       };
     });
-  }, [data?.kpis, isLoading]);
+  }, [data?.kpis, isLoading, data]);
 
   const items = data?.items ?? [];
   const pagination = data?.pagination ?? { page: 1, pageSize, total: 0, totalPages: 1 };
@@ -82,7 +150,10 @@ export default function ProductsPage() {
 
           <KpiGrid items={kpiItems} columns={4} />
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
+          <div
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col"
+            style={{ opacity: isFetching && isPlaceholderData ? 0.72 : 1, transition: 'opacity .15s' }}
+          >
             <div className="card-title">
               <span>
                 Danh sách sản phẩm
@@ -159,67 +230,7 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ) : (
-                  items.map((p) => (
-                    <tr key={p.productId}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '8px',
-                              background: '#f9fafb',
-                              border: '1px solid #e5e7eb',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {p.imageUrl ? (
-                              <img
-                                src={p.imageUrl}
-                                alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <Diamond size={18} weight="duotone" style={{ color: '#f59e0b' }} />
-                            )}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontWeight: 600,
-                                fontSize: '12px',
-                                lineHeight: 1.35,
-                                whiteSpace: 'normal',
-                                wordBreak: 'break-word',
-                              }}
-                            >
-                              {p.name}
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.code}</div>
-                            {p.craftType ? (
-                              <div style={{ fontSize: '9px', color: '#6366f1', marginTop: 2 }}>{p.craftType}</div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="tag tag-gray">{p.category}</span>
-                      </td>
-                      <td style={{ fontSize: '12px' }}>{p.material || '—'}</td>
-                      <td style={{ fontSize: '12px', color: p.size?.includes('chưa có') ? '#9ca3af' : undefined }}>
-                        {p.size || 'chưa có size'}
-                      </td>
-                      <td style={{ fontSize: '12px', color: p.color?.includes('chưa có') ? '#9ca3af' : undefined }}>
-                        {p.color || 'chưa có màu'}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{p.unitsSoldLabel}</td>
-                      <td style={{ fontWeight: 500 }}>{p.revenueLabel}</td>
-                    </tr>
-                  ))
+                  items.map((p) => <ProductRow key={p.productId} p={p} />)
                 )}
               </tbody>
             </table>
@@ -248,7 +259,7 @@ export default function ProductsPage() {
               <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 <button
                   type="button"
-                  disabled={page <= 1}
+                  disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   style={{
                     width: 28,
@@ -268,7 +279,7 @@ export default function ProductsPage() {
                 </span>
                 <button
                   type="button"
-                  disabled={page >= pagination.totalPages}
+                  disabled={page >= pagination.totalPages || isFetching}
                   onClick={() => setPage((p) => p + 1)}
                   style={{
                     width: 28,
