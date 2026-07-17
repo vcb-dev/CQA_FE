@@ -14,6 +14,8 @@ type LineItemDraft = {
   variantId: number
   productId: number
   name: string
+  sizeColor: string | null
+  sku: string | null
   priceLabel: string
   quantity: number
   maxQty: number | null
@@ -26,11 +28,43 @@ type SapoCreateOrderDialogProps = {
   intent?: CskhCustomerIntent | null
 }
 
+/** Tên SP sạch (không dính size/màu vào tên). */
+function productDisplayName(p: Pick<CskhSapoCatalogItem, 'name' | 'productTitle' | 'variantTitle'>): string {
+  const title = p.productTitle?.trim()
+  if (title) return title
+  const n = (p.name || '').trim()
+  const vt = (p.variantTitle || '').trim()
+  if (vt && n.endsWith(` · ${vt}`)) return n.slice(0, -(vt.length + 3)).trim()
+  return n
+}
+
+/**
+ * Chuẩn hóa size/màu để người dùng đọc được.
+ * Sapo thường trả: "5", "Đen", "Màu Đen / Size 22", "Size 30 / Màu Đỏ Tươi".
+ */
+function sizeColorLabel(variantTitle: string | null | undefined): string | null {
+  const vt = (variantTitle || '').trim()
+  if (!vt || /^default(\s+title)?$/i.test(vt)) return null
+  if (/size|màu|mau|kích\s*thước/i.test(vt)) return vt
+  if (/^\d+(\.\d+)?$/.test(vt)) return `Size ${vt}`
+  return vt
+}
+
+function catalogMetaLine(p: CskhSapoCatalogItem): string | null {
+  const parts: string[] = []
+  const sc = sizeColorLabel(p.variantTitle)
+  if (sc) parts.push(sc)
+  if (p.sku?.trim()) parts.push(`SKU ${p.sku.trim()}`)
+  return parts.length ? parts.join(' · ') : null
+}
+
 function catalogToLineItem(p: CskhSapoCatalogItem, quantity = 1): LineItemDraft {
   return {
     variantId: p.variantId,
     productId: p.productId,
-    name: p.name,
+    name: productDisplayName(p),
+    sizeColor: sizeColorLabel(p.variantTitle),
+    sku: p.sku?.trim() || null,
     priceLabel: p.priceLabel,
     quantity,
     maxQty: p.inventoryQuantity,
@@ -81,11 +115,14 @@ export function SapoCreateOrderDialog({
         const cat = catalogByVariant.get(p.variantId)
         // Ưu tiên tồn kho thực tế từ catalog; nếu không có thì suy ra từ inStock.
         const maxQty = cat?.inventoryQuantity ?? (p.inStock ? null : 0)
+        if (cat) return catalogToLineItem(cat, 1)
         return {
           variantId: p.variantId,
           productId: p.productId,
-          name: cat?.name ?? p.name,
-          priceLabel: cat?.priceLabel ?? p.priceLabel,
+          name: p.name,
+          sizeColor: sizeColorLabel(p.variantTitle),
+          sku: p.sku?.trim() || null,
+          priceLabel: p.priceLabel,
           quantity: 1,
           maxQty,
         }
@@ -137,7 +174,7 @@ export function SapoCreateOrderDialog({
       .filter((p) => !lineItems.some((l) => l.variantId === p.variantId))
       .filter((p) => {
         if (!q) return true
-        const hay = `${p.name} ${p.sku ?? ''} ${p.category ?? ''} ${p.material ?? ''} ${p.priceLabel}`.toLowerCase()
+        const hay = `${productDisplayName(p)} ${p.variantTitle ?? ''} ${p.sku ?? ''} ${p.category ?? ''} ${p.material ?? ''} ${p.priceLabel}`.toLowerCase()
         return hay.includes(q)
       })
   }, [catalogData?.items, lineItems, productSearch])
@@ -291,6 +328,13 @@ export function SapoCreateOrderDialog({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold text-slate-700 truncate">{item.name}</p>
+                      {(item.sizeColor || item.sku) && (
+                        <p className="text-[9px] text-slate-500 truncate">
+                          {[item.sizeColor, item.sku ? `SKU ${item.sku}` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
                       <p className="text-[10px] text-violet-600 font-bold">{item.priceLabel}</p>
                       {item.maxQty != null && (
                         <p className="text-[9px] text-slate-400">Tồn: {item.maxQty}</p>
@@ -334,7 +378,7 @@ export function SapoCreateOrderDialog({
                   type="search"
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Tìm theo tên, SKU, giá..."
+                  placeholder="Tìm theo tên, size, màu, SKU..."
                   className="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-[11px] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
@@ -344,7 +388,9 @@ export function SapoCreateOrderDialog({
                 </p>
               ) : (
                 <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
-                  {availableToAdd.map((p) => (
+                  {availableToAdd.map((p) => {
+                    const meta = catalogMetaLine(p)
+                    return (
                   <button
                     key={p.variantId}
                     type="button"
@@ -359,12 +405,12 @@ export function SapoCreateOrderDialog({
                   >
                     <Plus className="h-3 w-3 shrink-0 text-emerald-600" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-slate-700">{p.name}</span>
-                      {(p.category || p.material || p.variantTitle || p.sku) && (
-                        <span className="block truncate text-[9px] text-slate-400">
-                          {[p.category, p.material, p.variantTitle, p.sku]
-                            .filter(Boolean)
-                            .join(' · ')}
+                      <span className="block truncate font-medium text-slate-700">
+                        {productDisplayName(p)}
+                      </span>
+                      {meta && (
+                        <span className="block truncate text-[9px] text-emerald-700/80 font-medium">
+                          {meta}
                         </span>
                       )}
                     </span>
@@ -373,7 +419,8 @@ export function SapoCreateOrderDialog({
                       {p.inventoryQuantity != null ? `Tồn ${p.inventoryQuantity}` : '—'}
                     </span>
                   </button>
-                ))}
+                    )
+                })}
                 </div>
               )}
               </>

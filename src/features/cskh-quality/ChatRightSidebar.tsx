@@ -461,6 +461,18 @@ export function ChatRightSidebar({
                       )}
                       <div className="min-w-0 flex-1 text-[11px]">
                         <p className="font-semibold text-slate-700 truncate">{p.name}</p>
+                        {(p.variantTitle || p.sku) && (
+                          <p className="text-[9px] text-slate-500 truncate mt-0.5">
+                            {[
+                              p.variantTitle && /^\d+(\.\d+)?$/.test(p.variantTitle.trim())
+                                ? `Size ${p.variantTitle.trim()}`
+                                : p.variantTitle?.trim() || null,
+                              p.sku ? `SKU ${p.sku}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
                         <p className="text-violet-600 font-bold mt-0.5">{p.priceLabel}</p>
                       </div>
                     </div>
