@@ -465,9 +465,12 @@ export function ChatRightSidebar({
                           {[
                             (() => {
                               const vt = (p.variantTitle || '').trim()
-                              if (!vt || /^default/i.test(vt)) return 'Không có size/màu'
-                              if (/size|màu|mau/i.test(vt)) return vt
-                              if (/^\d+(\.\d+)?$/.test(vt)) return `Size ${vt}`
+                              if (!vt || /^default/i.test(vt)) return null
+                              if (vt.includes('/')) return vt
+                              if (/^\d+(\.\d+)?$/.test(vt) || /^(size|kích\s*thước)\b/i.test(vt)) {
+                                return /^\d+(\.\d+)?$/.test(vt) ? `Size ${vt}` : vt
+                              }
+                              if (/^màu\b/i.test(vt)) return vt
                               return `Màu ${vt}`
                             })(),
                             p.sku ? `SKU ${p.sku}` : null,

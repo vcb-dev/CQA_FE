@@ -39,27 +39,70 @@ function productDisplayName(p: Pick<CskhSapoCatalogItem, 'name' | 'productTitle'
 }
 
 /**
- * Chuẩn hóa size/màu để người dùng đọc được.
- * Sapo thường trả: "5", "Đen", "Màu Đen / Size 22", "Size 30 / Màu Đỏ Tươi".
+ * Phân tích size/màu từ variant.title Sapo.
+ *
+ * Sapo trả option riêng qua options[].name + variant.option1/2/title:
+ *  - "Kích thước" / "Size" → size (vd "9", "Size 22")
+ *  - "Màu sắc" → màu (vd "Đen", "Màu Đen")
+ *  - cả hai → title kiểu "Màu Đen / Size 22"
+ *  - "Title" / "Default Title" → không có size/màu (màu nếu có chỉ nằm trong TÊN SP)
+ *
+ * Không suy màu từ tên sản phẩm (vd "Ánh Kim").
  */
-function sizeColorLabel(variantTitle: string | null | undefined): string | null {
+function parseSizeColor(variantTitle: string | null | undefined): {
+  size: string | null
+  color: string | null
+} {
   const vt = (variantTitle || '').trim()
-  if (!vt || /^default(\s+title)?$/i.test(vt)) return null
-  // Đã có nhãn sẵn từ Sapo
-  if (/size|màu|mau|kích\s*thước/i.test(vt)) return vt
-  // Số thuần = size nhẫn / số đo
-  if (/^\d+(\.\d+)?$/.test(vt)) return `Size ${vt}`
-  // Còn lại = màu / phân loại → gắn nhãn Màu
-  return `Màu ${vt}`
+  if (!vt || /^default(\s+title)?$/i.test(vt)) return { size: null, color: null }
+
+  const normSize = (s: string) => {
+    const t = s.trim()
+    if (/^\d+(\.\d+)?$/.test(t)) return `Size ${t}`
+    if (/^(size|kích\s*thước)\b/i.test(t)) return t.replace(/^kích\s*thước\s*/i, 'Size ').trim()
+    return t
+  }
+  const normColor = (s: string) => {
+    const t = s.trim()
+    if (/^màu\b/i.test(t)) return t
+    return `Màu ${t}`
+  }
+
+  // "Màu Đen / Size 22" hoặc "Đen / 22"
+  if (vt.includes('/')) {
+    let size: string | null = null
+    let color: string | null = null
+    for (const part of vt.split('/').map((p) => p.trim()).filter(Boolean)) {
+      if (/size|kích\s*thước|^\d+(\.\d+)?$/i.test(part)) size = normSize(part)
+      else color = normColor(part)
+    }
+    return { size, color }
+  }
+
+  // Chỉ size
+  if (/^\d+(\.\d+)?$/.test(vt) || /^(size|kích\s*thước)\b/i.test(vt)) {
+    return { size: normSize(vt), color: null }
+  }
+
+  // Chỉ màu (option "Màu sắc" trên Sapo — không phải chữ trong tên SP)
+  if (/^màu\b/i.test(vt)) return { size: null, color: vt }
+
+  // Một giá trị option đơn (Đen, Gold, Navy…) = màu từ Sapo option
+  return { size: null, color: normColor(vt) }
+}
+
+function sizeColorLabel(variantTitle: string | null | undefined): string | null {
+  const { size, color } = parseSizeColor(variantTitle)
+  const parts = [size, color].filter(Boolean)
+  return parts.length ? parts.join(' · ') : null
 }
 
 function catalogMetaLine(p: CskhSapoCatalogItem): string | null {
   const parts: string[] = []
   const sc = sizeColorLabel(p.variantTitle)
   if (sc) parts.push(sc)
-  else parts.push('Không có size/màu')
   if (p.sku?.trim()) parts.push(`SKU ${p.sku.trim()}`)
-  return parts.join(' · ')
+  return parts.length ? parts.join(' · ') : null
 }
 
 function catalogToLineItem(p: CskhSapoCatalogItem, quantity = 1): LineItemDraft {
@@ -334,14 +377,13 @@ export function SapoCreateOrderDialog({
                       <p className="text-[11px] font-semibold text-slate-700 leading-snug break-words whitespace-normal">
                         {item.name}
                       </p>
-                      <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words whitespace-normal">
-                        {[
-                          item.sizeColor || 'Không có size/màu',
-                          item.sku ? `SKU ${item.sku}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
+                      {(item.sizeColor || item.sku) && (
+                        <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words whitespace-normal">
+                          {[item.sizeColor, item.sku ? `SKU ${item.sku}` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
                       <p className="text-[10px] text-violet-600 font-bold mt-0.5">{item.priceLabel}</p>
                       {item.maxQty != null && (
                         <p className="text-[9px] text-slate-400">Tồn: {item.maxQty}</p>
