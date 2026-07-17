@@ -275,6 +275,18 @@ export function ChatPanel({
       }))
   }, [messages])
 
+  const translatingPending = useMemo(() => {
+    const noise = new Set(['[Ảnh]', '[Video]', '[Sticker]', '[attachment]'])
+    return displayMessages.some((m) => {
+      if (m.messageType && m.messageType !== 'text') return false
+      if (!m.text?.trim() || noise.has(m.text)) return false
+      const hasVi = Boolean((m.originalText || m.translatedText || '').trim())
+      if (hasVi) return false
+      // Có chữ Thái/Trung… → đang chờ dịch nền
+      return /[\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(m.text)
+    })
+  }, [displayMessages])
+
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Header */}
@@ -298,6 +310,12 @@ export function ChatPanel({
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">Cuộc trò chuyện Facebook</span>
+              {translatingPending && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-600 leading-none">
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  Đang dịch…
+                </span>
+              )}
               {conversationWithLabels.fromAd && (
                 <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white leading-none">
                   Ads
