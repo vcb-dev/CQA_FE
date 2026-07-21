@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   MagnifyingGlass,
   Package,
@@ -88,11 +89,30 @@ const ProductRow = memo(function ProductRow({ p }) {
 });
 
 export default function ProductsPage() {
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const category = searchParams.get('category') ?? '';
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const setCategory = (value) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set('category', value);
+        else next.delete('category');
+        return next;
+      },
+      { replace: true },
+    );
+    setPage(1);
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [category]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -132,6 +152,12 @@ export default function ProductsPage() {
     });
   }, [data?.kpis, isLoading, data]);
 
+  useEffect(() => {
+    if (data?.categories?.length) {
+      queryClient.setQueryData(['cskh', 'products', 'categories'], data.categories);
+    }
+  }, [data?.categories, queryClient]);
+
   const items = data?.items ?? [];
   const pagination = data?.pagination ?? { page: 1, pageSize, total: 0, totalPages: 1 };
   const topByRevenue = data?.topByRevenue ?? [];
@@ -157,6 +183,9 @@ export default function ProductsPage() {
             <div className="card-title">
               <span>
                 Danh sách sản phẩm
+                {category ? (
+                  <span className="ml-2 text-[11px] font-normal text-slate-500">· {category}</span>
+                ) : null}
                 {isFetching ? (
                   <span className="ml-2 text-[10px] font-normal text-slate-400">Đang tải…</span>
                 ) : null}

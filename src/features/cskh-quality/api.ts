@@ -1185,19 +1185,22 @@ export interface CskhBackfillStatus {
   okPages: number
   errorPages: Array<{ page: string; error: string; pageId?: string }>
   completedPageIds?: string[]
+  /** Ngày VN đang quét (YYYY-MM-DD). Null/undefined = quét toàn bộ. */
+  scanDate?: string | null
   startedAt: string | null
   finishedAt: string | null
   jobId?: string | null
 }
 
-/** Bắt đầu / tiếp tục quét đầy đủ. force=true bỏ qua tiến độ cũ, quét lại từ đầu. */
+/** Bắt đầu / tiếp tục quét. force=true bỏ qua tiến độ cũ. date=YYYY-MM-DD chỉ quét tin trong ngày đó. */
 export async function startCskhBackfill(
   scope: 'empty' | 'all' = 'all',
-  options?: { force?: boolean }
+  options?: { force?: boolean; date?: string }
 ): Promise<CskhBackfillStatus> {
   const { data } = await apiClient.post<CskhBackfillStatus>('/cskh/inbox/backfill', {
     scope,
     force: options?.force === true,
+    date: options?.date || undefined,
   })
   return data
 }
