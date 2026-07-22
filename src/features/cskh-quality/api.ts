@@ -380,6 +380,60 @@ export async function fetchProductsAnalytics(params?: {
   return data
 }
 
+export interface CustomersAnalyticsKpi {
+  key: string
+  label: string
+  value: string
+  sub?: string
+}
+
+export interface CustomersAnalyticsItem {
+  id: string
+  conversationId: string | null
+  participantPsid: string | null
+  name: string
+  pictureUrl: string | null
+  pageId: string | null
+  pageName: string | null
+  channel: string
+  source: string
+  fromAd: boolean
+  status: string
+  statusLabels: Array<{ name: string; color: string }>
+  phone: string | null
+  phoneMasked: string | null
+  address: string | null
+  orderCount: number
+  orderCountLabel: string
+  totalSpend: number
+  totalSpendLabel: string
+  lastOrderAt: string
+  firstOrderAt: string
+  lastMessageAt: string | null
+}
+
+export interface CustomersAnalyticsDashboard {
+  source: 'database'
+  kpis: CustomersAnalyticsKpi[]
+  channels: Array<{ pageId: string; pageName: string; customerCount: number }>
+  statuses: Array<{ name: string; color: string; count: number }>
+  items: CustomersAnalyticsItem[]
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }
+}
+
+export async function fetchCustomersAnalytics(params?: {
+  q?: string
+  pageId?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}): Promise<CustomersAnalyticsDashboard> {
+  const { data } = await apiClient.get<CustomersAnalyticsDashboard>('/cskh/customers', {
+    params,
+  })
+  return data
+}
+
 export interface CreateSapoOrderPayload {
   customerName: string
   phone?: string

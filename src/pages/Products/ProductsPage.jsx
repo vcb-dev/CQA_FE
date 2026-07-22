@@ -249,7 +249,7 @@ export default function ProductsPage() {
                 {isLoading && !data ? (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                      Đang tải sản phẩm từ database…
+                      Đang tải…
                     </td>
                   </tr>
                 ) : items.length === 0 ? (
