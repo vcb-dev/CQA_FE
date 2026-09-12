@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Link2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Link2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import {
   MagnifyingGlass, FloppyDisk, Sparkle, CheckCircle, CaretRight, Sliders, Play, GearSix,
   Shield, HardDrive, ArrowsCounterClockwise, Megaphone, Package, Wrench, Brain, Key,
@@ -16,6 +16,7 @@ import {
   refreshCskhOAuth,
   connectTikTokAccounts,
   setCskhPageEnabled,
+  setCskhPageInfo,
   deleteCskhPage,
   syncInboxFromGraph,
   isAsyncInboxSync,
@@ -28,6 +29,156 @@ const FB_FALLBACK_IMG =
 const IG_FALLBACK_IMG = 'https://www.instagram.com/static/images/ico/favicon-192.png';
 const TT_FALLBACK_IMG = 'https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/8152caf0c8e8bc67ae0d.png';
 
+/** 1 hàng bảng kênh — team/người quản lý/khu vực nhập tay, nút Lưu gộp cạnh Xóa ở cột Hành động. */
+function ChannelPageRow({ page, fallbackImg, onToggle, onDelete, onUpdateInfo }) {
+  const [team, setTeam] = useState(page.team || '');
+  const [managerName, setManagerName] = useState(page.managerName || '');
+  const [region, setRegion] = useState(page.region || '');
+
+  useEffect(() => {
+    setTeam(page.team || '');
+    setManagerName(page.managerName || '');
+    setRegion(page.region || '');
+  }, [page.team, page.managerName, page.region]);
+
+  const dirty =
+    team.trim() !== (page.team || '') ||
+    managerName.trim() !== (page.managerName || '') ||
+    region.trim() !== (page.region || '');
+
+  const inputStyle = {
+    width: '100%',
+    padding: '4px 6px',
+    fontSize: '11.5px',
+    color: '#374151',
+    border: '1px solid #e5e7eb',
+    borderRadius: '4px',
+  };
+
+  return (
+    <tr style={{ height: '54px' }}>
+      <td>
+        <img
+          src={page.pagePictureUrl || fallbackImg}
+          alt={page.pageName || ''}
+          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+          onError={(e) => {
+            e.target.src = fallbackImg;
+          }}
+        />
+      </td>
+      <td>
+        <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>
+          {page.pageName || 'Không có tên'}
+        </div>
+      </td>
+      <td style={{ fontSize: '11.5px', color: '#6b7280', fontFamily: 'monospace' }}>
+        {page.pageId}
+      </td>
+      <td style={{ width: '96px' }}>
+        <input type="text" value={team} placeholder="—" onChange={(e) => setTeam(e.target.value)} style={inputStyle} />
+      </td>
+      <td style={{ width: '110px' }}>
+        <input type="text" value={managerName} placeholder="—" onChange={(e) => setManagerName(e.target.value)} style={inputStyle} />
+      </td>
+      <td style={{ width: '96px' }}>
+        <input type="text" value={region} placeholder="—" onChange={(e) => setRegion(e.target.value)} style={inputStyle} />
+      </td>
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="checkbox"
+            checked={page.enabled}
+            onChange={(e) => onToggle(page.pageId, e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: '12px', color: page.enabled ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
+            {page.enabled ? 'Đang hoạt động' : 'Tạm dừng'}
+          </span>
+        </div>
+      </td>
+      <td style={{ textAlign: 'right' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() =>
+              onUpdateInfo(page.pageId, { team: team.trim(), managerName: managerName.trim(), region: region.trim() })
+            }
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: `1px solid ${dirty ? '#c7d2fe' : '#e5e7eb'}`,
+              background: dirty ? '#eef2ff' : '#f9fafb',
+              color: dirty ? '#4338ca' : '#9ca3af',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: dirty ? 'pointer' : 'default',
+            }}
+          >
+            Lưu
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Bạn có chắc muốn xóa ${page.pageName || page.pageId} khỏi hệ thống?`)) {
+                onDelete(page.pageId);
+              }
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #fee2e2',
+              background: '#fef2f2',
+              color: '#dc2626',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Xóa
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const CHANNEL_PAGE_SIZE = 10;
+const selectStyle = {
+  padding: '7px 8px',
+  fontSize: '12px',
+  border: '1px solid #e5e7eb',
+  borderRadius: '6px',
+  color: '#374151',
+  background: '#fff',
+  minWidth: '120px',
+};
+
+/** Header bấm được để sắp theo Team/Người quản lý/Khu vực — cùng kiểu mũi tên với bảng Phân quyền. */
+function SortableChannelHeader({ field, label, width, sortBy, sortDir, onSort }) {
+  const active = sortBy === field;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      title={`Bấm để sắp theo ${label}`}
+      style={{ width, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: active ? '#4f46e5' : 'inherit' }}>
+        {label}
+        {active ? (
+          sortDir === 'asc' ? (
+            <ArrowUp size={12} style={{ color: '#4f46e5' }} />
+          ) : (
+            <ArrowDown size={12} style={{ color: '#4f46e5' }} />
+          )
+        ) : (
+          <ArrowUpDown size={12} style={{ opacity: 0.5 }} />
+        )}
+      </span>
+    </th>
+  );
+}
+
 function ChannelPagesTable({
   pages,
   nameHeader,
@@ -37,7 +188,72 @@ function ChannelPagesTable({
   emptyText,
   onToggle,
   onDelete,
+  onUpdateInfo,
+  search = '',
+  teamFilter = '',
+  managerFilter = '',
+  regionFilter = '',
+  statusFilter = '',
 }) {
+  const [page, setPage] = useState(1);
+  // sortBy: null (giữ thứ tự BE trả — enabled trước, tên A-Z) hoặc 'team'/'managerName'/'region'.
+  const [sortBy, setSortBy] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+
+  const toggleSort = (field) => {
+    if (sortBy !== field) {
+      setSortBy(field);
+      setSortDir('asc');
+    } else {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return pages.filter((p) => {
+      if (
+        q &&
+        !(p.pageName || '').toLowerCase().includes(q) &&
+        !(p.pageId || '').toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      if (teamFilter && (p.team || '') !== teamFilter) return false;
+      if (managerFilter && (p.managerName || '') !== managerFilter) return false;
+      if (regionFilter && (p.region || '') !== regionFilter) return false;
+      if (statusFilter === 'active' && !p.enabled) return false;
+      if (statusFilter === 'inactive' && p.enabled) return false;
+      return true;
+    });
+  }, [pages, search, teamFilter, managerFilter, regionFilter, statusFilter]);
+
+  // Kênh chưa gắn Team/Người quản lý/Khu vực (rỗng) luôn rớt xuống cuối, dù sort chiều nào.
+  const sorted = useMemo(() => {
+    if (!sortBy) return filtered;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = (a[sortBy] || '').trim();
+      const bv = (b[sortBy] || '').trim();
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv, 'vi') * dir;
+    });
+  }, [filtered, sortBy, sortDir]);
+
+  // Đổi bộ lọc/tìm kiếm (dùng chung), sắp xếp, hoặc số kênh thay đổi (thêm/xóa) → về lại trang 1.
+  useEffect(() => {
+    setPage(1);
+  }, [search, teamFilter, managerFilter, regionFilter, statusFilter, sortBy, sortDir, pages.length]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / CHANNEL_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = sorted.slice(
+    (currentPage - 1) * CHANNEL_PAGE_SIZE,
+    currentPage * CHANNEL_PAGE_SIZE
+  );
+
   if (busy) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 24px', gap: '10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#6b7280' }}>
@@ -54,76 +270,82 @@ function ChannelPagesTable({
     );
   }
   return (
-    <div style={{ overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-      <table className="data-table" style={{ margin: 0 }}>
-        <thead>
-          <tr>
-            <th>Hình ảnh</th>
-            <th>{nameHeader}</th>
-            <th>ID kênh</th>
-            <th>Trạng thái hoạt động</th>
-            <th style={{ textAlign: 'right' }}>Hành động</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pages.map((page) => (
-            <tr key={page.pageId}>
-              <td>
-                <img
-                  src={page.pagePictureUrl || fallbackImg}
-                  alt={page.pageName || ''}
-                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e5e7eb' }}
-                  onError={(e) => {
-                    e.target.src = fallbackImg;
-                  }}
-                />
-              </td>
-              <td>
-                <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>
-                  {page.pageName || 'Không có tên'}
-                </div>
-              </td>
-              <td style={{ fontSize: '11.5px', color: '#6b7280', fontFamily: 'monospace' }}>
-                {page.pageId}
-              </td>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    type="checkbox"
-                    checked={page.enabled}
-                    onChange={(e) => onToggle(page.pageId, e.target.checked)}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '12px', color: page.enabled ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
-                    {page.enabled ? 'Đang hoạt động' : 'Tạm dừng'}
-                  </span>
-                </div>
-              </td>
-              <td style={{ textAlign: 'right' }}>
-                <button
-                  onClick={() => {
-                    if (confirm(`Bạn có chắc muốn xóa ${page.pageName || page.pageId} khỏi hệ thống?`)) {
-                      onDelete(page.pageId);
-                    }
-                  }}
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid #fee2e2',
-                    background: '#fef2f2',
-                    color: '#dc2626',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Xóa
-                </button>
-              </td>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {filtered.length !== pages.length && (
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: '11.5px', color: '#6b7280' }}>
+            {filtered.length}/{pages.length} kênh khớp bộ lọc
+          </span>
+        </div>
+      )}
+
+      <div style={{ overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+        <table className="data-table" style={{ margin: 0 }}>
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>{nameHeader}</th>
+              <th>ID kênh</th>
+              <SortableChannelHeader field="team" label="Team" width="96px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableChannelHeader field="managerName" label="Người quản lý" width="110px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableChannelHeader field="region" label="Khu vực" width="96px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <th>Trạng thái hoạt động</th>
+              <th style={{ textAlign: 'right' }}>Hành động</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageRows.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                  Không tìm thấy kênh nào khớp bộ lọc.
+                </td>
+              </tr>
+            )}
+            {pageRows.map((page) => (
+              <ChannelPageRow
+                key={page.pageId}
+                page={page}
+                fallbackImg={fallbackImg}
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onUpdateInfo={onUpdateInfo}
+              />
+            ))}
+            {/* Trang cuối ít hàng hơn vẫn giữ đủ chiều cao — 1 khối trắng liền, không kẻ viền như hàng thật,
+                để không nhìn như "hàng rỗng" nhưng nút phân trang/khối bên dưới tuyệt đối không xê dịch. */}
+            {totalPages > 1 && pageRows.length < CHANNEL_PAGE_SIZE && (
+              <tr aria-hidden="true">
+                <td
+                  colSpan={8}
+                  style={{ height: `${(CHANNEL_PAGE_SIZE - pageRows.length) * 54}px`, padding: 0, border: 'none' }}
+                />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: currentPage <= 1 ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Trước
+          </button>
+          <span style={{ fontSize: '11.5px', color: '#4b5563', minWidth: '78px', textAlign: 'center' }}>
+            Trang {currentPage}/{totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: currentPage >= totalPages ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
+          >
+            Sau
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -178,6 +400,19 @@ Các tiêu chí cần đánh giá:
       toast.error('Lỗi khi cập nhật trạng thái trang: ' + (err.message || err));
     }
   });
+
+  // Gắn nhãn team/người quản lý/khu vực — nhập tay, không liên kết bảng nào khác
+  const updateInfoMutation = useMutation({
+    mutationFn: ({ pageId, data }) => setCskhPageInfo(pageId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+      toast.success('Đã lưu thông tin kênh!');
+    },
+    onError: (err) => {
+      toast.error('Lỗi khi cập nhật thông tin kênh: ' + (err.message || err));
+    }
+  });
+  const handleUpdatePageInfo = (pageId, data) => updateInfoMutation.mutate({ pageId, data });
 
   // Delete page
   const deleteMutation = useMutation({
@@ -243,6 +478,43 @@ Các tiêu chí cần đánh giá:
   const igPages = allChannelPages.filter((p) => p.platform === 'instagram');
   const ttPages = allChannelPages.filter((p) => p.platform === 'tiktok');
   const tiktokConnected = ttPages.length > 0;
+
+  // Bộ lọc/tìm kiếm kênh — dùng chung cho cả 5 bảng (FB/IG/TikTok/Threads/YouTube),
+  // để lọc theo Team/Người quản lý vẫn thấy đủ kênh của team đó dù khác nền tảng.
+  const [channelSearch, setChannelSearch] = useState('');
+  const [channelTeamFilter, setChannelTeamFilter] = useState('');
+  const [channelManagerFilter, setChannelManagerFilter] = useState('');
+  const [channelRegionFilter, setChannelRegionFilter] = useState('');
+  const [channelStatusFilter, setChannelStatusFilter] = useState('');
+  const channelTeamOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.team).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const channelManagerOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.managerName).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const channelRegionOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.region).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const hasChannelFilter = Boolean(
+    channelSearch || channelTeamFilter || channelManagerFilter || channelRegionFilter || channelStatusFilter
+  );
+  const clearChannelFilters = () => {
+    setChannelSearch('');
+    setChannelTeamFilter('');
+    setChannelManagerFilter('');
+    setChannelRegionFilter('');
+    setChannelStatusFilter('');
+  };
+  const channelFilterProps = {
+    search: channelSearch,
+    teamFilter: channelTeamFilter,
+    managerFilter: channelManagerFilter,
+    regionFilter: channelRegionFilter,
+    statusFilter: channelStatusFilter,
+  };
 
   const tiktokConnectMutation = useMutation({
     mutationFn: () => connectTikTokAccounts(),
@@ -595,6 +867,63 @@ Các tiêu chí cần đánh giá:
               </p>
             </div>
 
+            {/* Tìm/lọc dùng chung cho cả 5 bảng bên dưới — nổi (sticky) khi cuộn để không phải kéo lên đổi lọc */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px' }}>
+                <MagnifyingGlass
+                  size={14}
+                  style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}
+                />
+                <input
+                  value={channelSearch}
+                  onChange={(e) => setChannelSearch(e.target.value)}
+                  placeholder="Tìm theo tên hoặc ID kênh (mọi nền tảng)..."
+                  style={{ width: '100%', padding: '7px 10px 7px 28px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', color: '#374151' }}
+                />
+              </div>
+              <select value={channelTeamFilter} onChange={(e) => setChannelTeamFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả Team</option>
+                {channelTeamOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <select value={channelManagerFilter} onChange={(e) => setChannelManagerFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả người quản lý</option>
+                {channelManagerOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select value={channelRegionFilter} onChange={(e) => setChannelRegionFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả khu vực</option>
+                {channelRegionOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <select value={channelStatusFilter} onChange={(e) => setChannelStatusFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Tạm dừng</option>
+              </select>
+              <button
+                type="button"
+                onClick={clearChannelFilters}
+                disabled={!hasChannelFilter}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb',
+                  background: '#fff',
+                  color: hasChannelFilter ? '#dc2626' : '#d1d5db',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: hasChannelFilter ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Xóa lọc
+              </button>
+            </div>
+
             {/* ===== Kênh từ Facebook ===== */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -808,6 +1137,7 @@ Các tiêu chí cần đánh giá:
                   </span>
                 </div>
                 <ChannelPagesTable
+                  {...channelFilterProps}
                   pages={fbPages}
                   nameHeader="Tên Trang / Fanpage"
                   fallbackImg={FB_FALLBACK_IMG}
@@ -818,6 +1148,7 @@ Các tiêu chí cần đánh giá:
                     : 'Kết nối tài khoản Facebook để lấy Fanpage vào mục này.'}
                   onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
                   onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
                 />
               </div>
 
@@ -833,6 +1164,7 @@ Các tiêu chí cần đánh giá:
                   Instagram Professional gắn vào Fanpage trên Meta. Sau đó bấm <strong>Cập nhật kết nối Facebook</strong> để cấp quyền tin nhắn.
                 </p>
                 <ChannelPagesTable
+                  {...channelFilterProps}
                   pages={igPages}
                   nameHeader="Tên Instagram"
                   fallbackImg={IG_FALLBACK_IMG}
@@ -843,6 +1175,7 @@ Các tiêu chí cần đánh giá:
                     : 'Kết nối Facebook trước, rồi gắn Instagram Professional vào Fanpage.'}
                   onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
                   onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
                 />
               </div>
 
@@ -916,6 +1249,7 @@ Các tiêu chí cần đánh giá:
                   </button>
                 </div>
                 <ChannelPagesTable
+                  {...channelFilterProps}
                   pages={ttPages}
                   nameHeader="Tên kênh TikTok"
                   fallbackImg={TT_FALLBACK_IMG}
@@ -924,6 +1258,7 @@ Các tiêu chí cần đánh giá:
                   emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Accounts API."
                   onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
                   onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
                 />
               </div>
 
@@ -936,6 +1271,7 @@ Các tiêu chí cần đánh giá:
                   </span>
                 </div>
                 <ChannelPagesTable
+                  {...channelFilterProps}
                   pages={[]}
                   nameHeader="Tên Threads"
                   fallbackImg={IG_FALLBACK_IMG}
@@ -944,6 +1280,7 @@ Các tiêu chí cần đánh giá:
                   emptyText="Chưa kết nối Threads. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
                   onToggle={() => {}}
                   onDelete={() => {}}
+                  onUpdateInfo={() => {}}
                 />
               </div>
 
@@ -956,6 +1293,7 @@ Các tiêu chí cần đánh giá:
                   </span>
                 </div>
                 <ChannelPagesTable
+                  {...channelFilterProps}
                   pages={[]}
                   nameHeader="Tên kênh"
                   fallbackImg="https://www.youtube.com/s/desktop/favicon.ico"
@@ -964,6 +1302,7 @@ Các tiêu chí cần đánh giá:
                   emptyText="Chưa kết nối YouTube. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
                   onToggle={() => {}}
                   onDelete={() => {}}
+                  onUpdateInfo={() => {}}
                 />
               </div>
             </div>
