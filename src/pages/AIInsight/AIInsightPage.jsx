@@ -80,6 +80,10 @@ function StatusTag({ status, label }) {
   );
 }
 
+function scoreColorOf(score) {
+  return score >= 70 ? '#22c55e' : score >= 55 ? '#f59e0b' : '#ef4444';
+}
+
 function ScoreBar({ score, audited = true }) {
   if (!audited || score == null) {
     return (
@@ -88,7 +92,7 @@ function ScoreBar({ score, audited = true }) {
       </span>
     );
   }
-  const color = score >= 70 ? '#22c55e' : score >= 55 ? '#f59e0b' : '#ef4444';
+  const color = scoreColorOf(score);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
       <div style={{ flex: 1, height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
@@ -147,8 +151,23 @@ function ConcernDonut({ data, total }) {
   );
 }
 
+const chipStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 3,
+  background: '#f8fafc',
+  border: '1px solid #eef2f7',
+  borderRadius: 6,
+  padding: '2px 6px',
+  fontSize: 11,
+  color: '#475569',
+  whiteSpace: 'nowrap',
+};
+
 function ChannelCard({ page, onSelect }) {
   const s = STATUS_STYLE[page.status] || STATUS_STYLE.warning;
+  const audited = page.audited !== false && page.avgScore != null;
+  const color = audited ? scoreColorOf(page.avgScore) : '#94a3b8';
   return (
     <button
       type="button"
@@ -156,30 +175,96 @@ function ChannelCard({ page, onSelect }) {
       style={{
         width: '100%',
         textAlign: 'left',
-        border: `1px solid ${s.border}`,
-        background: s.bg,
+        border: '1px solid #e5e7eb',
+        borderLeft: `3px solid ${s.color}`,
+        background: '#fff',
         borderRadius: 10,
         padding: '10px 12px',
         cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{page.pageName}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', lineHeight: 1.35, minWidth: 0 }}>
+          {page.pageName}
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, color, lineHeight: 1, flexShrink: 0 }}>
+          {audited ? page.avgScore : '—'}
+        </div>
+      </div>
+
+      <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+        <div
+          style={{
+            width: audited ? `${Math.min(100, page.avgScore)}%` : '0%',
+            height: '100%',
+            background: color,
+            borderRadius: 99,
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
         <StatusTag status={page.status} label={page.statusLabel} />
-      </div>
-      <ScoreBar score={page.avgScore} audited={page.audited !== false} />
-      <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280' }}>
-        {page.auditCount.toLocaleString('vi-VN')} HT
-        {page.audited !== false ? (
-          <> · Rủi ro {page.riskRate}% · QA {page.passRate}%</>
+        {audited ? (
+          <>
+            <span style={chipStyle}>QA {page.passRate}%</span>
+            <span style={{ ...chipStyle, color: page.riskRate >= 75 ? '#b91c1c' : chipStyle.color }}>
+              Rủi ro {page.riskRate}%
+            </span>
+          </>
         ) : (
-          <> · Chưa có điểm QA</>
+          <span style={chipStyle}>Chưa có điểm QA</span>
         )}
+        <span style={chipStyle}>{page.auditCount.toLocaleString('vi-VN')} hội thoại</span>
       </div>
+
       {page.topIssue && (
-        <div style={{ marginTop: 6, fontSize: 11, color: s.color, fontWeight: 600 }}>{page.topIssue}</div>
+        <div style={{ fontSize: 11, color: s.color, fontWeight: 600, lineHeight: 1.4 }}>{page.topIssue}</div>
       )}
     </button>
+  );
+}
+
+function ChannelGroup({ icon, color, label, pages, emptyText, onSelect }) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 800,
+          color,
+          marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        }}
+      >
+        {icon}
+        {label} ({pages.length})
+      </div>
+      {pages.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 8 }}>
+          {pages.map((p) => (
+            <ChannelCard key={p.pageId} page={p} onSelect={onSelect} />
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{
+            border: '1px dashed #e2e8f0',
+            borderRadius: 10,
+            padding: '10px 12px',
+            fontSize: 12,
+            color: '#94a3b8',
+          }}
+        >
+          {emptyText}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -488,37 +573,46 @@ export default function AIInsightPage() {
           <>
             {!isChannelDetail && byPage && (
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
-                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <ChartBar size={16} weight="duotone" style={{ color: '#4f46e5' }} />
-                  <span>Sức khỏe từng kênh — bấm để xem chi tiết</span>
+                <div className="card-title">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ChartBar size={16} weight="duotone" style={{ color: '#4f46e5' }} />
+                    Sức khỏe từng kênh — bấm để xem chi tiết
+                  </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, padding: '0 14px 14px' }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <XCircle size={14} weight="fill" />
-                      Cần cải thiện ({byPage.needsAttention.length})
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {byPage.needsAttention.map((p) => (
-                        <ChannelCard key={p.pageId} page={p} onSelect={setSelectedPageId} />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#15803d', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <SealCheck size={14} weight="fill" />
-                      Kênh đang ổn ({byPage.topPerformers.length})
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {byPage.topPerformers.map((p) => (
-                        <ChannelCard key={p.pageId} page={p} onSelect={setSelectedPageId} />
-                      ))}
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 14px 14px' }}>
+                  <ChannelGroup
+                    icon={<XCircle size={14} weight="fill" />}
+                    color="#b91c1c"
+                    label="Cần cải thiện"
+                    pages={byPage.needsAttention}
+                    emptyText="Không kênh nào đang ở mức cần xử lý — theo dõi tiếp ở bảng bên dưới."
+                    onSelect={setSelectedPageId}
+                  />
+                  <ChannelGroup
+                    icon={<SealCheck size={14} weight="fill" />}
+                    color="#15803d"
+                    label="Kênh đang ổn"
+                    pages={byPage.topPerformers}
+                    emptyText="Chưa kênh nào đạt ngưỡng tốt trong khoảng ngày này."
+                    onSelect={setSelectedPageId}
+                  />
                 </div>
                 <div style={{ padding: '0 14px 14px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#374151', marginBottom: 8 }}>Bảng tất cả kênh</div>
-                  <div style={{ overflowX: 'auto' }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: '#374151',
+                      marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 6,
+                    }}
+                  >
+                    Bảng tất cả kênh
+                    <span style={{ fontWeight: 500, color: '#94a3b8' }}>({byPage.all.length} kênh)</span>
+                  </div>
+                  <div style={{ overflowX: 'auto', border: '1px solid #eef2f7', borderRadius: 10 }}>
                     <table className="data-table">
                       <thead>
                         <tr>
@@ -527,7 +621,7 @@ export default function AIInsightPage() {
                           <th>Điểm</th>
                           <th>QA đạt</th>
                           <th>Rủi ro</th>
-                          <th>HT</th>
+                          <th>Hội thoại</th>
                           <th>Vấn đề chính</th>
                           <th />
                         </tr>
@@ -535,15 +629,24 @@ export default function AIInsightPage() {
                       <tbody>
                         {byPage.all.map((p) => (
                           <tr key={p.pageId} style={{ cursor: 'pointer' }} onClick={() => setSelectedPageId(p.pageId)}>
-                            <td style={{ fontWeight: 600, maxWidth: 180 }}>{p.pageName}</td>
+                            <td style={{ fontWeight: 600, maxWidth: 220 }}>{p.pageName}</td>
                             <td><StatusTag status={p.status} label={p.statusLabel} /></td>
                             <td><ScoreBar score={p.avgScore} audited={p.audited !== false} /></td>
-                            <td>{p.audited === false ? '—' : `${p.passRate}%`}</td>
-                            <td style={{ color: p.riskRate >= 75 ? '#dc2626' : undefined, fontWeight: p.riskRate >= 75 ? 700 : 400 }}>
+                            <td style={{ color: p.audited === false ? '#cbd5e1' : undefined }}>
+                              {p.audited === false ? '—' : `${p.passRate}%`}
+                            </td>
+                            <td
+                              style={{
+                                color: p.audited === false ? '#cbd5e1' : p.riskRate >= 75 ? '#dc2626' : undefined,
+                                fontWeight: p.audited !== false && p.riskRate >= 75 ? 700 : 400,
+                              }}
+                            >
                               {p.audited === false ? '—' : `${p.riskRate}%`}
                             </td>
-                            <td>{p.auditCount.toLocaleString('vi-VN')}</td>
-                            <td style={{ fontSize: 11, color: '#6b7280', maxWidth: 220 }}>{p.topIssue || '—'}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>{p.auditCount.toLocaleString('vi-VN')}</td>
+                            <td style={{ fontSize: 11, color: p.topIssue ? '#6b7280' : '#cbd5e1', maxWidth: 220 }}>
+                              {p.topIssue || '—'}
+                            </td>
                             <td><CaretRight size={14} style={{ color: '#9ca3af' }} /></td>
                           </tr>
                         ))}
@@ -560,9 +663,11 @@ export default function AIInsightPage() {
 
             <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col" style={{ flex: 1, minWidth: 280 }}>
-                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span>Khách quan tâm gì ở kênh này?</span>
-                  <MagnifyingGlass size={13} weight="bold" style={{ color: '#4f46e5' }} />
+                <div className="card-title">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MagnifyingGlass size={13} weight="bold" style={{ color: '#4f46e5' }} />
+                    Khách quan tâm gì ở kênh này?
+                  </span>
                 </div>
                 {(data.customerConcerns?.items?.length ?? 0) > 0 ? (
                   <div style={{ padding: '0 14px 14px' }}>
