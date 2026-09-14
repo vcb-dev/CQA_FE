@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Loader2, X, AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
+import { getApiBaseUrl } from '@/lib/apiBase'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/custom-ui/date-picker'
 import { formatAuditDateLabel } from './auditHelpers'
@@ -10,7 +11,7 @@ import { cskhCustomerAvatarSrc, cskhPageAvatarSrc } from './messageMedia'
 export function cskhAvatarSrc(pictureUrl?: string | null): string | undefined {
   if (!pictureUrl?.startsWith('http')) return undefined
   if (/fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(pictureUrl)) {
-    const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+    const base = getApiBaseUrl()
     return `${base}/cskh/media/avatar?url=${encodeURIComponent(pictureUrl)}`
   }
   return pictureUrl
