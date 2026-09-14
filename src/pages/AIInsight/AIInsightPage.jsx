@@ -16,7 +16,7 @@ import {
   Smiley,
   SmileyMeh,
   SmileySad,
-  ArrowCounterClockwise,
+  ArrowClockwise,
   SealCheck,
   XCircle,
 } from '@phosphor-icons/react';
@@ -224,7 +224,7 @@ function ContentLoading({ label }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ padding: '32px 16px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        <ArrowCounterClockwise size={28} weight="bold" className="animate-spin" style={{ color: '#4f46e5' }} />
+        <ArrowClockwise size={28} weight="bold" className="animate-spin" style={{ color: '#4f46e5' }} />
         <p style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{label}</p>
         <p style={{ fontSize: 11, color: '#9ca3af' }}>Có thể mất vài giây tùy khoảng ngày</p>
       </div>
@@ -428,7 +428,7 @@ export default function AIInsightPage() {
                 />
               </label>
               <button type="button" onClick={applyRangeNow} disabled={isFetching} style={btnOutline}>
-                <ArrowCounterClockwise size={14} className={isFetching ? 'animate-spin' : ''} />
+                <ArrowClockwise size={14} className={isFetching ? 'animate-spin' : ''} />
                 {isRefreshing ? 'Đang tải...' : rangePending ? 'Áp dụng' : 'Làm mới'}
               </button>
             </div>
@@ -734,6 +734,7 @@ export default function AIInsightPage() {
                 <thead>
                   <tr>
                     <th>Nguồn</th>
+                    <th>Loại</th>
                     <th>Chất lượng</th>
                     <th>QA đạt</th>
                     <th>Số hội thoại</th>
@@ -743,15 +744,27 @@ export default function AIInsightPage() {
                   {(data.adEfficiency ?? []).map((a, i) => (
                     <tr key={i}>
                       <td style={{ fontWeight: 500 }}>{a.name}</td>
+                      <td style={{ fontSize: 11, color: '#6b7280' }}>{a.source ?? '—'}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          {Array.from({ length: 5 }).map((_, j) => (
-                            <Star key={j} size={10} weight={j < a.stars ? 'fill' : 'regular'} style={{ color: j < a.stars ? '#fbbf24' : '#e5e7eb' }} />
-                          ))}
-                          <span style={{ fontSize: 11 }}>{a.quality}</span>
-                        </div>
+                        {a.stars > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {Array.from({ length: 5 }).map((_, j) => (
+                              <Star key={j} size={10} weight={j < a.stars ? 'fill' : 'regular'} style={{ color: j < a.stars ? '#fbbf24' : '#e5e7eb' }} />
+                            ))}
+                            <span style={{ fontSize: 11 }}>{a.quality}</span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>{a.quality}</span>
+                        )}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{a.closeRate}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {a.closeRate}
+                        {a.auditCount > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 500, color: '#9ca3af', marginLeft: 4 }}>
+                            ({a.auditCount.toLocaleString('vi-VN')} audit)
+                          </span>
+                        )}
+                      </td>
                       <td>{a.conversationCount.toLocaleString('vi-VN')}</td>
                     </tr>
                   ))}
