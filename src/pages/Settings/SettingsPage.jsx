@@ -42,6 +42,18 @@ function formatLastActive(iso) {
   return new Date(ts).toLocaleDateString('vi-VN');
 }
 
+// Không có presence thật (không WebSocket) — suy ra "đang online" bằng
+// ngưỡng: hoạt động trong 3 phút gần đây. Ngưỡng này phải rộng hơn tổng độ
+// trễ ghi nhận thật (BE gom ghi mỗi 30s + FE tự load lại mỗi 30s), không
+// thì người vẫn đang dùng app có lúc bị hiện sai thành "không online".
+const RBAC_ONLINE_THRESHOLD_MS = 3 * 60_000;
+function isRbacUserOnline(iso) {
+  if (!iso) return false;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return false;
+  return Date.now() - ts < RBAC_ONLINE_THRESHOLD_MS;
+}
+
 /**
  * Màu chip vai trò — admin nổi bật nhất, giảm dần theo quyền hạn.
  * Dùng `backgroundColor` (longhand), KHÔNG dùng `background` (shorthand):
@@ -280,6 +292,10 @@ Các tiêu chí cần đánh giá:
       ),
     enabled: isRbacTab,
     placeholderData: (prev) => prev,
+    // BE gom ghi "Hoạt động cuối" mỗi 30s (không ghi DB ngay lúc request) —
+    // tự load lại theo đúng nhịp đó, không thì bảng đứng yên tới khi F5.
+    // Mặc định TanStack Query tự dừng polling khi tab mất focus.
+    refetchInterval: isRbacTab ? 30_000 : false,
   });
 
   // BE trả 403 khi tài khoản không phải Admin → hiện thông báo thiếu quyền,
@@ -1499,7 +1515,16 @@ Các tiêu chí cần đánh giá:
                             {user.permissionSummary}
                           </td>
                           <td style={{ fontSize: '11px', color: user.lastActiveAt ? '#6b7280' : '#d1d5db', whiteSpace: 'nowrap' }}>
-                            {user.lastActiveAt ? formatLastActive(user.lastActiveAt) : '—'}
+                            {isRbacUserOnline(user.lastActiveAt) ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#16a34a', fontWeight: 600 }}>
+                                <span style={{ width: '7px', height: '7px', borderRadius: '999px', backgroundColor: '#22c55e', flexShrink: 0 }} />
+                                Đang hoạt động
+                              </span>
+                            ) : user.lastActiveAt ? (
+                              formatLastActive(user.lastActiveAt)
+                            ) : (
+                              '—'
+                            )}
                           </td>
                         </tr>
                       );
