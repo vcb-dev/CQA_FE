@@ -11,11 +11,13 @@ import {
   translateInboxConversation,
   notifyInboxTyping,
   markInboxAsUnread,
+  type CskhAdInsights,
   type CskhInboxConversation,
   type CskhInboxMessage,
 } from './api'
 import { ChatMessage } from './ChatMessage'
 import { ChatMessageInput } from './ChatMessageInput'
+import { ConversationAdBanner } from './ConversationAdBanner'
 import { ChatLabelBar, ConversationLabelBadges } from './ChatLabelBar'
 import { ConversationViewHistory } from './ConversationViewHistory'
 import { TypingIndicator } from './TypingIndicator'
@@ -33,6 +35,8 @@ type ChatPanelProps = {
   onDraftApplied?: () => void
   assistantOpen?: boolean
   onToggleAssistant?: () => void
+  adInsights?: CskhAdInsights | null
+  isLoadingAdInsights?: boolean
 }
 
 export function ChatPanel({
@@ -44,6 +48,8 @@ export function ChatPanel({
   onDraftApplied,
   assistantOpen,
   onToggleAssistant,
+  adInsights,
+  isLoadingAdInsights,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string>('')
@@ -492,8 +498,13 @@ export function ChatPanel({
             <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
           </div>
         ) : displayMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400">
-            <AlertCircle className="w-10 h-10 mb-2 opacity-40" />
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+            <ConversationAdBanner
+              conversation={conversationWithLabels}
+              adInsights={adInsights}
+              isLoadingAdInsights={isLoadingAdInsights}
+            />
+            <AlertCircle className="w-10 h-10 opacity-40" />
             <p className="text-sm font-medium">Không có tin nhắn nào</p>
           </div>
         ) : (
@@ -507,6 +518,14 @@ export function ChatPanel({
               <div className="flex justify-center py-1">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
               </div>
+            )}
+            {/* Chỉ hiện thẻ QC legacy khi chưa có tin ad_referral trong thread */}
+            {!displayMessages.some((m) => m.messageType === 'ad_referral') && (
+              <ConversationAdBanner
+                conversation={conversationWithLabels}
+                adInsights={adInsights}
+                isLoadingAdInsights={isLoadingAdInsights}
+              />
             )}
             {displayMessages.map((msg, idx) => (
               <ChatMessage

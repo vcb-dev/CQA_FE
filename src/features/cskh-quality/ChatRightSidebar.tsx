@@ -31,20 +31,6 @@ function formatAdPeriod(dateStart?: string | null, dateStop?: string | null): st
   return `${dateStart} → ${dateStop}`
 }
 
-function hasAdCampaignInfo(
-  conversation: CskhInboxConversation,
-  adInsights?: CskhAdInsights | null,
-): boolean {
-  return Boolean(
-    conversation.adTitle?.trim() ||
-      adInsights?.campaignName ||
-      adInsights?.adName ||
-      adInsights?.adsetName ||
-      conversation.adId ||
-      adInsights?.adId ||
-      (adInsights?.topCampaigns?.length ?? 0) > 0,
-  )
-}
 function adInsightsHint(reason: string | null | undefined): string {
   switch (reason) {
     case 'no_ad_id':
@@ -108,9 +94,6 @@ export function ChatRightSidebar({
   const isCampaignEstimate =
     adInsights?.insightsScope === 'campaign' || adInsights?.insightsScope === 'adset'
 
-  const isPageEstimate =
-    adInsights?.insightsScope === 'page' || adInsights?.isPageLevelEstimate === true
-
   const showCampaignSpend =
     (hasSpecificAd || isCampaignEstimate) && adInsights?.spend != null
 
@@ -119,16 +102,6 @@ export function ChatRightSidebar({
     !adInsights.unavailableReason &&
     (adInsights.estimatedForThisConversation != null || adInsights.costPerConversation != null)
 
-  const showCampaignBlock = hasAdCampaignInfo(conversation, adInsights)
-
-  const campaignName =
-    adInsights?.campaignName ||
-    adInsights?.topCampaigns?.[0]?.campaignName ||
-    null
-  const adDisplayName =
-    conversation.adTitle?.trim() ||
-    adInsights?.adName ||
-    null
   const adPeriod = formatAdPeriod(adInsights?.dateStart, adInsights?.dateStop)
 
   return (
@@ -229,7 +202,7 @@ export function ChatRightSidebar({
             <div className="flex items-center justify-between font-bold text-amber-800 text-[10px]">
               <div className="flex items-center gap-1.5">
                 <Megaphone className="w-3 h-3 text-amber-600" />
-                Quảng cáo Facebook
+                Quảng cáo · Chi phí
               </div>
               {onRefreshAdInsights && (
                 <button
@@ -245,53 +218,15 @@ export function ChatRightSidebar({
             </div>
 
             {isLoadingAdInsights ? (
-              <div className="flex flex-col items-center justify-center gap-2 rounded-lg bg-white/70 border border-amber-100/80 px-3 py-6 text-center">
-                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
-                <p className="text-[11px] font-medium text-slate-600">Đang tải quảng cáo Facebook...</p>
-                <p className="text-[9px] text-slate-400 leading-relaxed max-w-[220px]">
-                  Lấy chiến dịch và chi phí từ Meta cho hội thoại này
-                </p>
-              </div>
-            ) : showCampaignBlock ? (
-              <div className="space-y-2 rounded-lg bg-white/70 border border-amber-100/80 px-2.5 py-2.5">
-                {campaignName && (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-slate-400 font-medium text-[10px]">Chiến dịch</span>
-                    <span className="text-slate-800 font-semibold leading-snug">{campaignName}</span>
-                  </div>
-                )}
-                {adInsights?.adsetName && (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-slate-400 font-medium text-[10px]">Nhóm quảng cáo</span>
-                    <span className="text-slate-700 font-medium leading-snug">{adInsights.adsetName}</span>
-                  </div>
-                )}
-                {adDisplayName && (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-slate-400 font-medium text-[10px]">
-                      {hasSpecificAd ? 'Tên quảng cáo' : 'Quảng cáo tham chiếu'}
-                    </span>
-                    <span className="text-slate-700 font-medium leading-snug">{adDisplayName}</span>
-                  </div>
-                )}
-                {(conversation.adId || adInsights?.adId) && (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-slate-400 font-medium text-[10px]">Mã quảng cáo</span>
-                    <span className="text-slate-600 font-mono text-[10px] select-all">
-                      {conversation.adId || adInsights?.adId}
-                    </span>
-                  </div>
-                )}
-                {!hasSpecificAd && isPageEstimate && (
-                  <p className="text-[9px] text-slate-400 leading-relaxed pt-0.5">
-                    Meta không gắn mã QC cho tin này — hiển thị camp QC đang chạy mạnh nhất trên Page.
-                  </p>
-                )}
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg bg-white/70 border border-amber-100/80 px-3 py-4 text-center">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                <p className="text-[10px] text-slate-500">Đang tải chi phí QC…</p>
               </div>
             ) : (
-              <div className="rounded-lg bg-white/60 border border-amber-100/60 px-2.5 py-2 text-[10px] text-slate-500 leading-relaxed">
-                Khách vào từ quảng cáo Click-to-Messenger. Chi tiết camp sẽ hiện khi Meta trả dữ liệu.
-              </div>
+              <p className="text-[9px] text-slate-400 leading-relaxed">
+                Ảnh / tên / ID quảng cáo hiển thị trong khung chat. Bên dưới chỉ còn số liệu chi
+                phí từ Marketing API.
+              </p>
             )}
 
             {/* Chi phí */}

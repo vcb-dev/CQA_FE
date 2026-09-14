@@ -988,6 +988,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                   onDraftApplied={() => setInputDraft('')}
                   assistantOpen={assistantOpen}
                   onToggleAssistant={() => setAssistantOpen((open) => !open)}
+                  adInsights={adInsightsPending ? undefined : adInsights}
+                  isLoadingAdInsights={adInsightsPending}
                 />
               </div>
             </div>

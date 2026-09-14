@@ -412,6 +412,10 @@ export interface CreateOmsOrderPayload {
   conversationId?: string
   platform?: string
   locationId?: string
+  /** Quảng cáo gắn đơn — chỉ gửi khi hội thoại fromAd */
+  adId?: string
+  adTitle?: string
+  reportMetaPurchase?: boolean
   lineItems: Array<{ variantId: string; quantity: number; locationId?: string }>
 }
 
@@ -420,6 +424,12 @@ export interface CreateOmsOrderResult {
   orderName: string | null
   totalPrice: string | null
   source: 'oms'
+  metaPurchase?: {
+    attempted: boolean
+    ok: boolean
+    skipped?: boolean
+    reason?: string | null
+  }
 }
 
 export async function createOmsOrder(payload: CreateOmsOrderPayload): Promise<CreateOmsOrderResult> {
@@ -1012,6 +1022,8 @@ export interface CskhAdInsights {
   adName: string | null
   adsetName: string | null
   campaignName: string | null
+  /** Ảnh creative / thumbnail từ Meta Marketing API */
+  adImageUrl?: string | null
   currency: string | null
   spend: number | null
   impressions: number | null
