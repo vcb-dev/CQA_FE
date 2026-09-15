@@ -915,7 +915,8 @@ export interface CskhInsightDashboard {
     quality: string
     stars: number
     closeRate: string
-    roas: string
+    auditCount: number
+    source: string
     conversationCount: number
   }[]
   byPage?: {
