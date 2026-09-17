@@ -1,25 +1,28 @@
-import { useState, useRef, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Send, Loader2 } from 'lucide-react'
-import { previewInboxTranslate } from './api'
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Paperclip, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { previewInboxTranslate } from "./api";
 
-const ASSIST_TRANSLATE_KEY = 'cskh.inbox.autoTranslate'
+const ASSIST_TRANSLATE_KEY = "cskh.inbox.autoTranslate";
 
 type ChatMessageInputProps = {
-  conversationId: string
-  customerLang?: string | null
-  customerLangLabel?: string | null
+  conversationId: string;
+  customerLang?: string | null;
+  customerLangLabel?: string | null;
   onSend: (
     text: string,
-    options?: { autoTranslate?: boolean; originalText?: string },
-  ) => Promise<void> | void
-  onTyping?: () => void
-  disabled?: boolean
-  placeholder?: string
-  draftText?: string
-  onDraftApplied?: () => void
-}
+    options?: { autoTranslate?: boolean; originalText?: string; file?: File },
+  ) => Promise<void> | void;
+  onTyping?: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+  draftText?: string;
+  onDraftApplied?: () => void;
+};
+
+type PendingAttachment = { file: File; previewUrl: string };
 
 export function ChatMessageInput({
   conversationId,
@@ -28,125 +31,180 @@ export function ChatMessageInput({
   onSend,
   onTyping,
   disabled,
-  placeholder = 'Gõ tiếng Việt... (Shift+Enter xuống dòng)',
+  placeholder = "Gõ tiếng Việt... (Shift+Enter xuống dòng)",
   draftText,
   onDraftApplied,
 }: ChatMessageInputProps) {
-  const [text, setText] = useState('')
-  const [sending, setSending] = useState(false)
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
   const [assistTranslate, setAssistTranslate] = useState(() => {
     try {
-      return localStorage.getItem(ASSIST_TRANSLATE_KEY) === '1'
+      return localStorage.getItem(ASSIST_TRANSLATE_KEY) === "1";
     } catch {
-      return false
+      return false;
     }
-  })
-  const [preview, setPreview] = useState<string>('')
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const previewReqRef = useRef(0)
-  const previewEditedRef = useRef(false)
-  const sendingRef = useRef(false)
+  });
+  const [preview, setPreview] = useState<string>("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [attachment, setAttachment] = useState<PendingAttachment | null>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewReqRef = useRef(0);
+  const previewEditedRef = useRef(false);
+  const sendingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function setFile(file: File) {
+    if (!file.size) {
+      toast.error("File rỗng — chọn lại hoặc copy ảnh khác.");
+      return;
+    }
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+    const previewUrl = file.type.startsWith("image/")
+      ? URL.createObjectURL(file)
+      : "";
+    setAttachment({ file, previewUrl });
+  }
+
+  function clearAttachment() {
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+    setAttachment(null);
+  }
+
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const dt = e.clipboardData;
+    if (!dt) return;
+
+    const fromList = dt.files?.[0];
+    if (fromList?.type.startsWith("image/") && fromList.size > 0) {
+      e.preventDefault();
+      setFile(fromList);
+      return;
+    }
+
+    const items = dt.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind !== "file") continue;
+      const file = item.getAsFile();
+      if (!file || !file.type.startsWith("image/")) continue;
+      e.preventDefault();
+      setFile(file);
+      return;
+    }
+  };
 
   useEffect(() => {
     if (draftText) {
-      setText(draftText)
-      previewEditedRef.current = false
-      onDraftApplied?.()
+      setText(draftText);
+      previewEditedRef.current = false;
+      onDraftApplied?.();
       setTimeout(() => {
         if (textareaRef.current) {
-          textareaRef.current.focus()
-          textareaRef.current.selectionStart = textareaRef.current.value.length
-          textareaRef.current.selectionEnd = textareaRef.current.value.length
+          textareaRef.current.focus();
+          textareaRef.current.selectionStart = textareaRef.current.value.length;
+          textareaRef.current.selectionEnd = textareaRef.current.value.length;
         }
-      }, 50)
+      }, 50);
     }
-  }, [draftText, onDraftApplied])
+  }, [draftText, onDraftApplied]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(ASSIST_TRANSLATE_KEY, assistTranslate ? '1' : '0')
+      localStorage.setItem(ASSIST_TRANSLATE_KEY, assistTranslate ? "1" : "0");
     } catch {
       /* ignore */
     }
-  }, [assistTranslate])
+  }, [assistTranslate]);
 
   useEffect(() => {
-    if (previewTimerRef.current) clearTimeout(previewTimerRef.current)
-    const trimmed = text.trim()
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    const trimmed = text.trim();
     if (!assistTranslate || !trimmed || disabled) {
-      setPreview('')
-      setPreviewLoading(false)
-      previewEditedRef.current = false
-      return
+      setPreview("");
+      setPreviewLoading(false);
+      previewEditedRef.current = false;
+      return;
     }
 
-    previewEditedRef.current = false
-    setPreviewLoading(true)
-    const reqId = ++previewReqRef.current
+    previewEditedRef.current = false;
+    setPreviewLoading(true);
+    const reqId = ++previewReqRef.current;
     previewTimerRef.current = setTimeout(async () => {
       try {
-        const res = await previewInboxTranslate(conversationId, trimmed, 'vi')
-        if (reqId !== previewReqRef.current) return
-        const next = (res.translatedText || trimmed).trim()
-        setPreview(next || trimmed)
+        const res = await previewInboxTranslate(conversationId, trimmed, "vi");
+        if (reqId !== previewReqRef.current) return;
+        const next = (res.translatedText || trimmed).trim();
+        setPreview(next || trimmed);
       } catch {
-        if (reqId === previewReqRef.current) setPreview(trimmed)
+        if (reqId === previewReqRef.current) setPreview(trimmed);
       } finally {
-        if (reqId === previewReqRef.current) setPreviewLoading(false)
+        if (reqId === previewReqRef.current) setPreviewLoading(false);
       }
-    }, 400)
+    }, 400);
 
     return () => {
-      if (previewTimerRef.current) clearTimeout(previewTimerRef.current)
-    }
-  }, [text, assistTranslate, conversationId, disabled])
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    };
+  }, [text, assistTranslate, conversationId, disabled]);
 
   const handleSend = async () => {
-    const trimmed = text.trim()
-    if (!trimmed || sending || sendingRef.current) return
-    if (assistTranslate && previewLoading) return
+    const trimmed = text.trim();
+    const file = attachment?.file;
+    if ((!trimmed && !file) || sending || sendingRef.current) return;
 
-    const outbound = assistTranslate && preview.trim() ? preview.trim() : trimmed
+    // Chỉ text: chờ dịch như cũ
+    if (!file && assistTranslate && previewLoading) return;
 
-    sendingRef.current = true
-    setSending(true)
+    const outboundText =
+      !file && assistTranslate && preview.trim() ? preview.trim() : trimmed;
+
+    sendingRef.current = true;
+    setSending(true);
     try {
-      await onSend(outbound, { autoTranslate: false })
-      setText('')
-      setPreview('')
-      previewEditedRef.current = false
-      textareaRef.current?.focus()
+      await onSend(outboundText, { autoTranslate: false, file });
+      setText("");
+      setPreview("");
+      previewEditedRef.current = false;
+      clearAttachment();
+      textareaRef.current?.focus();
     } finally {
-      sendingRef.current = false
-      setSending(false)
+      sendingRef.current = false;
+      setSending(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void handleSend()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
     }
-  }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value)
+    setText(e.target.value);
     if (onTyping) {
-      onTyping()
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      onTyping();
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
-  }
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      const height = Math.min(textareaRef.current.scrollHeight, 120)
-      textareaRef.current.style.height = `${height}px`
+      textareaRef.current.style.height = "auto";
+      const height = Math.min(textareaRef.current.scrollHeight, 120);
+      textareaRef.current.style.height = `${height}px`;
     }
-  }, [text])
+  }, [text]);
+
+  useEffect(() => {
+    return () => {
+      if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+    };
+  }, [attachment]);
 
   return (
     <div className="border-t border-slate-100 bg-white">
@@ -165,8 +223,8 @@ export function ChatMessageInput({
               <textarea
                 value={preview}
                 onChange={(e) => {
-                  previewEditedRef.current = true
-                  setPreview(e.target.value)
+                  previewEditedRef.current = true;
+                  setPreview(e.target.value);
                 }}
                 rows={2}
                 className="w-full resize-none rounded-md border border-indigo-100 bg-white px-2 py-1.5 text-[12.5px] leading-relaxed text-slate-700 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200"
@@ -188,9 +246,38 @@ export function ChatMessageInput({
           AI hỗ trợ dịch
         </label>
         {assistTranslate && (
-          <span className="text-[10.5px] text-slate-400">Xem bản dịch rồi mới gửi</span>
+          <span className="text-[10.5px] text-slate-400">
+            Xem bản dịch rồi mới gửi
+          </span>
         )}
       </div>
+
+      {attachment && (
+        <div className="px-3.5 pt-2">
+          <div className="relative inline-block">
+            {attachment.previewUrl ? (
+              <img
+                src={attachment.previewUrl}
+                alt=""
+                className="h-16 w-16 rounded-lg object-cover ring-1 ring-slate-200"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-500 ring-1 ring-slate-200">
+                {attachment.file.type.startsWith("video/") ? "Video" : "File"}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={clearAttachment}
+              disabled={sending}
+              aria-label="Xóa ảnh"
+              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-900 disabled:opacity-50"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 p-3.5 pt-2">
         <Textarea
@@ -202,10 +289,35 @@ export function ChatMessageInput({
           disabled={disabled || sending}
           rows={1}
           className="resize-none py-2.5 px-4 text-[12.5px] text-slate-700 border border-slate-200/60 bg-slate-50/20 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-indigo-100 focus-visible:border-indigo-300 rounded-xl transition-all duration-200 placeholder:text-slate-400 min-h-[38px] max-h-[120px]"
+          onPaste={onPaste}
+        />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/*,video/*,.pdf"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setFile(f);
+            e.target.value = "";
+          }}
         />
         <Button
+          type="button"
+          variant="ghost"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Paperclip />
+        </Button>
+        <Button
           onClick={() => void handleSend()}
-          disabled={!text.trim() || sending || disabled || (assistTranslate && previewLoading)}
+          disabled={
+            (!text.trim() && !attachment) ||
+            sending ||
+            disabled ||
+            (assistTranslate && previewLoading && !attachment)
+          }
           size="sm"
           className="self-end h-[38px] bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 text-white rounded-xl shadow-sm shadow-blue-200/40 px-4 cursor-pointer font-semibold"
         >
@@ -223,5 +335,5 @@ export function ChatMessageInput({
         </Button>
       </div>
     </div>
-  )
+  );
 }

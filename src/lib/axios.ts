@@ -139,6 +139,14 @@ apiClient.interceptors.request.use(async (config) => {
     config.headers = config.headers || {};
     config.headers[CSRF_HEADER] = csrf;
   }
+
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  }
+
   return config;
 });
 
