@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/axios'
+import { getApiBaseUrl } from '@/lib/apiBase'
 import { backupAuthForOAuth } from '@/lib/authSession'
 
 export interface CskhPage {
@@ -306,7 +307,7 @@ export interface CskhCustomerIntent {
 
 export function getCskhOAuthStartUrl(returnUrl?: string): string {
   backupAuthForOAuth()
-  const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+  const base = getApiBaseUrl()
   const ret =
     returnUrl ||
     (typeof window !== 'undefined' ? window.location.href.split('#')[0] : '')
@@ -315,7 +316,7 @@ export function getCskhOAuthStartUrl(returnUrl?: string): string {
 }
 
 export function getCskhSapoOAuthStartUrl(): string {
-  const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003/api/v1').replace(/\/$/, '')
+  const base = getApiBaseUrl()
   return `${base}/cskh/sapo/oauth/start`
 }
 
@@ -744,10 +745,68 @@ export async function connectTikTokAccounts(): Promise<{
   return data
 }
 
-export async function refreshCskhOAuth(): Promise<{ pageCount: number; oauthUser: string }> {
-  const { data } = await apiClient.post<{ pageCount: number; oauthUser: string }>(
-    '/cskh/oauth/refresh'
+export async function refreshCskhOAuth(): Promise<{
+  pageCount: number
+  oauthUser: string
+  instagramRepaired?: number
+  instagramStillBroken?: string[]
+}> {
+  const { data } = await apiClient.post<{
+    pageCount: number
+    oauthUser: string
+    instagramRepaired?: number
+    instagramStillBroken?: string[]
+  }>('/cskh/oauth/refresh')
+  return data
+}
+
+export async function repairCskhInstagramChannels(): Promise<{
+  repaired: number
+  stillBroken: string[]
+}> {
+  const { data } = await apiClient.post<{ repaired: number; stillBroken: string[] }>(
+    '/cskh/oauth/repair-instagram',
   )
+  return data
+}
+
+export interface InstagramTestReadiness {
+  ready: boolean
+  oauthConnected: boolean
+  oauthUser: string | null
+  fbAppConfigured: boolean
+  channels: Array<{
+    pageId: string
+    pageName: string | null
+    enabled: boolean
+    instagramUsername: string | null
+    facebookPageId: string | null
+    facebookPageName: string | null
+    graphConversationsOk: boolean
+    graphError: string | null
+    conversationSampleCount: number
+    dbConversationCount: number
+  }>
+  steps: Array<{ id: string; label: string; ok: boolean; hint?: string }>
+  nextStepHint?: string | null
+  testerReminder: string
+}
+
+export async function fetchInstagramTestReadiness(): Promise<InstagramTestReadiness> {
+  const { data } = await apiClient.get<InstagramTestReadiness>('/cskh/instagram/test-readiness')
+  return data
+}
+
+export async function prepareInstagramTest(): Promise<{
+  repair: { repaired: number; stillBroken: string[] }
+  sync: Array<{ pageId: string; pageName: string | null; synced: number; error?: string }>
+  readiness: InstagramTestReadiness
+}> {
+  const { data } = await apiClient.post<{
+    repair: { repaired: number; stillBroken: string[] }
+    sync: Array<{ pageId: string; pageName: string | null; synced: number; error?: string }>
+    readiness: InstagramTestReadiness
+  }>('/cskh/instagram/prepare-test')
   return data
 }
 
@@ -956,7 +1015,8 @@ export interface CskhInsightDashboard {
     quality: string
     stars: number
     closeRate: string
-    roas: string
+    auditCount: number
+    source: string
     conversationCount: number
   }[]
   byPage?: {

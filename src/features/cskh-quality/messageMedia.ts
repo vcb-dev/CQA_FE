@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/lib/apiBase'
+
 const FB_MEDIA_URL = /https?:\/\/(?:[\w.-]+\.)*(?:fbcdn\.net|fbsbx\.com)\/[^\s<>"']+/i
 
 export type ResolvedMessageMedia = {
@@ -119,7 +121,7 @@ export function parseInboxPhotoPreviewCount(preview?: string | null): number {
 export function cskhMediaProxySrc(mediaUrl?: string | null): string | undefined {
   if (!mediaUrl?.startsWith('http')) return undefined
   if (/fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(mediaUrl)) {
-    const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+    const base = getApiBaseUrl()
     return `${base}/cskh/media/proxy?url=${encodeURIComponent(mediaUrl)}`
   }
   return mediaUrl
@@ -137,7 +139,7 @@ export function cskhPageAvatarSrc(input: {
   pageId?: string | null
 }): string | undefined {
   const { pictureUrl, pageId } = input
-  const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+  const base = getApiBaseUrl()
 
   if (pictureUrl?.startsWith('http')) {
     if (/fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(pictureUrl)) {
@@ -163,13 +165,13 @@ export function cskhCustomerAvatarSrc(input: {
   const { pictureUrl, pageId, psid, liveFetch } = input
   if (pictureUrl?.startsWith('http')) {
     if (/fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(pictureUrl)) {
-      const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+      const base = getApiBaseUrl()
       return `${base}/cskh/media/avatar?url=${encodeURIComponent(pictureUrl)}`
     }
     return pictureUrl
   }
   if (liveFetch && pageId && psid) {
-    const base = (import.meta.env.VITE_API_URL || 'http://localhost:3003').replace(/\/$/, '')
+    const base = getApiBaseUrl()
     return `${base}/cskh/media/customer-avatar?pageId=${encodeURIComponent(pageId)}&psid=${encodeURIComponent(psid)}`
   }
   return undefined
