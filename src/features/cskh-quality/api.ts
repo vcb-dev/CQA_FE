@@ -715,6 +715,14 @@ export async function setCskhPageEnabled(pageId: string, enabled: boolean) {
   return data
 }
 
+export async function setCskhPageInfo(
+  pageId: string,
+  info: { team?: string; managerName?: string; region?: string }
+) {
+  const { data } = await apiClient.patch(`/cskh/pages/${pageId}/info`, info)
+  return data
+}
+
 export async function setCskhPagesEnabledBulk(enabled: boolean, pageIds?: string[]) {
   const { data } = await apiClient.patch<{ updated: number; enabled: boolean }>(
     '/cskh/pages/bulk-enabled',
