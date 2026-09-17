@@ -48,6 +48,7 @@ import {
   groupLiveMediaMessages,
   dedupeMediaUrls,
   isNoiseMessageText,
+  isActiveAuditStatus,
   scoreColor,
   vietnamTodayIso,
 } from './auditHelpers'
@@ -78,10 +79,13 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/custom-ui/select'
+import { PlatformGlyph, groupPagesByPlatform, pageBucket } from './cskhPlatform'
 import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
@@ -89,7 +93,6 @@ import { useAuditJob } from './AuditJobProvider'
 import { loadAuditWorkspace, saveAuditWorkspace, firstNonEmpty } from './auditWorkspaceState'
 
 const AUDIT_INTENT_CACHE_KEY = 'cskh:audit-intent-cache:v1'
-/** ID toast tiến độ chấm điểm — dùng lại cho mọi cập nhật để không spam toast. */
 const AUDIT_TOAST_ID = 'cskh-audit-progress'
 
 function loadIntentCache(): Record<string, CskhCustomerIntent> {
@@ -109,7 +112,6 @@ function saveIntentCache(cache: Record<string, CskhCustomerIntent>) {
     if (typeof sessionStorage === 'undefined') return
     sessionStorage.setItem(AUDIT_INTENT_CACHE_KEY, JSON.stringify(cache))
   } catch {
-    /* ignore */
   }
 }
 
@@ -471,7 +473,6 @@ export function AuditMessengerView({
   const [selectedPageId, setSelectedPageId] = useState(() =>
     firstNonEmpty(searchParams.get('auditPage'), savedWorkspace.selectedPageId, jobPageId)
   )
-  /** Số cuộc hội thoại muốn quét mỗi lần chạy (để trống = quét toàn bộ). */
   const [batchLimitInput, setBatchLimitInput] = useState(savedWorkspace.batchLimitInput ?? '')
   const [chatTab, setChatTab] = useState<'chat' | 'messenger' | 'timeline' | 'analysis'>(
     savedWorkspace.chatTab ?? 'chat'
@@ -715,12 +716,13 @@ export function AuditMessengerView({
     },
   })
 
-  const prevProgressStatusRef = useRef<string | null>(null)
+  const handledTerminalProgressRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!progress || progress.status === 'running') return
-    if (prevProgressStatusRef.current === progress.status) return
-    prevProgressStatusRef.current = progress.status
+    if (!progress || isActiveAuditStatus(progress.status)) return
+    const terminalProgressKey = `${progress.id}:${progress.status}`
+    if (handledTerminalProgressRef.current === terminalProgressKey) return
+    handledTerminalProgressRef.current = terminalProgressKey
 
     const persistAuditsForRange = (from?: string, to?: string) => {
       const rangeFrom = from || progress.summary?.auditDateFrom || progress.summary?.auditDate
@@ -762,7 +764,7 @@ export function AuditMessengerView({
   }, [progress, qc, selectedPageFilter, selectedPageId])
 
   useEffect(() => {
-    if (!jobId || progress?.status !== 'running') return
+    if (!jobId || !progress || !isActiveAuditStatus(progress.status)) return
     const from = progress.summary?.auditDateFrom || progress.summary?.auditDate
     const to = progress.summary?.auditDateTo || from
     if (from) setAuditDateFrom(from)
@@ -821,7 +823,7 @@ export function AuditMessengerView({
         progress?.status !== 'failed' &&
         progress?.status !== 'done' &&
         progress?.status !== 'paused' &&
-        (progress?.status === 'running' || progress === undefined)))
+        (isActiveAuditStatus(progress?.status) || progress === undefined)))
   const isRunning = isAuditActive
   const backgroundJobRunning =
     auditJob.isRunning && !isRunning && !auditJob.userStopRequested
@@ -923,14 +925,17 @@ export function AuditMessengerView({
   }, [displayAudits])
 
   const sortedAudits = useMemo(() => sortAuditsByCreatedDesc(displayAudits), [displayAudits])
-  const pageOptions = useMemo(() => {
-    const pages = pagesData?.pages ?? []
-    return pages.sort((a, b) =>
-      (a.pageName || a.pageId).localeCompare(b.pageName || b.pageId, 'vi')
-    )
-  }, [pagesData?.pages])
+  const pageGroups = useMemo(
+    () => groupPagesByPlatform(pagesData?.pages ?? []),
+    [pagesData?.pages],
+  )
+  const pageOptions = useMemo(() => pageGroups.flatMap((group) => group.pages), [pageGroups])
   const selectedPageLabel =
     pageOptions.find((p) => p.pageId === selectedPageId)?.pageName || selectedPageId || 'Page'
+  const selectedPagePlatform = useMemo(() => {
+    const page = pageOptions.find((p) => p.pageId === effectivePageId)
+    return page ? pageBucket(page.platform) : null
+  }, [pageOptions, effectivePageId])
   const filteredAudits = useMemo(() => {
     const q = sidebarSearch.trim().toLowerCase()
     if (!q) return sortedAudits
@@ -969,12 +974,14 @@ export function AuditMessengerView({
     }
   }, [sortedAudits, filteredAudits, selectedId])
 
+  const prevProgressStatusRef = useRef<string | null>(null)
+
   useEffect(() => {
     const prev = prevProgressStatusRef.current
     const status = progress?.status ?? null
     prevProgressStatusRef.current = status
     const justPaused =
-      prev === 'running' &&
+      isActiveAuditStatus(prev) &&
       (status === 'paused' ||
         (status === 'done' && Boolean(progress?.summary?.paused || progress?.summary?.partial)))
     if (!justPaused || !sortedAudits.length) return
@@ -994,7 +1001,10 @@ export function AuditMessengerView({
   const auditPercent = useMemo(() => auditProgressPercent(summary), [summary])
 
   useEffect(() => {
-    if (!isRunning) return
+    if (!isRunning) {
+      toast.dismiss(AUDIT_TOAST_ID)
+      return
+    }
     const pagesTotal = summary?.pagesTotal ?? 0
     const pagesDone = summary?.pagesProcessed ?? 0
     const auditTotal = summary?.total ?? 0
@@ -1254,8 +1264,6 @@ export function AuditMessengerView({
 
   const hasRealtimeTail = inboxConv && realtimeMessages.length > 0
 
-  // Không invalidate intent liên tục theo polling tin nhắn,
-  // tránh trạng thái "Đang phân tích..." lặp dù đã có kết quả audit.
 
   useEffect(() => {
     const el = scrollRef.current
@@ -1311,19 +1319,42 @@ export function AuditMessengerView({
                 value={effectivePageId || undefined}
                 onValueChange={handlePageChange}
               >
-                <SelectTrigger
-                  id="audit-page-filter"
-                  className="[&>span]:line-clamp-1 [&>span]:truncate"
-                  aria-label="Chọn kênh"
-                >
-                  <SelectValue placeholder="Chọn kênh" />
+                <SelectTrigger id="audit-page-filter" className="min-w-0" aria-label="Chọn kênh">
+                  <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">
+                    {selectedPagePlatform && (
+                      <PlatformGlyph
+                        name={selectedPagePlatform}
+                        className="h-3.5 w-3.5 shrink-0 text-slate-500"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate leading-none">
+                      <SelectValue placeholder="Chọn kênh" />
+                    </span>
+                  </span>
                 </SelectTrigger>
-                <SelectContent>
-                  {pageOptions.map((p) => (
-                    <SelectItem key={p.pageId} value={p.pageId}>
-                      {p.pageName || p.pageId}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-80 min-w-[260px]">
+                  {pageGroups.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-xs font-medium text-slate-500">
+                      Chưa có kênh nào được kết nối
+                    </div>
+                  ) : (
+                    pageGroups.map((group) => (
+                      <SelectGroup key={group.key}>
+                        <SelectLabel className="flex items-center gap-1.5 px-3 pt-2.5 text-[11px] uppercase tracking-wide text-slate-500">
+                          <PlatformGlyph name={group.key} className="h-3 w-3 shrink-0" />
+                          {group.label}
+                          <span className="ml-auto text-[10px] font-semibold text-slate-400">
+                            {group.pages.length}
+                          </span>
+                        </SelectLabel>
+                        {group.pages.map((p) => (
+                          <SelectItem key={p.pageId} value={p.pageId}>
+                            {p.pageName || p.pageId}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1360,7 +1391,6 @@ export function AuditMessengerView({
                 type="button"
                 disabled={!canRun || runMut.isPending || isCancellingAudit || cancelMut.isPending}
                 onClick={() => {
-                  // Check if there's a background job running
                   if (auditJob.isRunning && !isRunning) {
                     toast.custom(
                       (toastId) => (
