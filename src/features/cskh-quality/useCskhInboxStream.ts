@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { getApiBaseUrl } from '@/lib/apiBase'
 import { apiClient } from '@/lib/axios'
 import { markInboxAsRead, type CskhCustomerIntent } from './api'
 import {
@@ -77,7 +78,7 @@ export function useCskhInboxStream({
       disable: "localStorage.setItem('cskh_inbox_debug', '0')",
     })
 
-    const base = (apiClient.defaults.baseURL || 'http://localhost:3000/api/v1').replace(/\/$/, '')
+    const base = getApiBaseUrl()
     const streamUrl = `${base}/cskh/inbox/stream`
     inboxRtLog('SSE connecting', {
       base,

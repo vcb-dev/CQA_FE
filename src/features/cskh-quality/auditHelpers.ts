@@ -1,5 +1,9 @@
 import type { CskhAuditRow, CskhInboxConversation, CskhInboxMessage } from './api'
 
+export function isActiveAuditStatus(status?: string | null): boolean {
+  return status === 'running' || status === 'queued'
+}
+
 export function formatAuditDateLabel(dateStr: string) {
   const [y, m, d] = dateStr.split('-')
   return `${d}/${m}/${y}`
