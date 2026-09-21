@@ -62,15 +62,54 @@ function formatCommentTime(iso: string): string {
   });
 }
 
-function MediaThumb({ url }: { url?: string | null }) {
+type IgCommentNode = CskhIgComment & { children: IgCommentNode[] };
+
+function buildCommentTree(comments: CskhIgComment[]): IgCommentNode[] {
+  const nodes = new Map<string, IgCommentNode>();
+  for (const c of comments) {
+    nodes.set(c.igCommentId, { ...c, children: [] });
+  }
+  const roots: IgCommentNode[] = [];
+  for (const c of comments) {
+    const node = nodes.get(c.igCommentId)!;
+    const parentId = c.parentIgCommentId;
+    if (parentId && nodes.has(parentId)) {
+      nodes.get(parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  const byTime = (a: IgCommentNode, b: IgCommentNode) =>
+    new Date(a.commentedAt).getTime() - new Date(b.commentedAt).getTime();
+  roots.sort(byTime);
+  for (const n of nodes.values()) {
+    n.children.sort(byTime);
+  }
+  return roots;
+}
+
+function MediaThumb({
+  url,
+  size = "sm",
+}: {
+  url?: string | null;
+  size?: "sm" | "lg";
+}) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     setFailed(false);
   }, [url]);
   const src = url ? cskhMediaProxySrc(url) || url : undefined;
+  const box =
+    size === "lg" ? "h-[88px] w-[88px] rounded-lg" : "h-14 w-14 rounded-xl";
   if (!src || failed) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-100 to-purple-100 text-pink-500 dark:from-pink-950/40 dark:to-purple-950/40">
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center bg-gradient-to-br from-pink-100 to-purple-100 text-pink-500 dark:from-pink-950/40 dark:to-purple-950/40",
+          box,
+        )}
+      >
         <ImageIcon className="h-5 w-5 opacity-70" />
       </div>
     );
@@ -80,7 +119,7 @@ function MediaThumb({ url }: { url?: string | null }) {
       src={src}
       alt=""
       referrerPolicy="no-referrer"
-      className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
+      className={cn("shrink-0 object-cover ring-1 ring-black/5", box)}
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -90,16 +129,19 @@ function MediaThumb({ url }: { url?: string | null }) {
 function CommentAvatar({
   username,
   outbound,
+  compact,
 }: {
   username: string | null;
   outbound?: boolean;
+  compact?: boolean;
 }) {
   const label = (username || (outbound ? "Shop" : "?")).replace(/^@/, "");
   const letter = label.charAt(0).toUpperCase();
   return (
     <div
       className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm",
+        "flex shrink-0 items-center justify-center rounded-full font-bold text-white",
+        compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-xs",
         outbound
           ? "bg-gradient-to-br from-indigo-500 to-violet-600"
           : "bg-gradient-to-br from-pink-500 via-fuchsia-500 to-orange-400",
@@ -107,6 +149,93 @@ function CommentAvatar({
     >
       {letter}
     </div>
+  );
+}
+
+function IgCommentRow({
+  comment,
+  depth,
+  hidePending,
+  onReply,
+  onHide,
+}: {
+  comment: IgCommentNode;
+  depth: number;
+  hidePending: boolean;
+  onReply: (c: CskhIgComment) => void;
+  onHide: (c: CskhIgComment) => void;
+}) {
+  const outbound = comment.direction === "outbound";
+  const username =
+    comment.authorUsername?.replace(/^@/, "") || (outbound ? "shop" : "user");
+  const compact = depth > 0;
+
+  return (
+    <li className={cn(depth > 0 && "ml-10")}>
+      <div
+        className={cn(
+          "group flex gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]",
+          comment.hidden && "opacity-55",
+        )}
+      >
+        <CommentAvatar
+          username={comment.authorUsername}
+          outbound={outbound}
+          compact={compact}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] leading-snug text-foreground">
+            <span className="font-semibold">@{username}</span>
+            {outbound ? (
+              <span className="ml-1.5 rounded bg-indigo-100 px-1 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                Shop
+              </span>
+            ) : null}
+            <span className="text-foreground"> {comment.text}</span>
+          </p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-n-500">
+            <span>{formatCommentTime(comment.commentedAt)}</span>
+            {comment.hidden ? (
+              <span className="font-medium text-n-600">Đã ẩn</span>
+            ) : null}
+            {!outbound && !comment.hidden ? (
+              <>
+                <button
+                  type="button"
+                  className="font-semibold text-n-600 hover:text-foreground"
+                  onClick={() => onReply(comment)}
+                >
+                  Trả lời
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-0.5 font-medium hover:text-red-600"
+                  disabled={hidePending}
+                  onClick={() => onHide(comment)}
+                >
+                  <EyeOff className="h-3 w-3" />
+                  Ẩn
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      {comment.children.length > 0 ? (
+        <ul className="space-y-0.5 border-l border-slate-200/80 pl-1 dark:border-slate-700/80">
+          {comment.children.map((child) => (
+            <IgCommentRow
+              key={child.id}
+              comment={child}
+              depth={depth + 1}
+              hidePending={hidePending}
+              onReply={onReply}
+              onHide={onHide}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
   );
 }
 
@@ -240,6 +369,14 @@ export function InstagramCommentsPane() {
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 
+  const comments = commentsQ.data ?? [];
+  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+
+  const onReplyComment = (c: CskhIgComment) => {
+    setReplyTarget(c);
+    setReplyText("");
+  };
+
   if (pagesQ.isLoading) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-n-500">
@@ -265,29 +402,16 @@ export function InstagramCommentsPane() {
 
   const mediaList = mediaQ.data ?? [];
   const selectedMedia = mediaList.find((m) => m.igMediaId === mediaId);
-  const comments = commentsQ.data ?? [];
   const inboundCount = comments.filter(
     (c) => c.direction === "inbound" && !c.hidden,
   ).length;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      {/* Toolbar */}
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-1 ">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 via-fuchsia-500 to-orange-400 text-white shadow-sm">
-            <InstagramLogo className="h-5 w-5" weight="fill" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              Bình luận Instagram
-            </h2>
-            <p className="text-[11px] text-n-500">
-              {mediaList.length} bài · quản lý & phản hồi công khai
-            </p>
-          </div>
-        </div>
-
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-2">
+        <p className="text-[11px] font-medium text-n-500">
+          {mediaList.length} bài đăng
+        </p>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <span
             className={cn(
@@ -449,8 +573,7 @@ export function InstagramCommentsPane() {
           </div>
         </aside>
 
-        {/* Comments panel */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/20 dark:bg-muted/10">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-white dark:bg-background">
           {!mediaId ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
               <MessageCircle className="h-10 w-10 text-n-300" />
@@ -464,13 +587,14 @@ export function InstagramCommentsPane() {
             </div>
           ) : (
             <>
-              <div className="shrink-0 border-b border-slate-200 bg-card/80 px-4 py-3 backdrop-blur-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="shrink-0 border-b border-slate-200 px-4 py-3">
+                <div className="flex gap-3">
+                  <MediaThumb url={selectedMedia?.thumbnailUrl} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-medium text-foreground">
+                    <p className="line-clamp-3 text-sm leading-snug text-foreground">
                       {selectedMedia?.caption?.trim() || "Bài Instagram"}
                     </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-n-500">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-n-500">
                       <span>{mediaTypeLabel(selectedMedia?.mediaType)}</span>
                       <span>·</span>
                       <span>
@@ -485,7 +609,7 @@ export function InstagramCommentsPane() {
                             href={selectedMedia.permalink}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 font-medium text-pink-600 hover:underline dark:text-pink-400"
+                            className="inline-flex items-center gap-0.5 font-semibold text-pink-600 hover:underline dark:text-pink-400"
                           >
                             Mở trên IG
                             <ExternalLink className="h-3 w-3" />
@@ -496,9 +620,10 @@ export function InstagramCommentsPane() {
                   </div>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-foreground transition hover:bg-slate-50 disabled:opacity-50"
                     disabled={syncMut.isPending}
                     onClick={() => syncMut.mutate()}
+                    title="Đồng bộ bình luận"
                   >
                     <RefreshCw
                       className={cn(
@@ -506,12 +631,12 @@ export function InstagramCommentsPane() {
                         syncMut.isPending && "animate-spin",
                       )}
                     />
-                    Đồng bộ bình luận
+                    Đồng bộ
                   </button>
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:thin]">
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin] md:px-4">
                 {commentsQ.isLoading ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-7 w-7 animate-spin text-pink-500" />
@@ -531,90 +656,24 @@ export function InstagramCommentsPane() {
                     </button>
                   </div>
                 ) : (
-                  <ul className="mx-auto space-y-4">
-                    {comments.map((c) => {
-                      const outbound = c.direction === "outbound";
-                      return (
-                        <li
-                          key={c.id}
-                          className={cn(
-                            "flex gap-3",
-                            outbound && "flex-row-reverse",
-                          )}
-                        >
-                          <CommentAvatar
-                            username={c.authorUsername}
-                            outbound={outbound}
-                          />
-                          <div
-                            className={cn(
-                              "min-w-0 max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm ring-1",
-                              outbound
-                                ? "rounded-tr-md bg-indigo-600 text-white ring-indigo-500/30"
-                                : "rounded-tl-md bg-card text-foreground ring-slate-200",
-                              c.hidden && "opacity-50",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]",
-                                outbound ? "text-indigo-100" : "text-n-500",
-                              )}
-                            >
-                              <span className="font-semibold">
-                                @
-                                {c.authorUsername ||
-                                  (outbound ? "shop" : "user")}
-                              </span>
-                              <span>{formatCommentTime(c.commentedAt)}</span>
-                              {c.hidden ? (
-                                <span className="rounded bg-black/10 px-1 py-0.5 text-[10px]">
-                                  Đã ẩn
-                                </span>
-                              ) : null}
-                            </div>
-                            <p
-                              className={cn(
-                                "mt-1 whitespace-pre-wrap text-sm leading-relaxed",
-                                outbound && "text-white",
-                              )}
-                            >
-                              {c.text}
-                            </p>
-                            {!outbound && !c.hidden ? (
-                              <div className="mt-2 flex gap-2 border-t border-border/50 pt-2">
-                                <button
-                                  type="button"
-                                  className="text-[11px] font-semibold text-pink-600 hover:underline dark:text-pink-400"
-                                  onClick={() => {
-                                    setReplyTarget(c);
-                                    setReplyText("");
-                                  }}
-                                >
-                                  Trả lời
-                                </button>
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-0.5 text-[11px] font-medium text-n-500 hover:text-red-600"
-                                  disabled={hideMut.isPending}
-                                  onClick={() => hideMut.mutate(c)}
-                                >
-                                  <EyeOff className="h-3 w-3" />
-                                  Ẩn
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        </li>
-                      );
-                    })}
+                  <ul className="mx-auto space-y-1">
+                    {commentTree.map((c) => (
+                      <IgCommentRow
+                        key={c.id}
+                        comment={c}
+                        depth={0}
+                        hidePending={hideMut.isPending}
+                        onReply={onReplyComment}
+                        onHide={(row) => hideMut.mutate(row)}
+                      />
+                    ))}
                   </ul>
                 )}
               </div>
 
               {replyTarget ? (
-                <div className="shrink-0 border-t border-slate-200 bg-card p-4 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
-                  <div className="mx-auto flex max-w-2xl flex-col gap-2">
+                <div className="shrink-0 border-t border-slate-200 bg-white p-3 shadow-[0_-2px_12px_rgba(0,0,0,0.04)] dark:bg-background">
+                  <div className="mx-auto flex max-w-xl flex-col gap-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-n-500">
                         Trả lời{" "}
