@@ -36,6 +36,10 @@ const pageTitles = {
     title: "Chất lượng CSKH",
     sub: "Đánh giá và theo dõi chất lượng chăm sóc khách hàng",
   },
+  "/instagram-comments": {
+    title: "Bình luận Instagram",
+    sub: "Theo dõi, trả lời và ẩn bình luận công khai trên bài đăng IG",
+  },
   "/pancake-test": {
     title: "Lead Pancake",
     sub: "Lead khách hàng theo từng kênh từ Pancake",
@@ -57,7 +61,10 @@ export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  const page = pageTitles[location.pathname] || pageTitles["/"];
+  const page =
+    (location.pathname.startsWith("/instagram-comments")
+      ? pageTitles["/instagram-comments"]
+      : pageTitles[location.pathname]) || pageTitles["/"];
 
   const needsInboxStats =
     location.pathname.startsWith("/conversations") ||
