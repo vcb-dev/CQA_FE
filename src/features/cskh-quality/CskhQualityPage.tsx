@@ -36,7 +36,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -3956,6 +3956,7 @@ function CskhQualityTabBar({ active }: { active: string }) {
 }
 
 export function CskhQualityPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab =
@@ -3972,6 +3973,12 @@ export function CskhQualityPage() {
               : "audit";
   const auditJob = useOptionalAuditJob();
   const auditJobBusy = auditJob?.isRunning ?? false;
+
+  useEffect(() => {
+    if (tabParam === "ig-comments") {
+      navigate("/instagram-comments", { replace: true });
+    }
+  }, [tabParam, navigate]);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);

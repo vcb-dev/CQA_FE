@@ -1,42 +1,66 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/axios'
-import { Loader2, AlertCircle, X, Mail, Languages } from 'lucide-react'
+import { getApiErrorMessage } from "@/lib/axios";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, Languages, Loader2, Mail, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { AiFaceIcon } from "./AiFaceIcon";
 import {
+  detectInboxConversationLang,
   fetchInboxMessages,
   fetchInboxMessagesProgressive,
-  sendInboxMessage,
-  detectInboxConversationLang,
-  translateInboxConversation,
-  notifyInboxTyping,
   markInboxAsUnread,
+  notifyInboxTyping,
+  sendInboxMessage,
+  sendInboxMessageMedia,
+  translateInboxConversation,
   type CskhAdInsights,
   type CskhInboxConversation,
   type CskhInboxMessage,
-} from './api'
-import { ChatMessage } from './ChatMessage'
-import { ChatMessageInput } from './ChatMessageInput'
-import { ConversationAdBanner } from './ConversationAdBanner'
-import { ChatLabelBar, ConversationLabelBadges } from './ChatLabelBar'
-import { ConversationViewHistory } from './ConversationViewHistory'
-import { TypingIndicator } from './TypingIndicator'
-import { CskhPageAvatar } from './cskhUi'
-import { AiFaceIcon } from './AiFaceIcon'
-import { appendInboxMessagesToCache, patchInboxConversationInCache, isInboxMessagePreview, collapseInboxMessageList } from './inboxRealtimeCache'
-import { parseInboxPhotoPreviewCount } from './messageMedia'
+} from "./api";
+import { ChatLabelBar, ConversationLabelBadges } from "./ChatLabelBar";
+import { ChatMessage } from "./ChatMessage";
+import { ChatMessageInput } from "./ChatMessageInput";
+import { ConversationAdBanner } from "./ConversationAdBanner";
+import { ConversationViewHistory } from "./ConversationViewHistory";
+import { CskhPageAvatar } from "./cskhUi";
+import {
+  appendInboxMessagesToCache,
+  collapseInboxMessageList,
+  isInboxMessagePreview,
+  patchInboxConversationInCache,
+} from "./inboxRealtimeCache";
+import { parseInboxPhotoPreviewCount } from "./messageMedia";
+import { TypingIndicator } from "./TypingIndicator";
 
 type ChatPanelProps = {
-  conversation: CskhInboxConversation
-  isCustomerTyping?: boolean
-  onClose?: () => void
-  connected?: boolean
-  draftText?: string
-  onDraftApplied?: () => void
-  assistantOpen?: boolean
-  onToggleAssistant?: () => void
-  adInsights?: CskhAdInsights | null
-  isLoadingAdInsights?: boolean
+  conversation: CskhInboxConversation;
+  isCustomerTyping?: boolean;
+  onClose?: () => void;
+  connected?: boolean;
+  draftText?: string;
+  onDraftApplied?: () => void;
+  assistantOpen?: boolean;
+  onToggleAssistant?: () => void;
+  adInsights?: CskhAdInsights | null;
+  isLoadingAdInsights?: boolean;
+};
+
+function optimisticMediaMeta(file: File): {
+  messageType: "image" | "video" | "file";
+  text: string;
+  attachmentUrl: string | null;
+} {
+  if (file.type.startsWith("image/")) {
+    return {
+      messageType: "image",
+      text: "[Ảnh]",
+      attachmentUrl: URL.createObjectURL(file),
+    };
+  }
+  if (file.type.startsWith("video/")) {
+    return { messageType: "video", text: "[Video]", attachmentUrl: null };
+  }
+  return { messageType: "file", text: "[File]", attachmentUrl: null };
 }
 
 export function ChatPanel({
@@ -51,27 +75,27 @@ export function ChatPanel({
   adInsights,
   isLoadingAdInsights,
 }: ChatPanelProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const lastMessageIdRef = useRef<string>('')
-  const typingTimeoutRef = useRef<any>(null)
-  const lastConversationIdRef = useRef<string>('')
-  const hasScrolledForConvRef = useRef<boolean>(false)
-  const loadingOlderRef = useRef(false)
-  const [loadingOlder, setLoadingOlder] = useState(false)
-  const [hasMoreOlder, setHasMoreOlder] = useState(true)
-  const [viewHistoryOpen, setViewHistoryOpen] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string>("");
+  const typingTimeoutRef = useRef<any>(null);
+  const lastConversationIdRef = useRef<string>("");
+  const hasScrolledForConvRef = useRef<boolean>(false);
+  const loadingOlderRef = useRef(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [viewHistoryOpen, setViewHistoryOpen] = useState(false);
 
   if (lastConversationIdRef.current !== conversation.id) {
-    lastConversationIdRef.current = conversation.id
-    hasScrolledForConvRef.current = false
-    loadingOlderRef.current = false
+    lastConversationIdRef.current = conversation.id;
+    hasScrolledForConvRef.current = false;
+    loadingOlderRef.current = false;
   }
 
   useEffect(() => {
-    setHasMoreOlder(true)
-    setViewHistoryOpen(Boolean(conversation.awaitingLabel))
-  }, [conversation.id, conversation.awaitingLabel])
-  const qc = useQueryClient()
+    setHasMoreOlder(true);
+    setViewHistoryOpen(Boolean(conversation.awaitingLabel));
+  }, [conversation.id, conversation.awaitingLabel]);
+  const qc = useQueryClient();
 
   const markUnreadMutation = useMutation({
     mutationFn: markInboxAsUnread,
@@ -79,128 +103,200 @@ export function ChatPanel({
       patchInboxConversationInCache(qc, {
         id: conversation.id,
         unreadCount: 1,
-      })
-      toast.success('Đã đánh dấu cuộc trò chuyện là chưa đọc')
-      if (onClose) onClose()
+      });
+      toast.success("Đã đánh dấu cuộc trò chuyện là chưa đọc");
+      if (onClose) onClose();
     },
     onError: (err) => {
-      toast.error(`Lỗi: ${getApiErrorMessage(err)}`)
+      toast.error(`Lỗi: ${getApiErrorMessage(err)}`);
     },
-  })
+  });
 
   const handleMarkAsUnread = () => {
-    markUnreadMutation.mutate(conversation.id)
-  }
+    markUnreadMutation.mutate(conversation.id);
+  };
 
   const translateThreadMut = useMutation({
     mutationFn: () => translateInboxConversation(conversation.id),
     onSuccess: async (res) => {
-      await qc.invalidateQueries({ queryKey: ['cskh', 'inbox', 'messages', conversation.id] })
+      await qc.invalidateQueries({
+        queryKey: ["cskh", "inbox", "messages", conversation.id],
+      });
       toast.success(
         res.translated > 0
           ? `Đã dịch ${res.translated} tin (khách + shop)`
-          : 'Các tin đã có bản tiếng Việt',
-      )
+          : "Các tin đã có bản tiếng Việt",
+      );
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err) || 'Dịch hội thoại thất bại')
+      toast.error(getApiErrorMessage(err) || "Dịch hội thoại thất bại");
     },
-  })
+  });
 
   // Fetch messages — dùng chung cache với ChatMessengerPane (prefetch khi click)
-  const { data: messagesData, isLoading, isFetching, isPending, isFetched } = useQuery({
-    queryKey: ['cskh', 'inbox', 'messages', conversation.id],
+  const {
+    data: messagesData,
+    isLoading,
+    isFetching,
+    isPending,
+    isFetched,
+  } = useQuery({
+    queryKey: ["cskh", "inbox", "messages", conversation.id],
     queryFn: ({ signal }) =>
       fetchInboxMessagesProgressive(conversation.id, signal, (partial) => {
-        qc.setQueryData(['cskh', 'inbox', 'messages', conversation.id], partial)
+        qc.setQueryData(
+          ["cskh", "inbox", "messages", conversation.id],
+          partial,
+        );
       }),
     staleTime: 120_000,
-    refetchOnMount: 'always',
+    refetchOnMount: "always",
     refetchInterval: false,
-  })
+  });
 
-  const rawMessages = messagesData?.messages ?? []
-  const hasRealMessages = rawMessages.some((m) => !isInboxMessagePreview(m.id))
+  const rawMessages = messagesData?.messages ?? [];
+  const hasRealMessages = rawMessages.some((m) => !isInboxMessagePreview(m.id));
   const messages = useMemo(() => {
-    if (!hasRealMessages) return []
-    return rawMessages.filter((m) => !isInboxMessagePreview(m.id))
-  }, [rawMessages, hasRealMessages])
+    if (!hasRealMessages) return [];
+    return rawMessages.filter((m) => !isInboxMessagePreview(m.id));
+  }, [rawMessages, hasRealMessages]);
 
   const conversationWithLabels = {
     ...conversation,
     ...(messagesData?.conversation ?? {}),
-  }
+  };
   const showInitialLoader =
-    !hasRealMessages && (!isFetched || isLoading || isPending || isFetching)
-  const showHydratingHint = isFetching && hasRealMessages
+    !hasRealMessages && (!isFetched || isLoading || isPending || isFetching);
+  const showHydratingHint = isFetching && hasRealMessages;
 
   // Send message mutation
   const sendMut = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       text,
       autoTranslate,
       originalText,
+      file,
     }: {
-      text: string
-      autoTranslate?: boolean
-      originalText?: string
-    }) => sendInboxMessage(conversation.id, text, { autoTranslate, originalText }),
-    onMutate: async ({ text, autoTranslate, originalText }) => {
-      // Cancel outgoing refetches so they don't overwrite our optimistic update
-      await qc.cancelQueries({ queryKey: ['cskh', 'inbox', 'messages', conversation.id] })
+      text: string;
+      autoTranslate?: boolean;
+      originalText?: string;
+      file?: File;
+    }) => {
+      if (file) {
+        return sendInboxMessageMedia(conversation.id, file, text || undefined);
+      }
+      return sendInboxMessage(conversation.id, text, {
+        autoTranslate,
+        originalText,
+      });
+    },
+    onMutate: async ({ text, autoTranslate, originalText, file }) => {
+      await qc.cancelQueries({
+        queryKey: ["cskh", "inbox", "messages", conversation.id],
+      });
 
-      // Create a temporary optimistic message
-      const tempId = `temp-${Date.now()}`
-      const optimisticMessage: CskhInboxMessage = {
-        id: tempId,
-        conversationId: conversation.id,
-        fbMessageId: null,
-        direction: 'outbound',
-        senderType: 'staff',
-        text,
-        originalText: originalText || (autoTranslate ? text : null),
-        translatedText: originalText || (autoTranslate ? text : null),
-        messageType: 'text',
-        attachmentUrl: null,
-        sentAt: new Date().toISOString(),
-        status: 'pending', // Will show loader spinner
+      const previousMessages = qc.getQueryData<{
+        conversation: CskhInboxConversation;
+        messages: CskhInboxMessage[];
+      }>(["cskh", "inbox", "messages", conversation.id]);
+
+      const now = new Date().toISOString();
+      const tempIds: string[] = [];
+      let blobUrl: string | null = null;
+      const optimistic: CskhInboxMessage[] = [];
+
+      const trimmed = text.trim();
+
+      // Text+file: BE gửi 2 tin — optimistic 2 bubble cho UX mượt
+      if (trimmed && file) {
+        const tid = `temp-${Date.now()}-t`;
+        tempIds.push(tid);
+        optimistic.push({
+          id: tid,
+          conversationId: conversation.id,
+          fbMessageId: null,
+          direction: "outbound",
+          senderType: "staff",
+          text: trimmed,
+          originalText: null,
+          translatedText: null,
+          messageType: "text",
+          attachmentUrl: null,
+          sentAt: now,
+          status: "pending",
+        });
       }
 
-      // Save previous messages in case of error rollback
-      const previousMessages = qc.getQueryData<{
-        conversation: CskhInboxConversation
-        messages: CskhInboxMessage[]
-      }>(['cskh', 'inbox', 'messages', conversation.id])
+      if (file) {
+        const meta = optimisticMediaMeta(file);
+        blobUrl = meta.attachmentUrl;
+        const mid = `temp-${Date.now()}-m`;
+        tempIds.push(mid);
+        optimistic.push({
+          id: mid,
+          conversationId: conversation.id,
+          fbMessageId: null,
+          direction: "outbound",
+          senderType: "staff",
+          text: trimmed || meta.text,
+          originalText: originalText || (autoTranslate ? text : null),
+          translatedText: null,
+          messageType: meta.messageType,
+          attachmentUrl: meta.attachmentUrl,
+          sentAt: now,
+          status: "pending",
+        });
+      }
 
-      // Instantly append to cache
-      appendInboxMessagesToCache(qc, conversation.id, undefined, [optimisticMessage])
+      if (!file) {
+        const tempId = `temp-${Date.now()}`;
+        tempIds.push(tempId);
+        optimistic.push({
+          id: tempId,
+          conversationId: conversation.id,
+          fbMessageId: null,
+          direction: "outbound",
+          senderType: "staff",
+          text,
+          originalText: originalText || (autoTranslate ? text : null),
+          translatedText: originalText || (autoTranslate ? text : null),
+          messageType: "text",
+          attachmentUrl: null,
+          sentAt: now,
+          status: "pending",
+        });
+      }
 
-      // Instantly update conversation previews
+      appendInboxMessagesToCache(qc, conversation.id, undefined, optimistic);
+
+      const lastPreview =
+        optimistic[optimistic.length - 1]?.text || trimmed || "[Ảnh]";
       patchInboxConversationInCache(qc, {
         id: conversation.id,
-        lastMessage: text,
-        lastMessageAt: optimisticMessage.sentAt,
+        lastMessage: lastPreview,
+        lastMessageAt: now,
         ...(conversationWithLabels.labels?.length
           ? { unreadCount: 0, awaitingLabel: false }
           : {}),
-      })
+      });
 
-      return { tempId, previousMessages }
+      return { tempIds, previousMessages, blobUrl };
     },
     onSuccess: (newMessage, _vars, context) => {
-      if (context?.tempId) {
-        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
-          ['cskh', 'inbox', 'messages', conversation.id],
-          (prev) => {
-            if (!prev) return prev
-            const withoutTemp = (prev.messages ?? []).filter((m) => m.id !== context.tempId)
-            const next = newMessage ? [...withoutTemp, newMessage] : withoutTemp
-            return { ...prev, messages: collapseInboxMessageList(next) }
-          }
-        )
-      } else if (newMessage) {
-        appendInboxMessagesToCache(qc, conversation.id, undefined, [newMessage])
-      }
+      if (context?.blobUrl) URL.revokeObjectURL(context.blobUrl);
+
+      qc.setQueryData<{
+        conversation: CskhInboxConversation;
+        messages: CskhInboxMessage[];
+      }>(["cskh", "inbox", "messages", conversation.id], (prev) => {
+        if (!prev) return prev;
+        const withoutTemp = (prev.messages ?? []).filter(
+          (m) => !context?.tempIds?.includes(m.id),
+        );
+        const next = newMessage ? [...withoutTemp, newMessage] : withoutTemp;
+        return { ...prev, messages: collapseInboxMessageList(next) };
+      });
+
       if (newMessage) {
         patchInboxConversationInCache(qc, {
           id: conversation.id,
@@ -209,90 +305,82 @@ export function ChatPanel({
           ...(conversationWithLabels.labels?.length
             ? { unreadCount: 0, awaitingLabel: false }
             : {}),
-        })
+        });
       }
     },
     onError: (error, _vars, context) => {
-      toast.error(getApiErrorMessage(error) || 'Gửi tin thất bại')
-      // Rollback to previous state
+      if (context?.blobUrl) URL.revokeObjectURL(context.blobUrl);
+      toast.error(getApiErrorMessage(error) || "Gửi tin thất bại");
       if (context?.previousMessages) {
-        qc.setQueryData(['cskh', 'inbox', 'messages', conversation.id], context.previousMessages)
-      } else if (context?.tempId) {
-        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
-          ['cskh', 'inbox', 'messages', conversation.id],
-          (prev) => {
-            if (!prev) return prev
-            return {
-              ...prev,
-              messages: (prev.messages ?? []).filter((m) => m.id !== context.tempId),
-            }
-          }
-        )
+        qc.setQueryData(
+          ["cskh", "inbox", "messages", conversation.id],
+          context.previousMessages,
+        );
       }
     },
-  })
+  });
 
   // Typing notification
   const handleTyping = () => {
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     void notifyInboxTyping(conversation.id).catch(() => {
       // Ignore errors from typing endpoint
-    })
+    });
 
     typingTimeoutRef.current = setTimeout(() => {
       // Clear typing after 3 seconds
-    }, 3000)
-  }
+    }, 3000);
+  };
 
   // Phát hiện ngôn ngữ khách → lưu BE (một lần / hội thoại nếu chưa có)
   useEffect(() => {
-    if (!hasRealMessages) return
-    if (conversationWithLabels.customerLang) return
-    let cancelled = false
+    if (!hasRealMessages) return;
+    if (conversationWithLabels.customerLang) return;
+    let cancelled = false;
     void detectInboxConversationLang(conversation.id)
       .then((res) => {
-        if (cancelled) return
-        qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
-          ['cskh', 'inbox', 'messages', conversation.id],
-          (prev) => {
-            if (!prev) return prev
-            return {
-              ...prev,
-              conversation: {
-                ...prev.conversation,
-                customerLang: res.customerLang,
-                customerLangLabel: res.customerLangLabel,
-              },
-            }
-          }
-        )
+        if (cancelled) return;
+        qc.setQueryData<{
+          conversation: CskhInboxConversation;
+          messages: CskhInboxMessage[];
+        }>(["cskh", "inbox", "messages", conversation.id], (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            conversation: {
+              ...prev.conversation,
+              customerLang: res.customerLang,
+              customerLangLabel: res.customerLangLabel,
+            },
+          };
+        });
         patchInboxConversationInCache(qc, {
           id: conversation.id,
           customerLang: res.customerLang,
           customerLangLabel: res.customerLangLabel,
-        })
+        });
       })
-      .catch(() => undefined)
+      .catch(() => undefined);
     return () => {
-      cancelled = true
-    }
+      cancelled = true;
+    };
   }, [
     hasRealMessages,
     conversation.id,
     conversationWithLabels.customerLang,
     qc,
-  ])
+  ]);
 
   // Mark-as-read được xử lý khi chọn hội thoại (ChatMessengerPane)
 
   // Auto-scroll to bottom when new messages arrive or when typing starts
   useEffect(() => {
-    if (messages.length === 0 && !isCustomerTyping) return
+    if (messages.length === 0 && !isCustomerTyping) return;
 
-    const lastMsgId = messages[messages.length - 1]?.id ?? ''
-    const isNewMessage = lastMsgId !== lastMessageIdRef.current
-    const isInitialLoad = !hasScrolledForConvRef.current
+    const lastMsgId = messages[messages.length - 1]?.id ?? "";
+    const isNewMessage = lastMsgId !== lastMessageIdRef.current;
+    const isInitialLoad = !hasScrolledForConvRef.current;
 
     // Only scroll if:
     // 1. It is the first scroll for this conversation (instant scroll)
@@ -300,77 +388,88 @@ export function ChatPanel({
     // 3. Customer started typing (smooth scroll)
     const nearBottom =
       !scrollRef.current ||
-      scrollRef.current.scrollHeight - scrollRef.current.scrollTop - scrollRef.current.clientHeight < 140
+      scrollRef.current.scrollHeight -
+        scrollRef.current.scrollTop -
+        scrollRef.current.clientHeight <
+        140;
     const shouldScroll =
-      !loadingOlder && (isInitialLoad || ((isNewMessage || isCustomerTyping) && nearBottom))
+      !loadingOlder &&
+      (isInitialLoad || ((isNewMessage || isCustomerTyping) && nearBottom));
 
     if (shouldScroll && scrollRef.current) {
-      const behavior = isInitialLoad ? 'auto' : 'smooth'
+      const behavior = isInitialLoad ? "auto" : "smooth";
       setTimeout(() => {
-        if (!scrollRef.current) return
+        if (!scrollRef.current) return;
         scrollRef.current.scrollTo({
           top: scrollRef.current.scrollHeight,
           behavior,
-        })
-        hasScrolledForConvRef.current = true
-      }, 0)
+        });
+        hasScrolledForConvRef.current = true;
+      }, 0);
     }
 
-    lastMessageIdRef.current = lastMsgId
-  }, [messages, isCustomerTyping, conversation.id, loadingOlder])
+    lastMessageIdRef.current = lastMsgId;
+  }, [messages, isCustomerTyping, conversation.id, loadingOlder]);
 
   const displayMessages = useMemo(() => {
     return collapseInboxMessageList(messages)
       .filter((m) => m.text || m.attachmentUrl || m.messageType)
       .map((m) => ({
         ...m,
-        isOwn: m.senderType === 'staff',
-      }))
-  }, [messages])
+        isOwn: m.senderType === "staff",
+      }));
+  }, [messages]);
 
   const loadOlder = useCallback(async () => {
-    const el = scrollRef.current
-    const oldest = messages[0]
-    if (!el || !oldest?.sentAt || loadingOlderRef.current || !hasMoreOlder) return
-    loadingOlderRef.current = true
-    setLoadingOlder(true)
-    const prevHeight = el.scrollHeight
+    const el = scrollRef.current;
+    const oldest = messages[0];
+    if (!el || !oldest?.sentAt || loadingOlderRef.current || !hasMoreOlder)
+      return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    const prevHeight = el.scrollHeight;
     try {
       const older = await fetchInboxMessages(conversation.id, {
         before: oldest.sentAt,
         limit: 80,
-      })
-      if (older.messages.length < 80) setHasMoreOlder(false)
-      qc.setQueryData<{ conversation: CskhInboxConversation; messages: CskhInboxMessage[] }>(
-        ['cskh', 'inbox', 'messages', conversation.id],
-        (prev) => {
-          if (!prev) return older
-          return {
-            ...prev,
-            messages: collapseInboxMessageList([...(older.messages ?? []), ...(prev.messages ?? [])]),
-          }
-        },
-      )
+      });
+      if (older.messages.length < 80) setHasMoreOlder(false);
+      qc.setQueryData<{
+        conversation: CskhInboxConversation;
+        messages: CskhInboxMessage[];
+      }>(["cskh", "inbox", "messages", conversation.id], (prev) => {
+        if (!prev) return older;
+        return {
+          ...prev,
+          messages: collapseInboxMessageList([
+            ...(older.messages ?? []),
+            ...(prev.messages ?? []),
+          ]),
+        };
+      });
       requestAnimationFrame(() => {
-        if (!scrollRef.current) return
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight - prevHeight
-      })
+        if (!scrollRef.current) return;
+        scrollRef.current.scrollTop =
+          scrollRef.current.scrollHeight - prevHeight;
+      });
     } finally {
-      loadingOlderRef.current = false
-      setLoadingOlder(false)
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
     }
-  }, [conversation.id, hasMoreOlder, messages, qc])
+  }, [conversation.id, hasMoreOlder, messages, qc]);
 
   const translatingPending = useMemo(() => {
-    const noise = new Set(['[Ảnh]', '[Video]', '[Sticker]', '[attachment]'])
+    const noise = new Set(["[Ảnh]", "[Video]", "[Sticker]", "[attachment]"]);
     return displayMessages.some((m) => {
-      if (m.messageType && m.messageType !== 'text') return false
-      if (!m.text?.trim() || noise.has(m.text)) return false
-      const hasVi = Boolean((m.originalText || m.translatedText || '').trim())
-      if (hasVi) return false
-      return /[\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(m.text)
-    })
-  }, [displayMessages])
+      if (m.messageType && m.messageType !== "text") return false;
+      if (!m.text?.trim() || noise.has(m.text)) return false;
+      const hasVi = Boolean((m.originalText || m.translatedText || "").trim());
+      if (hasVi) return false;
+      return /[\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(
+        m.text,
+      );
+    });
+  }, [displayMessages]);
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
@@ -378,7 +477,7 @@ export function ChatPanel({
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/60 bg-white shrink-0">
         <div className="flex items-center gap-3">
           <CskhPageAvatar
-            name={conversation.customerName || 'K'}
+            name={conversation.customerName || "K"}
             pictureUrl={conversation.customerPictureUrl}
             pageId={conversation.pageId}
             psid={conversation.participantPsid}
@@ -388,15 +487,15 @@ export function ChatPanel({
           <div>
             <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
               {conversationWithLabels.customerName ||
-                `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? '').slice(0, 8) || '?'}`}
+                `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? "").slice(0, 8) || "?"}`}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">
-                {conversation.platform === 'instagram'
-                  ? 'Cuộc trò chuyện Instagram'
-                  : conversation.platform === 'tiktok'
-                    ? 'Cuộc trò chuyện TikTok'
-                    : 'Cuộc trò chuyện Facebook'}
+                {conversation.platform === "instagram"
+                  ? "Cuộc trò chuyện Instagram"
+                  : conversation.platform === "tiktok"
+                    ? "Cuộc trò chuyện TikTok"
+                    : "Cuộc trò chuyện Facebook"}
               </span>
               {translatingPending && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-600 leading-none">
@@ -409,7 +508,10 @@ export function ChatPanel({
                   Ads
                 </span>
               )}
-              <ConversationLabelBadges labels={conversationWithLabels.labels} max={4} />
+              <ConversationLabelBadges
+                labels={conversationWithLabels.labels}
+                max={4}
+              />
             </div>
           </div>
         </div>
@@ -420,10 +522,12 @@ export function ChatPanel({
               onClick={onToggleAssistant}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 cursor-pointer ${
                 assistantOpen
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
-                  : 'text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50'
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
+                  : "text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
               }`}
-              title={assistantOpen ? 'Thu gọn AI nội bộ' : 'Mở AI Assistant nội bộ'}
+              title={
+                assistantOpen ? "Thu gọn AI nội bộ" : "Mở AI Assistant nội bộ"
+              }
             >
               <AiFaceIcon className="h-5 w-5" blinking />
             </button>
@@ -432,7 +536,8 @@ export function ChatPanel({
             conversationId={conversation.id}
             pendingCount={
               conversationWithLabels.pendingViewerCount ??
-              conversationWithLabels.viewers?.filter((v) => !v.hasChot).length ??
+              conversationWithLabels.viewers?.filter((v) => !v.hasChot)
+                .length ??
               0
             }
             autoOpen={Boolean(conversationWithLabels.awaitingLabel)}
@@ -481,7 +586,7 @@ export function ChatPanel({
         >
           {(conversationWithLabels.pendingViewerCount ?? 0) > 0
             ? `${conversationWithLabels.pendingViewerCount} người đã xem nhưng chưa chốt — nhấn để xem ai`
-            : 'Đã xem nhưng chưa chốt — nhấn để xem ai đã mở hội thoại'}
+            : "Đã xem nhưng chưa chốt — nhấn để xem ai đã mở hội thoại"}
         </button>
       )}
 
@@ -489,7 +594,8 @@ export function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={() => {
-          if (scrollRef.current && scrollRef.current.scrollTop < 56) void loadOlder()
+          if (scrollRef.current && scrollRef.current.scrollTop < 56)
+            void loadOlder();
         }}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white"
       >
@@ -520,7 +626,7 @@ export function ChatPanel({
               </div>
             )}
             {/* Chỉ hiện thẻ QC legacy khi chưa có tin ad_referral trong thread */}
-            {!displayMessages.some((m) => m.messageType === 'ad_referral') && (
+            {!displayMessages.some((m) => m.messageType === "ad_referral") && (
               <ConversationAdBanner
                 conversation={conversationWithLabels}
                 adInsights={adInsights}
@@ -558,7 +664,8 @@ export function ChatPanel({
                 text,
                 autoTranslate: options?.autoTranslate,
                 originalText: options?.originalText,
-              })
+                file: options?.file,
+              });
             }}
             onTyping={handleTyping}
             disabled={sendMut.isPending}
@@ -568,5 +675,5 @@ export function ChatPanel({
         </>
       )}
     </div>
-  )
+  );
 }
