@@ -8,7 +8,8 @@ export default function MainLayout() {
   const location = useLocation();
   const isConversations = location.pathname.startsWith('/conversations');
   const isQuality = location.pathname.startsWith('/quality');
-  const isFullBleed = isConversations || isQuality;
+  const isInstagramComments = location.pathname.startsWith('/instagram-comments');
+  const isFullBleed = isConversations || isQuality || isInstagramComments;
 
   return (
     <AuditJobProvider>

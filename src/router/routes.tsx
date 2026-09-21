@@ -15,6 +15,9 @@ const RevenuePage = lazy(() => import("@/pages/Revenue/RevenuePage"));
 const ReportsPage = lazy(() => import("@/pages/Reports/ReportsPage"));
 const WarrantyPage = lazy(() => import("@/pages/Warranty/WarrantyPage"));
 const SettingsPage = lazy(() => import("@/pages/Settings/SettingsPage"));
+const InstagramCommentsPage = lazy(
+  () => import("@/pages/InstagramComments/InstagramCommentsPage"),
+);
 
 function lazyPage(element: ReactNode, label?: string) {
   return <Suspense fallback={<PageLoader label={label} />}>{element}</Suspense>;
@@ -26,6 +29,10 @@ export const routes = [
   { path: "/pancake-test", element: lazyPage(<PancakeTestPage />) },
   { path: "/ai-insight", element: lazyPage(<AIInsightPage />) },
   { path: "/quality", element: lazyPage(<QualityPage />) },
+  {
+    path: "/instagram-comments",
+    element: lazyPage(<InstagramCommentsPage />, "Đang tải bình luận IG..."),
+  },
   { path: "/employees", element: lazyPage(<EmployeesPage />) },
   { path: "/customers", element: lazyPage(<CustomersPage />) },
   { path: "/pages", element: lazyPage(<PagesPage />) },

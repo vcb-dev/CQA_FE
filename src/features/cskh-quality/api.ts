@@ -244,6 +244,29 @@ export interface CskhCustomerIntent {
   isStale?: boolean;
 }
 
+export type CskhIgMedia = {
+  id: string;
+  pageId: string;
+  igMediaId: string;
+  mediaType: string | null;
+  caption: string | null;
+  permalink: string | null;
+  thumbnailUrl: string | null;
+  lastCommentAt: string | null;
+};
+export type CskhIgComment = {
+  id: string;
+  pageId: string;
+  igMediaId: string;
+  igCommentId: string;
+  parentIgCommentId: string | null;
+  text: string;
+  authorUsername: string | null;
+  direction: string;
+  hidden: boolean;
+  commentedAt: string;
+};
+
 export function getCskhOAuthStartUrl(returnUrl?: string): string {
   backupAuthForOAuth();
   const base = getApiBaseUrl();
@@ -1805,6 +1828,99 @@ export async function sendInboxMessageMedia(
         },
       ],
     },
+  );
+  return data;
+}
+
+/**
+ * fetchIgCommentMedia là hàm lấy danh sách media Instagram.
+ * @param pageId ID của kênh Instagram.
+ * @param sync Nếu true, sẽ đồng bộ thông tin media từ Graph API.
+ * @returns Danh sách media Instagram.
+ */
+export async function fetchIgCommentMedia(
+  pageId: string,
+  sync?: boolean,
+): Promise<CskhIgMedia[]> {
+  const { data } = await apiClient.get<CskhIgMedia[]>(
+    "/cskh/instagram/comments/media",
+    { params: { pageId, sync: sync ? "1" : undefined } },
+  );
+  return data;
+}
+
+/**
+ * fetchIgComments là hàm lấy danh sách comment Instagram.
+ * @param pageId ID của kênh Instagram.
+ * @param mediaId ID của media Instagram.
+ * @returns Danh sách comment Instagram.
+ */
+export async function fetchIgComments(
+  pageId: string,
+  mediaId: string,
+): Promise<CskhIgComment[]> {
+  const { data } = await apiClient.get<CskhIgComment[]>(
+    "/cskh/instagram/comments",
+    { params: { pageId, mediaId } },
+  );
+  return data;
+}
+
+/**
+ * syncIgCommentsFromGraph là hàm đồng bộ thông tin comment từ Graph API.
+ * @param pageId ID của kênh Instagram.
+ * @param mediaId ID của media Instagram.
+ * @returns Số lượng comment đã đồng bộ.
+ */
+export async function syncIgCommentsFromGraph(
+  pageId: string,
+  mediaId: string,
+): Promise<{ synced: number }> {
+  const { data } = await apiClient.post<{ synced: number }>(
+    "/cskh/instagram/comments/sync",
+    {},
+    { params: { pageId, mediaId } },
+  );
+  return data;
+}
+
+/**
+ * replyIgComment là hàm trả lời comment Instagram.
+ * @param pageId ID của kênh Instagram.
+ * @param igCommentId ID của comment Instagram.
+ * @param message Nội dung trả lời.
+ * @returns Kết quả trả lời comment.
+ */
+export async function replyIgComment(
+  pageId: string,
+  igCommentId: string,
+  message: string,
+): Promise<{ ok: boolean; replyId: string | null }> {
+  const { data } = await apiClient.post<{
+    ok: boolean;
+    replyId: string | null;
+  }>(
+    `/cskh/instagram/comments/${encodeURIComponent(igCommentId)}/reply`,
+    { message },
+    { params: { pageId } },
+  );
+  return data;
+}
+
+/**
+ * hideIgComment là hàm ẩn comment Instagram.
+ * @param pageId ID của kênh Instagram.
+ * @param igCommentId ID của comment Instagram.
+ * @returns Kết quả ẩn comment.
+ */
+export async function hideIgComment(
+  pageId: string,
+  igCommentId: string,
+): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.post<{ ok: boolean }>(
+    `/cskh/instagram/comments/${encodeURIComponent(igCommentId)}/hide`,
+    {},
+    { params: { pageId } },
   );
   return data;
 }
