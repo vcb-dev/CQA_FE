@@ -11,9 +11,6 @@ const CustomersPage = lazy(() => import("@/pages/Customers/CustomersPage"));
 const PagesPage = lazy(() => import("@/pages/Pages/PagesPage"));
 const AdsPage = lazy(() => import("@/pages/Ads/AdsPage"));
 const ProductsPage = lazy(() => import("@/pages/Products/ProductsPage"));
-const RevenuePage = lazy(() => import("@/pages/Revenue/RevenuePage"));
-const ReportsPage = lazy(() => import("@/pages/Reports/ReportsPage"));
-const WarrantyPage = lazy(() => import("@/pages/Warranty/WarrantyPage"));
 const SettingsPage = lazy(() => import("@/pages/Settings/SettingsPage"));
 const InstagramCommentsPage = lazy(
   () => import("@/pages/InstagramComments/InstagramCommentsPage"),
@@ -38,8 +35,5 @@ export const routes = [
   { path: "/pages", element: lazyPage(<PagesPage />) },
   { path: "/ads", element: lazyPage(<AdsPage />) },
   { path: "/products", element: lazyPage(<ProductsPage />) },
-  { path: "/revenue", element: lazyPage(<RevenuePage />) },
-  { path: "/reports", element: lazyPage(<ReportsPage />) },
-  { path: "/warranty", element: lazyPage(<WarrantyPage />) },
   { path: "/settings", element: lazyPage(<SettingsPage />) },
 ];
