@@ -1,8 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Gauge, ChatCircleText, Brain, ShieldCheck, Users,
-  UserCircle, Globe, Megaphone, Package, CurrencyDollar,
-  ChartBar, Wrench, GearSix, Plugs, InstagramLogo,
+  UserCircle, Globe, Megaphone, Package, GearSix, Plugs, InstagramLogo,
 } from '@phosphor-icons/react';
 
 // Viên Chi Bảo flower logo — 8 petals at 45° intervals
@@ -44,9 +43,6 @@ const navItems = [
   { to: '/pages', icon: Globe, label: 'Page / Kênh' },
   { to: '/ads', icon: Megaphone, label: 'Quảng cáo' },
   { to: '/products', icon: Package, label: 'Sản phẩm' },
-  { to: '/revenue', icon: CurrencyDollar, label: 'Doanh thu Chat' },
-  { to: '/reports', icon: ChartBar, label: 'Báo cáo' },
-  { to: '/warranty', icon: Wrench, label: 'Bảo hành' },
   { to: '/settings', icon: GearSix, label: 'Cài đặt' },
 ];
 
