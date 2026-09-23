@@ -7,7 +7,11 @@ import {
 } from "@/components/custom-ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useDebounce } from "@/hooks/useDebounce";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { getApiErrorMessage } from "@/lib/axios";
 import type { InfiniteData } from "@tanstack/react-query";
 import {
@@ -19,6 +23,8 @@ import {
 import {
   ArrowLeft,
   CalendarDays,
+  Check,
+  ChevronDown,
   Inbox,
   MessageCircle,
   Radio,
@@ -189,48 +195,107 @@ function channelAllLabel(
   return `Tất cả kênh (${count})`;
 }
 
-function InboxPageSelectItems({
+function InboxChannelMultiSelect({
   pages,
   platformFilter,
   pagesLoading,
+  selectedIds,
+  onChange,
 }: {
   pages: CskhPage[];
   platformFilter: PlatformFilter;
   pagesLoading: boolean;
+  selectedIds: string[];
+  onChange: (next: string[]) => void;
 }) {
-  const count = pagesLoading ? "…" : pages.length;
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebounce(searchQuery.trim(), 450);
-  const q = debouncedSearch.toLowerCase();
-  const visiblePages = pages.filter((p) => {
+  const q = searchQuery.trim().toLowerCase();
+  const visiblePages = pages.filter((page) => {
     if (!q) return true;
-    return (p.pageName || p.pageId).toLowerCase().includes(q);
+    return (page.pageName || page.pageId).toLowerCase().includes(q);
   });
+  const allLabel = channelAllLabel(
+    platformFilter,
+    pagesLoading ? "…" : pages.length,
+  );
+  const summary =
+    selectedIds.length === 0
+      ? allLabel
+      : selectedIds.length === 1
+        ? pages.find((page) => page.pageId === selectedIds[0])?.pageName ||
+          selectedIds[0]
+        : `${selectedIds.length} kênh`;
+
+  const toggle = (pageId: string) => {
+    onChange(
+      selectedIds.includes(pageId)
+        ? selectedIds.filter((id) => id !== pageId)
+        : [...selectedIds, pageId],
+    );
+  };
 
   return (
-    <>
-      <div
-        className="px-1 pb-1"
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={pagesLoading}
+          className="flex h-8 w-[168px] items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Radio className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[240px] overflow-hidden p-0">
         <Input
           placeholder="Tìm kiếm kênh"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="rounded-none border-x-0 border-t-0 border-b border-slate-200 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-8 rounded-none rounded-t-xl border-x-0 border-t-0 border-b border-slate-200 bg-white shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
-      </div>
-      <SelectItem value="all">
-        {channelAllLabel(platformFilter, count)}
-      </SelectItem>
-      {platformFilter !== "all" &&
-        visiblePages.map((page) => (
-          <SelectItem key={page.pageId} value={page.pageId}>
-            {page.pageName || page.pageId}
-          </SelectItem>
-        ))}
-    </>
+        <div className="max-h-60 overflow-y-auto p-1">
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-semibold ${
+              selectedIds.length === 0
+                ? "bg-indigo-50 text-indigo-900"
+                : "text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-indigo-600">
+              {selectedIds.length === 0 ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : null}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{allLabel}</span>
+          </button>
+          {visiblePages.map((page) => {
+            const checked = selectedIds.includes(page.pageId);
+            return (
+              <button
+                key={page.pageId}
+                type="button"
+                onClick={() => toggle(page.pageId)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-semibold ${
+                  checked
+                    ? "bg-indigo-50 text-indigo-900"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-indigo-600">
+                  {checked ? <Check className="h-3.5 w-3.5" /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {page.pageName || page.pageId}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -247,8 +312,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [labelFilter, setLabelFilter] = useState<InboxLabelFilterValue>("all");
-  const [selectedPageId, setSelectedPageId] = useState<string | undefined>(
-    pageId,
+  const [selectedPageIds, setSelectedPageIds] = useState<string[]>(() =>
+    pageId ? [pageId] : [],
   );
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [selectedMonth, setSelectedMonth] = useState(currentInboxMonthKey);
@@ -263,18 +328,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   }, [searchQuery]);
 
   useEffect(() => {
-    setSelectedPageId(pageId);
+    setSelectedPageIds(pageId ? [pageId] : []);
   }, [pageId]);
 
   useEffect(() => {
+    if (!selectedConversation) return;
     if (
-      selectedPageId &&
-      selectedConversation &&
-      selectedConversation.pageId !== selectedPageId
+      selectedPageIds.length > 0 &&
+      !selectedPageIds.includes(selectedConversation.pageId)
     ) {
       setSelectedConversation(null);
     }
-  }, [selectedPageId, selectedConversation]);
+  }, [selectedPageIds, selectedConversation]);
 
   const bumpTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -319,17 +384,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const inboxPlatformReady = hasConnectedInbox(platformFilter);
 
-  useEffect(() => {
-    if (platformFilter === "all") {
-      if (selectedPageId) setSelectedPageId(undefined);
-      return;
-    }
-    if (!selectedPageId) return;
-    const stillVisible = filteredPages.some((p) => p.pageId === selectedPageId);
-    if (!stillVisible) setSelectedPageId(undefined);
-  }, [selectedPageId, platformFilter, filteredPages]);
-
-  const pageKey = selectedPageId ?? "all";
+  const pageKey = "all";
+  const channelScopeKey =
+    selectedPageIds.length > 0 ? [...selectedPageIds].sort().join(",") : "";
   const graphPlatform = graphPlatformParam(platformFilter);
 
   const statsQueryKey = useMemo(
@@ -341,8 +398,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         pageKey,
         platformFilter,
         selectedMonth,
+        channelScopeKey,
       ] as const,
-    [pageKey, platformFilter, selectedMonth],
+    [pageKey, platformFilter, selectedMonth, channelScopeKey],
   );
 
   useEffect(() => {
@@ -363,7 +421,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: ({ signal }) =>
       inboxPlatformReady
         ? fetchInboxConversationStats({
-            pageId: selectedPageId,
+            pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
             platform: graphPlatform,
             month: selectedMonth,
             signal,
@@ -390,7 +448,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const conversationFetchOpts = useMemo(() => {
     const base: {
-      pageId?: string;
+      pageIds?: string[];
       fromAdOnly?: boolean;
       unreadOnly?: boolean;
       organicOnly?: boolean;
@@ -400,7 +458,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       platform?: "messenger" | "instagram" | "tiktok";
       month?: string;
     } = {
-      pageId: selectedPageId,
+      pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
       platform: graphPlatform,
       month: selectedMonth,
     };
@@ -422,7 +480,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     }
     base.includeLabels = labelFilter !== "all";
     return base;
-  }, [selectedPageId, activeFilter, labelFilter, graphPlatform, selectedMonth]);
+  }, [
+    selectedPageIds,
+    platformFilter,
+    activeFilter,
+    labelFilter,
+    graphPlatform,
+    selectedMonth,
+  ]);
 
   const listQueryKey = useMemo(
     () =>
@@ -435,12 +500,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         debouncedSearch,
         labelFilter,
         platformFilter,
-        platformFilter === "all" || selectedPageId
-          ? ""
-          : filteredPages
-              .map((p) => p.pageId)
-              .sort()
-              .join(","),
+        channelScopeKey ||
+          (platformFilter === "all"
+            ? ""
+            : filteredPages
+                .map((p) => p.pageId)
+                .sort()
+                .join(",")),
         selectedMonth,
       ] as const,
     [
@@ -449,7 +515,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       debouncedSearch,
       labelFilter,
       platformFilter,
-      selectedPageId,
+      channelScopeKey,
       filteredPages,
       selectedMonth,
     ],
@@ -722,7 +788,10 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   }, [convStats]);
 
   const syncMut = useMutation({
-    mutationFn: () => syncInboxFromGraph(selectedPageId),
+    mutationFn: () =>
+      syncInboxFromGraph(
+        selectedPageIds.length === 1 ? selectedPageIds[0] : undefined,
+      ),
     onSuccess: (result) => {
       void qc.invalidateQueries({
         queryKey: ["cskh", "inbox", "conversations"],
@@ -972,35 +1041,19 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             onChange={(next) =>
               startFilterTransition(() => {
                 setPlatformFilter(next);
-                setSelectedPageId(undefined);
+                setSelectedPageIds([]);
               })
             }
           />
-          <Select
-            value={selectedPageId ?? "all"}
-            onValueChange={(val: string) =>
-              setSelectedPageId(val === "all" ? undefined : val)
+          <InboxChannelMultiSelect
+            pages={filteredPages}
+            platformFilter={platformFilter}
+            pagesLoading={pagesLoading}
+            selectedIds={selectedPageIds}
+            onChange={(next) =>
+              startFilterTransition(() => setSelectedPageIds(next))
             }
-            disabled={pagesLoading}
-          >
-            <SelectTrigger className="h-8 w-[168px] overflow-hidden whitespace-nowrap text-[11px] font-semibold rounded-lg border-slate-200 bg-white px-2.5 shadow-none">
-              <span className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-                <Radio className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                <span className="min-w-0 flex-1 truncate leading-none">
-                  <SelectValue
-                    placeholder={pagesLoading ? "Đang tải..." : "Tất cả kênh"}
-                  />
-                </span>
-              </span>
-            </SelectTrigger>
-            <SelectContent className="max-h-72 bg-white rounded-xl min-w-[240px]">
-              <InboxPageSelectItems
-                pages={filteredPages}
-                platformFilter={platformFilter}
-                pagesLoading={pagesLoading}
-              />
-            </SelectContent>
-          </Select>
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -1154,7 +1207,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             }
             isError={listError}
             emptyHint={listEmptyHint}
-            pageId={selectedPageId}
+            pageId={
+              selectedPageIds.length === 1 ? selectedPageIds[0] : undefined
+            }
             typingConversationIds={typingConversationIds}
             bumpedConversationIds={bumpedConversationIds}
             connected={connected}
