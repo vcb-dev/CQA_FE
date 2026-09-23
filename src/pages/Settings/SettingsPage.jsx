@@ -1,51 +1,29 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ArrowDown, ArrowUp, ArrowUpDown, Link2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import {
-  connectTikTokAccounts,
-  deleteCskhPage,
+  MagnifyingGlass, FloppyDisk, Sparkle, CheckCircle, CaretRight, Sliders, Play, GearSix,
+  Shield, HardDrive, ArrowsCounterClockwise, Megaphone, Package, Wrench, Brain, Key,
+  FacebookLogo, InstagramLogo, YoutubeLogo, ThreadsLogo, TiktokLogo,
+  Lightbulb, Bell, Link, ClipboardText
+} from '@phosphor-icons/react';
+import { settingsTabs, qaPrompts, qaCriteria, settingsQuickLinks } from '../../data/mockData';
+import {
   fetchCskhPages,
   getCskhOAuthStartUrl,
-  isAsyncInboxSync,
   refreshCskhOAuth,
+  connectTikTokAccounts,
   setCskhPageEnabled,
+  setCskhPageInfo,
+  deleteCskhPage,
   syncInboxFromGraph,
+  isAsyncInboxSync,
 } from "@/features/cskh-quality/api";
 import { InstagramTestPrepPanel } from "@/features/cskh-quality/InstagramTestPrepPanel";
 import PancakeChannelsPanel from "@/features/pancake-test/PancakeChannelsPanel";
 import { buildOAuthChannelReturnUrl } from "@/lib/authSession";
-import {
-  ArrowsCounterClockwise,
-  Bell,
-  Brain,
-  CaretRight,
-  CheckCircle,
-  ClipboardText,
-  FacebookLogo,
-  FloppyDisk,
-  GearSix,
-  HardDrive,
-  InstagramLogo,
-  Key,
-  Lightbulb,
-  Link,
-  Megaphone,
-  Package,
-  Play,
-  Sparkle,
-  ThreadsLogo,
-  TiktokLogo,
-  Wrench,
-  YoutubeLogo,
-} from "@phosphor-icons/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
-import {
-  qaCriteria,
-  qaPrompts,
-  settingsQuickLinks,
-  settingsTabs,
-} from "../../data/mockData";
 
 const FB_FALLBACK_IMG =
   "https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png";
@@ -53,6 +31,156 @@ const IG_FALLBACK_IMG =
   "https://www.instagram.com/static/images/ico/favicon-192.png";
 const TT_FALLBACK_IMG =
   "https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/8152caf0c8e8bc67ae0d.png";
+
+/** 1 hàng bảng kênh — team/người quản lý/khu vực nhập tay, nút Lưu gộp cạnh Xóa ở cột Hành động. */
+function ChannelPageRow({ page, fallbackImg, onToggle, onDelete, onUpdateInfo }) {
+  const [team, setTeam] = useState(page.team || '');
+  const [managerName, setManagerName] = useState(page.managerName || '');
+  const [region, setRegion] = useState(page.region || '');
+
+  useEffect(() => {
+    setTeam(page.team || '');
+    setManagerName(page.managerName || '');
+    setRegion(page.region || '');
+  }, [page.team, page.managerName, page.region]);
+
+  const dirty =
+    team.trim() !== (page.team || '') ||
+    managerName.trim() !== (page.managerName || '') ||
+    region.trim() !== (page.region || '');
+
+  const inputStyle = {
+    width: '100%',
+    padding: '4px 6px',
+    fontSize: '11.5px',
+    color: '#374151',
+    border: '1px solid #e5e7eb',
+    borderRadius: '4px',
+  };
+
+  return (
+    <tr style={{ height: '54px' }}>
+      <td>
+        <img
+          src={page.pagePictureUrl || fallbackImg}
+          alt={page.pageName || ''}
+          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+          onError={(e) => {
+            e.target.src = fallbackImg;
+          }}
+        />
+      </td>
+      <td>
+        <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>
+          {page.pageName || 'Không có tên'}
+        </div>
+      </td>
+      <td style={{ fontSize: '11.5px', color: '#6b7280', fontFamily: 'monospace' }}>
+        {page.pageId}
+      </td>
+      <td style={{ width: '96px' }}>
+        <input type="text" value={team} placeholder="—" onChange={(e) => setTeam(e.target.value)} style={inputStyle} />
+      </td>
+      <td style={{ width: '110px' }}>
+        <input type="text" value={managerName} placeholder="—" onChange={(e) => setManagerName(e.target.value)} style={inputStyle} />
+      </td>
+      <td style={{ width: '96px' }}>
+        <input type="text" value={region} placeholder="—" onChange={(e) => setRegion(e.target.value)} style={inputStyle} />
+      </td>
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="checkbox"
+            checked={page.enabled}
+            onChange={(e) => onToggle(page.pageId, e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: '12px', color: page.enabled ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
+            {page.enabled ? 'Đang hoạt động' : 'Tạm dừng'}
+          </span>
+        </div>
+      </td>
+      <td style={{ textAlign: 'right' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() =>
+              onUpdateInfo(page.pageId, { team: team.trim(), managerName: managerName.trim(), region: region.trim() })
+            }
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: `1px solid ${dirty ? '#c7d2fe' : '#e5e7eb'}`,
+              background: dirty ? '#eef2ff' : '#f9fafb',
+              color: dirty ? '#4338ca' : '#9ca3af',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: dirty ? 'pointer' : 'default',
+            }}
+          >
+            Lưu
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Bạn có chắc muốn xóa ${page.pageName || page.pageId} khỏi hệ thống?`)) {
+                onDelete(page.pageId);
+              }
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #fee2e2',
+              background: '#fef2f2',
+              color: '#dc2626',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Xóa
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const CHANNEL_PAGE_SIZE = 10;
+const selectStyle = {
+  padding: '7px 8px',
+  fontSize: '12px',
+  border: '1px solid #e5e7eb',
+  borderRadius: '6px',
+  color: '#374151',
+  background: '#fff',
+  minWidth: '120px',
+};
+
+/** Header bấm được để sắp theo Team/Người quản lý/Khu vực — cùng kiểu mũi tên với bảng Phân quyền. */
+function SortableChannelHeader({ field, label, width, sortBy, sortDir, onSort }) {
+  const active = sortBy === field;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      title={`Bấm để sắp theo ${label}`}
+      style={{ width, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: active ? '#4f46e5' : 'inherit' }}>
+        {label}
+        {active ? (
+          sortDir === 'asc' ? (
+            <ArrowUp size={12} style={{ color: '#4f46e5' }} />
+          ) : (
+            <ArrowDown size={12} style={{ color: '#4f46e5' }} />
+          )
+        ) : (
+          <ArrowUpDown size={12} style={{ opacity: 0.5 }} />
+        )}
+      </span>
+    </th>
+  );
+}
 
 function ChannelPagesTable({
   pages,
@@ -63,7 +191,72 @@ function ChannelPagesTable({
   emptyText,
   onToggle,
   onDelete,
+  onUpdateInfo,
+  search = '',
+  teamFilter = '',
+  managerFilter = '',
+  regionFilter = '',
+  statusFilter = '',
 }) {
+  const [page, setPage] = useState(1);
+  // sortBy: null (giữ thứ tự BE trả — enabled trước, tên A-Z) hoặc 'team'/'managerName'/'region'.
+  const [sortBy, setSortBy] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+
+  const toggleSort = (field) => {
+    if (sortBy !== field) {
+      setSortBy(field);
+      setSortDir('asc');
+    } else {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return pages.filter((p) => {
+      if (
+        q &&
+        !(p.pageName || '').toLowerCase().includes(q) &&
+        !(p.pageId || '').toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      if (teamFilter && (p.team || '') !== teamFilter) return false;
+      if (managerFilter && (p.managerName || '') !== managerFilter) return false;
+      if (regionFilter && (p.region || '') !== regionFilter) return false;
+      if (statusFilter === 'active' && !p.enabled) return false;
+      if (statusFilter === 'inactive' && p.enabled) return false;
+      return true;
+    });
+  }, [pages, search, teamFilter, managerFilter, regionFilter, statusFilter]);
+
+  // Kênh chưa gắn Team/Người quản lý/Khu vực (rỗng) luôn rớt xuống cuối, dù sort chiều nào.
+  const sorted = useMemo(() => {
+    if (!sortBy) return filtered;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = (a[sortBy] || '').trim();
+      const bv = (b[sortBy] || '').trim();
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv, 'vi') * dir;
+    });
+  }, [filtered, sortBy, sortDir]);
+
+  // Đổi bộ lọc/tìm kiếm (dùng chung), sắp xếp, hoặc số kênh thay đổi (thêm/xóa) → về lại trang 1.
+  useEffect(() => {
+    setPage(1);
+  }, [search, teamFilter, managerFilter, regionFilter, statusFilter, sortBy, sortDir, pages.length]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / CHANNEL_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = sorted.slice(
+    (currentPage - 1) * CHANNEL_PAGE_SIZE,
+    currentPage * CHANNEL_PAGE_SIZE
+  );
+
   if (busy) {
     return (
       <div
@@ -108,112 +301,82 @@ function ChannelPagesTable({
     );
   }
   return (
-    <div
-      style={{
-        overflow: "auto",
-        border: "1px solid #e5e7eb",
-        borderRadius: "8px",
-      }}
-    >
-      <table className="data-table" style={{ margin: 0 }}>
-        <thead>
-          <tr>
-            <th>Hình ảnh</th>
-            <th>{nameHeader}</th>
-            <th>ID kênh</th>
-            <th>Trạng thái hoạt động</th>
-            <th style={{ textAlign: "right" }}>Hành động</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pages.map((page) => (
-            <tr key={page.pageId}>
-              <td>
-                <img
-                  src={page.pagePictureUrl || fallbackImg}
-                  alt={page.pageName || ""}
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    border: "1px solid #e5e7eb",
-                  }}
-                  onError={(e) => {
-                    e.target.src = fallbackImg;
-                  }}
-                />
-              </td>
-              <td>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    fontSize: "12.5px",
-                    color: "#1f2937",
-                  }}
-                >
-                  {page.pageName || "Không có tên"}
-                </div>
-              </td>
-              <td
-                style={{
-                  fontSize: "11.5px",
-                  color: "#6b7280",
-                  fontFamily: "monospace",
-                }}
-              >
-                {page.pageId}
-              </td>
-              <td>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={page.enabled}
-                    onChange={(e) => onToggle(page.pageId, e.target.checked)}
-                    style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      color: page.enabled ? "#16a34a" : "#6b7280",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {page.enabled ? "Đang hoạt động" : "Tạm dừng"}
-                  </span>
-                </div>
-              </td>
-              <td style={{ textAlign: "right" }}>
-                <button
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Bạn có chắc muốn xóa ${page.pageName || page.pageId} khỏi hệ thống?`,
-                      )
-                    ) {
-                      onDelete(page.pageId);
-                    }
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid #fee2e2",
-                    background: "#fef2f2",
-                    color: "#dc2626",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Xóa
-                </button>
-              </td>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {filtered.length !== pages.length && (
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: '11.5px', color: '#6b7280' }}>
+            {filtered.length}/{pages.length} kênh khớp bộ lọc
+          </span>
+        </div>
+      )}
+
+      <div style={{ overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+        <table className="data-table" style={{ margin: 0 }}>
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>{nameHeader}</th>
+              <th>ID kênh</th>
+              <SortableChannelHeader field="team" label="Team" width="96px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableChannelHeader field="managerName" label="Người quản lý" width="110px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableChannelHeader field="region" label="Khu vực" width="96px" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <th>Trạng thái hoạt động</th>
+              <th style={{ textAlign: 'right' }}>Hành động</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageRows.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                  Không tìm thấy kênh nào khớp bộ lọc.
+                </td>
+              </tr>
+            )}
+            {pageRows.map((page) => (
+              <ChannelPageRow
+                key={page.pageId}
+                page={page}
+                fallbackImg={fallbackImg}
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onUpdateInfo={onUpdateInfo}
+              />
+            ))}
+            {/* Trang cuối ít hàng hơn vẫn giữ đủ chiều cao — 1 khối trắng liền, không kẻ viền như hàng thật,
+                để không nhìn như "hàng rỗng" nhưng nút phân trang/khối bên dưới tuyệt đối không xê dịch. */}
+            {totalPages > 1 && pageRows.length < CHANNEL_PAGE_SIZE && (
+              <tr aria-hidden="true">
+                <td
+                  colSpan={8}
+                  style={{ height: `${(CHANNEL_PAGE_SIZE - pageRows.length) * 54}px`, padding: 0, border: 'none' }}
+                />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: currentPage <= 1 ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Trước
+          </button>
+          <span style={{ fontSize: '11.5px', color: '#4b5563', minWidth: '78px', textAlign: 'center' }}>
+            Trang {currentPage}/{totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: currentPage >= totalPages ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
+          >
+            Sau
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -275,6 +438,19 @@ Các tiêu chí cần đánh giá:
       toast.error("Lỗi khi cập nhật trạng thái trang: " + (err.message || err));
     },
   });
+
+  // Gắn nhãn team/người quản lý/khu vực — nhập tay, không liên kết bảng nào khác
+  const updateInfoMutation = useMutation({
+    mutationFn: ({ pageId, data }) => setCskhPageInfo(pageId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cskh', 'pages'] });
+      toast.success('Đã lưu thông tin kênh!');
+    },
+    onError: (err) => {
+      toast.error('Lỗi khi cập nhật thông tin kênh: ' + (err.message || err));
+    }
+  });
+  const handleUpdatePageInfo = (pageId, data) => updateInfoMutation.mutate({ pageId, data });
 
   // Delete page
   const deleteMutation = useMutation({
@@ -348,6 +524,43 @@ Các tiêu chí cần đánh giá:
   const igPages = allChannelPages.filter((p) => p.platform === "instagram");
   const ttPages = allChannelPages.filter((p) => p.platform === "tiktok");
   const tiktokConnected = ttPages.length > 0;
+
+  // Bộ lọc/tìm kiếm kênh — dùng chung cho cả 5 bảng (FB/IG/TikTok/Threads/YouTube),
+  // để lọc theo Team/Người quản lý vẫn thấy đủ kênh của team đó dù khác nền tảng.
+  const [channelSearch, setChannelSearch] = useState('');
+  const [channelTeamFilter, setChannelTeamFilter] = useState('');
+  const [channelManagerFilter, setChannelManagerFilter] = useState('');
+  const [channelRegionFilter, setChannelRegionFilter] = useState('');
+  const [channelStatusFilter, setChannelStatusFilter] = useState('');
+  const channelTeamOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.team).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const channelManagerOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.managerName).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const channelRegionOptions = useMemo(
+    () => Array.from(new Set(allChannelPages.map((p) => p.region).filter(Boolean))).sort(),
+    [allChannelPages]
+  );
+  const hasChannelFilter = Boolean(
+    channelSearch || channelTeamFilter || channelManagerFilter || channelRegionFilter || channelStatusFilter
+  );
+  const clearChannelFilters = () => {
+    setChannelSearch('');
+    setChannelTeamFilter('');
+    setChannelManagerFilter('');
+    setChannelRegionFilter('');
+    setChannelStatusFilter('');
+  };
+  const channelFilterProps = {
+    search: channelSearch,
+    teamFilter: channelTeamFilter,
+    managerFilter: channelManagerFilter,
+    regionFilter: channelRegionFilter,
+    statusFilter: channelStatusFilter,
+  };
 
   const tiktokConnectMutation = useMutation({
     mutationFn: () => connectTikTokAccounts(),
@@ -1139,835 +1352,481 @@ Các tiêu chí cần đánh giá:
             }}
           >
             {isLoadingPages && !pagesData ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "64px 24px",
-                  gap: "12px",
-                  color: "#6b7280",
-                }}
-              >
-                <Loader2
-                  size={32}
-                  className="animate-spin"
-                  style={{ color: "#4f46e5" }}
-                />
-                <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                  Đang tải cấu hình kênh...
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', gap: '12px', color: '#6b7280' }}>
+                <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5' }} />
+                <span style={{ fontSize: '13px', fontWeight: 500 }}>Đang tải cấu hình kênh...</span>
               </div>
             ) : (
-              <>
-                <InstagramTestPrepPanel />
-                <div
-                  style={{
-                    borderBottom: "1px solid #f3f4f6",
-                    paddingBottom: "8px",
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: 700,
-                      color: "#111827",
-                    }}
-                  >
-                    Cấu hình Kênh Kết nối
-                  </h3>
-                  <p style={{ fontSize: "11px", color: "#6b7280" }}>
-                    Kết nối Meta (Facebook/Instagram) và TikTok for Business
-                    riêng. Threads và YouTube chưa bật OAuth.
-                  </p>
+            <>
+            <InstagramTestPrepPanel />
+            <div style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Cấu hình Kênh Kết nối</h3>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>
+                Kết nối Meta (Facebook/Instagram) và TikTok for Business riêng. Threads và YouTube chưa bật OAuth.
+              </p>
+            </div>
+
+            {/* Tìm/lọc dùng chung cho cả 5 bảng bên dưới — nổi (sticky) khi cuộn để không phải kéo lên đổi lọc */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px' }}>
+                <MagnifyingGlass
+                  size={14}
+                  style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}
+                />
+                <input
+                  value={channelSearch}
+                  onChange={(e) => setChannelSearch(e.target.value)}
+                  placeholder="Tìm theo tên hoặc ID kênh (mọi nền tảng)..."
+                  style={{ width: '100%', padding: '7px 10px 7px 28px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', color: '#374151' }}
+                />
+              </div>
+              <select value={channelTeamFilter} onChange={(e) => setChannelTeamFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả Team</option>
+                {channelTeamOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <select value={channelManagerFilter} onChange={(e) => setChannelManagerFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả người quản lý</option>
+                {channelManagerOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select value={channelRegionFilter} onChange={(e) => setChannelRegionFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả khu vực</option>
+                {channelRegionOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <select value={channelStatusFilter} onChange={(e) => setChannelStatusFilter(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Tạm dừng</option>
+              </select>
+              <button
+                type="button"
+                onClick={clearChannelFilters}
+                disabled={!hasChannelFilter}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb',
+                  background: '#fff',
+                  color: hasChannelFilter ? '#dc2626' : '#d1d5db',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: hasChannelFilter ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Xóa lọc
+              </button>
+            </div>
+
+            {/* ===== Kênh từ Facebook ===== */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FacebookLogo size={18} weight="fill" style={{ color: '#1877f2' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                    Tài khoản Meta
+                  </h4>
                 </div>
-
-                {/* ===== Kênh từ Facebook ===== */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <FacebookLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#1877f2" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        Tài khoản Meta
-                      </h4>
-                    </div>
-                    {pagesData?.oauthConnected && (
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button
-                          onClick={() => refreshMutation.mutate()}
-                          disabled={isRefreshing}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            background: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            color: "#374151",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <RefreshCw
-                            size={12}
-                            className={isRefreshing ? "animate-spin" : ""}
-                          />
-                          Đồng bộ lại Pages
-                        </button>
-
-                        <button
-                          onClick={() => syncMutation.mutate(undefined)}
-                          disabled={isSyncing}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            background: "#4f46e5",
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <RefreshCw
-                            size={12}
-                            className={isSyncing ? "animate-spin" : ""}
-                          />
-                          Đồng bộ tin nhắn
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      background: pagesData?.oauthConnected
-                        ? "#f0fdf4"
-                        : "#f9fafb",
-                      border: pagesData?.oauthConnected
-                        ? "1px solid #dcfce7"
-                        : "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
+                {pagesData?.oauthConnected && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => refreshMutation.mutate()}
+                      disabled={isRefreshing}
+                      style={{ 
+                        padding: '6px 12px', 
+                        borderRadius: '6px', 
+                        fontSize: '12px', 
+                        fontWeight: 600, 
+                        background: '#f9fafb', 
+                        border: '1px solid #e5e7eb', 
+                        color: '#374151',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        cursor: 'pointer' 
                       }}
                     >
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          background: pagesData?.oauthConnected
-                            ? "#1877f2"
-                            : "#e5e7eb",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <FacebookLogo
-                          size={20}
-                          weight={
-                            pagesData?.oauthConnected ? "fill" : "regular"
-                          }
-                        />
-                      </div>
-                      <div>
-                        <h4
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 700,
-                            color: "#1f2937",
-                          }}
-                        >
-                          {pagesData?.oauthConnected
-                            ? `Tài khoản Facebook: ${pagesData.oauthUser}`
-                            : "Chưa kết nối tài khoản Facebook"}
-                        </h4>
-                        <p
-                          style={{
-                            fontSize: "11px",
-                            color: "#6b7280",
-                            marginTop: "2px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          {isPagesBusy ? (
-                            <>
-                              <Loader2
-                                size={12}
-                                className="animate-spin"
-                                style={{ color: "#4f46e5" }}
-                              />
-                              Đang cập nhật thông tin kết nối...
-                            </>
-                          ) : pagesData?.oauthConnected ? (
-                            `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString("vi-VN") : "Chưa rõ"}`
-                          ) : (
-                            "Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn."
-                          )}
-                        </p>
-                        {pagesData?.oauthConnected && !isPagesBusy && (
-                          <>
-                            <p
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                marginTop: "6px",
-                                color:
-                                  pagesData.adAccountCount === undefined
-                                    ? "#6b7280"
-                                    : pagesData.adsReadConnected
-                                      ? "#15803d"
-                                      : "#b45309",
-                              }}
-                            >
-                              {pagesData.adAccountCount === undefined
-                                ? "Trạng thái Marketing API: cần cập nhật server mới"
-                                : pagesData.adsReadConnected
-                                  ? `✓ Marketing API: ${pagesData.adAccountCount} tài khoản QC (Ads Manager)`
-                                  : "⚠ Chưa thấy tài khoản QC — OAuth bằng admin trên Business Manager"}
-                            </p>
-                            {pagesData.adsReadConnected &&
-                              pagesData.adAccountCount != null && (
-                                <p
-                                  style={{
-                                    fontSize: "10px",
-                                    color: "#9ca3af",
-                                    marginTop: "4px",
-                                    lineHeight: 1.45,
-                                    maxWidth: "420px",
-                                  }}
-                                >
-                                  Đây là số{" "}
-                                  <strong>tài khoản chi tiêu QC</strong> trên
-                                  Ads Manager — <strong>không phải</strong> số
-                                  Fanpage đang chạy quảng cáo. Nhiều Page có thể
-                                  chạy QC qua chung một tài khoản; bạn đang quản
-                                  lý <strong>{fbPages.length} Fanpage</strong>{" "}
-                                  bên dưới.
-                                </p>
-                              )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        window.location.href = getCskhOAuthStartUrl(
-                          buildOAuthChannelReturnUrl(),
-                        );
-                      }}
-                      style={{
-                        padding: "8px 16px",
-                        borderRadius: "6px",
-                        fontSize: "12.5px",
-                        fontWeight: 600,
-                        background: "#1877f2",
-                        color: "#fff",
-                        border: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: "pointer",
+                      <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                      Đồng bộ lại Pages
+                    </button>
+                    
+                    <button 
+                      onClick={() => syncMutation.mutate(undefined)}
+                      disabled={isSyncing}
+                      style={{ 
+                        padding: '6px 12px', 
+                        borderRadius: '6px', 
+                        fontSize: '12px', 
+                        fontWeight: 600, 
+                        background: '#4f46e5', 
+                        color: '#fff',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        cursor: 'pointer' 
                       }}
                     >
-                      <Link2 size={14} />
-                      {pagesData?.oauthConnected
-                        ? "Cập nhật kết nối Facebook"
-                        : "Kết nối tài khoản Facebook"}
+                      <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                      Đồng bộ tin nhắn
                     </button>
                   </div>
+                )}
+              </div>
 
-                  {isOAuthSyncing && (
-                    <div
-                      style={{
-                        background: "#eff6ff",
-                        border: "1px solid #bfdbfe",
-                        borderRadius: "8px",
-                        padding: "12px 14px",
-                        fontSize: "11px",
-                        color: "#1d4ed8",
-                        lineHeight: 1.5,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <Loader2
-                        size={14}
-                        className="animate-spin"
-                        style={{ flexShrink: 0 }}
-                      />
-                      <span>
-                        <strong>Đang đồng bộ Fanpage từ Facebook...</strong> Bạn
-                        có thể dùng hệ thống ngay; danh sách Page sẽ cập nhật tự
-                        động trong vài giây.
-                      </span>
-                    </div>
+            <div style={{ 
+              background: pagesData?.oauthConnected ? '#f0fdf4' : '#f9fafb', 
+              border: pagesData?.oauthConnected ? '1px solid #dcfce7' : '1px solid #e5e7eb',
+              borderRadius: '8px', 
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '50%', 
+                  background: pagesData?.oauthConnected ? '#1877f2' : '#e5e7eb', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#fff',
+                  flexShrink: 0
+                }}>
+                  <FacebookLogo size={20} weight={pagesData?.oauthConnected ? 'fill' : 'regular'} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
+                    {pagesData?.oauthConnected ? `Tài khoản Facebook: ${pagesData.oauthUser}` : 'Chưa kết nối tài khoản Facebook'}
+                  </h4>
+                  <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    {isPagesBusy ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" style={{ color: '#4f46e5' }} />
+                        Đang cập nhật thông tin kết nối...
+                      </>
+                    ) : pagesData?.oauthConnected 
+                      ? `Kết nối hoạt động. Đồng bộ cuối: ${pagesData.oauthUpdatedAt ? new Date(pagesData.oauthUpdatedAt).toLocaleString('vi-VN') : 'Chưa rõ'}`
+                      : 'Kết nối Facebook để đồng bộ tin nhắn từ Fanpage của bạn.'}
+                  </p>
+                  {pagesData?.oauthConnected && !isPagesBusy && (
+                    <>
+                      <p style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        marginTop: '6px',
+                        color: pagesData.adAccountCount === undefined
+                          ? '#6b7280'
+                          : pagesData.adsReadConnected
+                            ? '#15803d'
+                            : '#b45309',
+                      }}>
+                        {pagesData.adAccountCount === undefined
+                          ? 'Trạng thái Marketing API: cần cập nhật server mới'
+                          : pagesData.adsReadConnected
+                            ? `✓ Marketing API: ${pagesData.adAccountCount} tài khoản QC (Ads Manager)`
+                            : '⚠ Chưa thấy tài khoản QC — OAuth bằng admin trên Business Manager'}
+                      </p>
+                      {pagesData.adsReadConnected && pagesData.adAccountCount != null && (
+                        <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', lineHeight: 1.45, maxWidth: '420px' }}>
+                          Đây là số <strong>tài khoản chi tiêu QC</strong> trên Ads Manager —{' '}
+                          <strong>không phải</strong> số Fanpage đang chạy quảng cáo.
+                          Nhiều Page có thể chạy QC qua chung một tài khoản; bạn đang quản lý{' '}
+                          <strong>{fbPages.length} Fanpage</strong> bên dưới.
+                        </p>
+                      )}
+                    </>
                   )}
-
-                  {pagesData?.oauthSyncStatus === "failed" &&
-                    pagesData?.oauthSyncError && (
-                      <div
-                        style={{
-                          background: "#fef2f2",
-                          border: "1px solid #fecaca",
-                          borderRadius: "8px",
-                          padding: "12px 14px",
-                          fontSize: "11px",
-                          color: "#b91c1c",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <strong>Đồng bộ Page thất bại:</strong>{" "}
-                        {pagesData.oauthSyncError}
-                      </div>
-                    )}
-
-                  {pagesData?.oauthConnected &&
-                    pagesData.adsReadConnected === false && (
-                      <div
-                        style={{
-                          background: "#fffbeb",
-                          border: "1px solid #fde68a",
-                          borderRadius: "8px",
-                          padding: "12px 14px",
-                          fontSize: "11px",
-                          color: "#92400e",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <strong>Chưa kết nối Marketing API:</strong> Facebook
-                        Page đã kết nối nhưng hệ thống không thấy tài khoản
-                        quảng cáo. Bấm{" "}
-                        <strong>Cập nhật kết nối Facebook</strong> và đăng nhập
-                        bằng tài khoản <strong>admin tài khoản QC</strong> trên
-                        Business Manager (không phải nút &quot;Đồng bộ lại
-                        Pages&quot;).
-                      </div>
-                    )}
                 </div>
+              </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: "#111827",
-                    }}
-                  >
-                    Kênh theo nền tảng
-                  </div>
+              <button 
+                onClick={() => {
+                  window.location.href = getCskhOAuthStartUrl(buildOAuthChannelReturnUrl());
+                }}
+                style={{ 
+                  padding: '8px 16px', 
+                  borderRadius: '6px', 
+                  fontSize: '12.5px', 
+                  fontWeight: 600, 
+                  background: '#1877f2', 
+                  color: '#fff',
+                  border: 'none',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  cursor: 'pointer' 
+                }}
+              >
+                <Link2 size={14} />
+                {pagesData?.oauthConnected ? 'Cập nhật kết nối Facebook' : 'Kết nối tài khoản Facebook'}
+              </button>
+            </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      padding: "14px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <FacebookLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#1877f2" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        Facebook
-                      </h4>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#6b7280",
-                          background: "#f3f4f6",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {fbPages.length} kênh
-                      </span>
-                    </div>
-                    <ChannelPagesTable
-                      pages={fbPages}
-                      nameHeader="Tên Trang / Fanpage"
-                      fallbackImg={FB_FALLBACK_IMG}
-                      busy={isPagesBusy}
-                      busyText={
-                        isRefreshing
-                          ? "Đang đồng bộ lại danh sách trang..."
-                          : "Đang tải danh sách trang..."
-                      }
-                      emptyText={
-                        pagesData?.oauthConnected
-                          ? "Không tìm thấy Fanpage nào. Kiểm tra lại quyền truy cập Facebook."
-                          : "Kết nối tài khoản Facebook để lấy Fanpage vào mục này."
-                      }
-                      onToggle={(pageId, enabled) =>
-                        toggleMutation.mutate({ pageId, enabled })
-                      }
-                      onDelete={(pageId) => deleteMutation.mutate(pageId)}
-                    />
-                  </div>
+            {isOAuthSyncing && (
+              <div style={{
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#1d4ed8',
+                lineHeight: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <Loader2 size={14} className="animate-spin" style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>Đang đồng bộ Fanpage từ Facebook...</strong> Bạn có thể dùng hệ thống ngay;
+                  danh sách Page sẽ cập nhật tự động trong vài giây.
+                </span>
+              </div>
+            )}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      padding: "14px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <InstagramLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#e1306c" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        Instagram
-                      </h4>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#6b7280",
-                          background: "#f3f4f6",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {igPages.length} kênh
-                      </span>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#6b7280",
-                        margin: 0,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Instagram Professional gắn vào Fanpage trên Meta. Sau đó
-                      bấm <strong>Cập nhật kết nối Facebook</strong> để cấp
-                      quyền tin nhắn.
-                    </p>
-                    <ChannelPagesTable
-                      pages={igPages}
-                      nameHeader="Tên Instagram"
-                      fallbackImg={IG_FALLBACK_IMG}
-                      busy={isPagesBusy}
-                      busyText="Đang tải kênh Instagram..."
-                      emptyText={
-                        pagesData?.oauthConnected
-                          ? "Chưa thấy Instagram nào. Gắn Instagram Professional vào Fanpage (Meta Business Suite), rồi Cập nhật kết nối Facebook."
-                          : "Kết nối Facebook trước, rồi gắn Instagram Professional vào Fanpage."
-                      }
-                      onToggle={(pageId, enabled) =>
-                        toggleMutation.mutate({ pageId, enabled })
-                      }
-                      onDelete={(pageId) => deleteMutation.mutate(pageId)}
-                    />
-                  </div>
+            {pagesData?.oauthSyncStatus === 'failed' && pagesData?.oauthSyncError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#b91c1c',
+                lineHeight: 1.5,
+              }}>
+                <strong>Đồng bộ Page thất bại:</strong> {pagesData.oauthSyncError}
+              </div>
+            )}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      padding: "14px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <TiktokLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#111827" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        TikTok
-                      </h4>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#6b7280",
-                          background: "#f3f4f6",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {ttPages.length} kênh
-                      </span>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#6b7280",
-                        margin: 0,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Scope <strong>TikTok Accounts</strong> — lấy kênh TikTok
-                      Business đã gắn Business Center vào CRM. Chat (Business
-                      Messaging) xin riêng sau khi list kênh xong.
-                    </p>
-                    <div
-                      style={{
-                        background: tiktokConnected ? "#f0fdf4" : "#f9fafb",
-                        border: tiktokConnected
-                          ? "1px solid #dcfce7"
-                          : "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        padding: "14px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            background: tiktokConnected ? "#111827" : "#e5e7eb",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#fff",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <TiktokLogo size={20} weight="fill" />
-                        </div>
-                        <div>
-                          <h4
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 700,
-                              color: "#1f2937",
-                              margin: 0,
-                            }}
-                          >
-                            {tiktokConnected
-                              ? `TikTok Business Center · ${ttPages.length} kênh`
-                              : "Chưa kết nối TikTok for Business"}
-                          </h4>
-                          <p
-                            style={{
-                              fontSize: "11px",
-                              color: "#6b7280",
-                              margin: "2px 0 0",
-                            }}
-                          >
-                            {isTikTokConnecting
-                              ? "Đang xác thực TikTok Accounts và lấy danh sách kênh từ BC…"
-                              : tiktokConnected
-                                ? "Đã ủy quyền. Danh sách bên dưới là TikTok account gắn Business Center."
-                                : "Bấm kết nối để ủy quyền TikTok Accounts và kéo kênh vào CRM."}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isTikTokConnecting}
-                        onClick={() => tiktokConnectMutation.mutate()}
-                        style={{
-                          padding: "8px 16px",
-                          borderRadius: "6px",
-                          fontSize: "12.5px",
-                          fontWeight: 600,
-                          background: "#111827",
-                          color: "#fff",
-                          border: "none",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          cursor: isTikTokConnecting ? "wait" : "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {isTikTokConnecting ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Link2 size={14} />
-                        )}
-                        {tiktokConnected
-                          ? "Cập nhật kết nối TikTok"
-                          : "Kết nối TikTok for Business"}
-                      </button>
-                    </div>
-                    <ChannelPagesTable
-                      pages={ttPages}
-                      nameHeader="Tên kênh TikTok"
-                      fallbackImg={TT_FALLBACK_IMG}
-                      busy={isTikTokConnecting}
-                      busyText="Đang lấy kênh TikTok từ Business Center..."
-                      emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Accounts API."
-                      onToggle={(pageId, enabled) =>
-                        toggleMutation.mutate({ pageId, enabled })
-                      }
-                      onDelete={(pageId) => deleteMutation.mutate(pageId)}
-                    />
-                  </div>
+            {pagesData?.oauthConnected && pagesData.adsReadConnected === false && (
+              <div style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '11px',
+                color: '#92400e',
+                lineHeight: 1.5,
+              }}>
+                <strong>Chưa kết nối Marketing API:</strong> Facebook Page đã kết nối nhưng hệ thống không thấy tài khoản quảng cáo.
+                Bấm <strong>Cập nhật kết nối Facebook</strong> và đăng nhập bằng tài khoản <strong>admin tài khoản QC</strong> trên Business Manager
+                (không phải nút &quot;Đồng bộ lại Pages&quot;).
+              </div>
+            )}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      padding: "14px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <ThreadsLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#111827" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        Threads
-                      </h4>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#6b7280",
-                          background: "#f3f4f6",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        0 kênh
-                      </span>
-                    </div>
-                    <ChannelPagesTable
-                      pages={[]}
-                      nameHeader="Tên Threads"
-                      fallbackImg={IG_FALLBACK_IMG}
-                      busy={false}
-                      busyText=""
-                      emptyText="Chưa kết nối Threads. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
-                      onToggle={() => {}}
-                      onDelete={() => {}}
-                    />
-                  </div>
+            </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      padding: "14px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <YoutubeLogo
-                        size={18}
-                        weight="fill"
-                        style={{ color: "#ff0000" }}
-                      />
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        YouTube
-                      </h4>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#6b7280",
-                          background: "#f3f4f6",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        0 kênh
-                      </span>
-                    </div>
-                    <ChannelPagesTable
-                      pages={[]}
-                      nameHeader="Tên kênh"
-                      fallbackImg="https://www.youtube.com/s/desktop/favicon.ico"
-                      busy={false}
-                      busyText=""
-                      emptyText="Chưa kết nối YouTube. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
-                      onToggle={() => {}}
-                      onDelete={() => {}}
-                    />
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                Kênh theo nền tảng
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FacebookLogo size={18} weight="fill" style={{ color: '#1877f2' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Facebook</h4>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>
+                    {fbPages.length} kênh
+                  </span>
                 </div>
+                <ChannelPagesTable
+                  {...channelFilterProps}
+                  pages={fbPages}
+                  nameHeader="Tên Trang / Fanpage"
+                  fallbackImg={FB_FALLBACK_IMG}
+                  busy={isPagesBusy}
+                  busyText={isRefreshing ? 'Đang đồng bộ lại danh sách trang...' : 'Đang tải danh sách trang...'}
+                  emptyText={pagesData?.oauthConnected
+                    ? 'Không tìm thấy Fanpage nào. Kiểm tra lại quyền truy cập Facebook.'
+                    : 'Kết nối tài khoản Facebook để lấy Fanpage vào mục này.'}
+                  onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
+                  onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
+                />
+              </div>
 
-                {/* ===== Kênh từ Pancake ===== */}
-                <div
-                  style={{
-                    borderTop: "1px solid #f3f4f6",
-                    paddingTop: 16,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                  }}
-                >
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 8,
-                        background: "#4f46e5",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        fontSize: 11,
-                        fontWeight: 800,
-                      }}
-                    >
-                      P
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <InstagramLogo size={18} weight="fill" style={{ color: '#e1306c' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Instagram</h4>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>
+                    {igPages.length} kênh
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+                  Instagram Professional gắn vào Fanpage trên Meta. Sau đó bấm <strong>Cập nhật kết nối Facebook</strong> để cấp quyền tin nhắn.
+                </p>
+                <ChannelPagesTable
+                  {...channelFilterProps}
+                  pages={igPages}
+                  nameHeader="Tên Instagram"
+                  fallbackImg={IG_FALLBACK_IMG}
+                  busy={isPagesBusy}
+                  busyText="Đang tải kênh Instagram..."
+                  emptyText={pagesData?.oauthConnected
+                    ? 'Chưa thấy Instagram nào. Gắn Instagram Professional vào Fanpage (Meta Business Suite), rồi Cập nhật kết nối Facebook.'
+                    : 'Kết nối Facebook trước, rồi gắn Instagram Professional vào Fanpage.'}
+                  onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
+                  onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <TiktokLogo size={18} weight="fill" style={{ color: '#111827' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>TikTok</h4>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>
+                    {ttPages.length} kênh
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+                  Scope <strong>TikTok Accounts</strong> — lấy kênh TikTok Business đã gắn Business Center vào CRM.
+                  Chat (Business Messaging) xin riêng sau khi list kênh xong.
+                </p>
+                <div style={{
+                  background: tiktokConnected ? '#f0fdf4' : '#f9fafb',
+                  border: tiktokConnected ? '1px solid #dcfce7' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: tiktokConnected ? '#111827' : '#e5e7eb',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', flexShrink: 0,
+                    }}>
+                      <TiktokLogo size={20} weight="fill" />
                     </div>
                     <div>
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#111827",
-                          margin: 0,
-                        }}
-                      >
-                        Kênh từ Pancake
+                      <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', margin: 0 }}>
+                        {tiktokConnected
+                          ? `TikTok Business Center · ${ttPages.length} kênh`
+                          : 'Chưa kết nối TikTok for Business'}
                       </h4>
-                      <p style={{ fontSize: 11, color: "#6b7280", margin: 0 }}>
-                        Toàn bộ page/kênh gắn với User Access Token Pancake
-                        (Facebook, IG, TikTok…).
+                      <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>
+                        {isTikTokConnecting
+                          ? 'Đang xác thực TikTok Accounts và lấy danh sách kênh từ BC…'
+                          : tiktokConnected
+                            ? 'Đã ủy quyền. Danh sách bên dưới là TikTok account gắn Business Center.'
+                            : 'Bấm kết nối để ủy quyền TikTok Accounts và kéo kênh vào CRM.'}
                       </p>
                     </div>
                   </div>
-                  <PancakeChannelsPanel />
+                  <button
+                    type="button"
+                    disabled={isTikTokConnecting}
+                    onClick={() => tiktokConnectMutation.mutate()}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      background: '#111827',
+                      color: '#fff',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      cursor: isTikTokConnecting ? 'wait' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {isTikTokConnecting ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+                    {tiktokConnected ? 'Cập nhật kết nối TikTok' : 'Kết nối TikTok for Business'}
+                  </button>
                 </div>
-              </>
+                <ChannelPagesTable
+                  {...channelFilterProps}
+                  pages={ttPages}
+                  nameHeader="Tên kênh TikTok"
+                  fallbackImg={TT_FALLBACK_IMG}
+                  busy={isTikTokConnecting}
+                  busyText="Đang lấy kênh TikTok từ Business Center..."
+                  emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Accounts API."
+                  onToggle={(pageId, enabled) => toggleMutation.mutate({ pageId, enabled })}
+                  onDelete={(pageId) => deleteMutation.mutate(pageId)}
+                  onUpdateInfo={handleUpdatePageInfo}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ThreadsLogo size={18} weight="fill" style={{ color: '#111827' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Threads</h4>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>
+                    0 kênh
+                  </span>
+                </div>
+                <ChannelPagesTable
+                  {...channelFilterProps}
+                  pages={[]}
+                  nameHeader="Tên Threads"
+                  fallbackImg={IG_FALLBACK_IMG}
+                  busy={false}
+                  busyText=""
+                  emptyText="Chưa kết nối Threads. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
+                  onToggle={() => {}}
+                  onDelete={() => {}}
+                  onUpdateInfo={() => {}}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <YoutubeLogo size={18} weight="fill" style={{ color: '#ff0000' }} />
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>YouTube</h4>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>
+                    0 kênh
+                  </span>
+                </div>
+                <ChannelPagesTable
+                  {...channelFilterProps}
+                  pages={[]}
+                  nameHeader="Tên kênh"
+                  fallbackImg="https://www.youtube.com/s/desktop/favicon.ico"
+                  busy={false}
+                  busyText=""
+                  emptyText="Chưa kết nối YouTube. Nền tảng này cần OAuth riêng — chưa bật trên hệ thống."
+                  onToggle={() => {}}
+                  onDelete={() => {}}
+                  onUpdateInfo={() => {}}
+                />
+              </div>
+            </div>
+
+            {/* ===== Kênh từ Pancake ===== */}
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, background: '#4f46e5',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800,
+                }}>
+                  P
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                    Kênh từ Pancake
+                  </h4>
+                  <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>
+                    Toàn bộ page/kênh gắn với User Access Token Pancake (Facebook, IG, TikTok…).
+                  </p>
+                </div>
+              </div>
+              <PancakeChannelsPanel />
+            </div>
+            </>
             )}
           </div>
         )}
