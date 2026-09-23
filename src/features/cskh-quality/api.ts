@@ -3,18 +3,33 @@ import { backupAuthForOAuth } from "@/lib/authSession";
 import { apiClient } from "@/lib/axios";
 
 export interface CskhPage {
-  pageId: string;
-  pageName: string | null;
-  pagePictureUrl?: string | null;
-  platform?: "messenger" | "instagram" | "tiktok" | string;
-  enabled: boolean;
-  updatedAt: string;
-  conversationCount?: number;
+  pageId: string
+  pageName: string | null
+  pagePictureUrl?: string | null
+  platform?: 'messenger' | 'instagram' | 'tiktok' | string
+  enabled: boolean
+  updatedAt: string
+  /** Ngày kết nối kênh (facebook_cskh_configs.created_at). */
+  connectedAt?: string
+  /** Thời điểm tin nhắn gần nhất ghi nhận được ở kênh này (MAX last_message_at). */
+  lastActivityAt?: string | null
+  /** Nhãn quản lý gắn thủ công ở Cài đặt — không liên kết bảng User/Team nào. */
+  team?: string | null
+  managerName?: string | null
+  region?: string | null
+  conversationCount?: number
   /** Tổng số tin nhắn (mọi chiều, mọi thời điểm) trong kênh. */
   messageCount?: number;
   unreadConversationCount?: number;
   /** Tin nhắn khách gửi đến trong tháng đã chọn (inbound). */
-  inboundMessageCount?: number;
+  inboundMessageCount?: number
+  /** So sánh với hôm qua — chỉ có khi request truyền `date` (BE tính sẵn, FE chỉ hiển thị). */
+  msgsYesterday?: number
+  msgsTrend?: 'up' | 'down' | 'flat'
+  msgsDelta?: number
+  newInboundYesterday?: number
+  newInboundTrend?: 'up' | 'down' | 'flat'
+  newInboundDelta?: number
   /** Chi tiêu QC trong ngày (cache cron Marketing API). */
   adSpend?: number | null;
   adSpendCurrency?: string | null;
@@ -47,19 +62,70 @@ export interface CskhPagesStatsMeta {
   buildTag: string;
 }
 
+export interface CskhPagesPagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export interface CskhPagesFacetValue {
+  value: string
+  count: number
+}
+
+export interface CskhPagesFacet {
+  values: CskhPagesFacetValue[]
+  hasUnassigned: boolean
+}
+
+export interface CskhPagesPlatformDistributionItem {
+  platform: string
+  msgs: number
+  pct: number
+}
+
+export interface CskhPagesPlatformFacetItem {
+  platform: string
+  count: number
+}
+
+export interface CskhPagesTopInboundPage {
+  pageId: string
+  pageName: string | null
+  newInbound: number
+}
+
 export interface CskhPagesResponse {
-  pages: CskhPage[];
-  inboundMonth?: CskhPagesInboundSummary;
-  inboundDay?: CskhPagesInboundDaySummary;
-  statsMeta?: CskhPagesStatsMeta;
-  oauthConnected: boolean;
-  oauthUser: string | null;
-  oauthUpdatedAt: string | null;
-  oauthExpiresAt: string | null;
-  oauthSyncStatus?: "running" | "done" | "failed" | null;
-  oauthSyncError?: string | null;
-  adsReadConnected?: boolean;
-  adAccountCount?: number;
+  pages: CskhPage[]
+  /** Chỉ có khi request truyền page/limit — không có nghĩa là chưa phân trang, trả full list. */
+  pagination?: CskhPagesPagination
+  /**
+   * Tổng hợp cho khối "Tổng quan" — BE tính sẵn trên đúng tập page đã lọc của request này
+   * (trang Kênh gọi không kèm filter nên = toàn bộ ngày đã chọn). FE chỉ render, không tự
+   * reduce/sort/đếm lại trên `pages`.
+   */
+  totalMsgs?: number
+  activePagesCount?: number
+  platformDistribution?: CskhPagesPlatformDistributionItem[]
+  platformFacet?: CskhPagesPlatformFacetItem[]
+  topInboundPage?: CskhPagesTopInboundPage | null
+  teamFacet?: CskhPagesFacet
+  managerFacet?: CskhPagesFacet
+  regionFacet?: CskhPagesFacet
+  inboundMonth?: CskhPagesInboundSummary
+  inboundDay?: CskhPagesInboundDaySummary
+  statsMeta?: CskhPagesStatsMeta
+  oauthConnected: boolean
+  oauthUser: string | null
+  oauthUpdatedAt: string | null
+  oauthExpiresAt: string | null
+  /** BE tính sẵn từ oauthExpiresAt — FE chỉ đổi màu badge theo enum này, không tự tính hạn. */
+  oauthTokenStatus?: 'ok' | 'expiring_soon' | 'expired' | 'unknown'
+  oauthSyncStatus?: 'running' | 'done' | 'failed' | null
+  oauthSyncError?: string | null
+  adsReadConnected?: boolean
+  adAccountCount?: number
 }
 
 export interface CskhMonitorItem {
@@ -686,18 +752,52 @@ export async function createSapoOrder(
   return data;
 }
 
+export type CskhPagesSortBy =
+  | 'name'
+  | 'team'
+  | 'manager'
+  | 'region'
+  | 'msgs'
+  | 'newInbound'
+  | 'unread'
+  | 'adSpend'
+  | 'costPerConv'
+
+/** Sentinel FE dùng khi lọc Team/Quản lý/Khu vực còn trống — khớp UNASSIGNED bên BE. */
+export const CSKH_PAGES_UNASSIGNED = '__none__'
+
 export async function fetchCskhPages(options?: {
-  month?: string;
-  date?: string;
-  lite?: boolean;
+  month?: string
+  date?: string
+  lite?: boolean
+  search?: string
+  platform?: string
+  status?: 'on' | 'off'
+  team?: string
+  manager?: string
+  region?: string
+  sortBy?: CskhPagesSortBy
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  limit?: number
 }): Promise<CskhPagesResponse> {
-  const month = options?.month?.trim();
-  const date = options?.date?.trim();
-  const params: Record<string, string> = {};
-  if (month) params.month = month;
-  if (date) params.date = date;
-  if (options?.lite) params.lite = "1";
-  const { data } = await apiClient.get<CskhPagesResponse>("/cskh/pages", {
+  const month = options?.month?.trim()
+  const date = options?.date?.trim()
+  const params: Record<string, string> = {}
+  if (month) params.month = month
+  if (date) params.date = date
+  if (options?.lite) params.lite = '1'
+  if (options?.search?.trim()) params.search = options.search.trim()
+  if (options?.platform) params.platform = options.platform
+  if (options?.status) params.status = options.status
+  if (options?.team) params.team = options.team
+  if (options?.manager) params.manager = options.manager
+  if (options?.region) params.region = options.region
+  if (options?.sortBy) params.sortBy = options.sortBy
+  if (options?.sortDir) params.sortDir = options.sortDir
+  if (options?.page) params.page = String(options.page)
+  if (options?.limit) params.limit = String(options.limit)
+  const { data } = await apiClient.get<CskhPagesResponse>('/cskh/pages', {
     params: Object.keys(params).length ? params : undefined,
   });
   return data;
