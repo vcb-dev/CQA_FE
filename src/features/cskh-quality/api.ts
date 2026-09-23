@@ -1309,12 +1309,14 @@ export interface CskhInboxConversationPage {
 
 export async function fetchInboxConversationStats(options?: {
   pageId?: string;
+  pageIds?: string[];
   platform?: "messenger" | "instagram" | "tiktok";
   month?: string;
   signal?: AbortSignal;
 }): Promise<CskhInboxConversationStats> {
   const params: Record<string, string> = {};
   if (options?.pageId) params.pageId = options.pageId;
+  if (options?.pageIds?.length) params.pageIds = options.pageIds.join(",");
   if (options?.platform) params.platform = options.platform;
   if (options?.month) params.month = options.month;
   const { data } = await apiClient.get<CskhInboxConversationStats>(
@@ -1329,6 +1331,7 @@ export async function fetchInboxConversationStats(options?: {
 
 export async function fetchInboxConversationsPage(options?: {
   pageId?: string;
+  pageIds?: string[];
   fromAdOnly?: boolean;
   unreadOnly?: boolean;
   organicOnly?: boolean;
@@ -1344,6 +1347,7 @@ export async function fetchInboxConversationsPage(options?: {
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {};
   if (options?.pageId) params.pageId = options.pageId;
+  if (options?.pageIds?.length) params.pageIds = options.pageIds.join(",");
   if (options?.fromAdOnly) params.fromAdOnly = "1";
   if (options?.unreadOnly) params.unreadOnly = "1";
   if (options?.organicOnly) params.organicOnly = "1";
