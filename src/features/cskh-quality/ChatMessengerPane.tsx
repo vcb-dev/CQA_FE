@@ -218,7 +218,7 @@ function InboxPageSelectItems({
           placeholder="Tìm kiếm kênh"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="rounded-none border-x-0 border-t-0 border-b border-slate-200 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
       <SelectItem value="all">
