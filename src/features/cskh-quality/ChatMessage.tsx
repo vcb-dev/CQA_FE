@@ -1,3 +1,4 @@
+import { ImageLightbox } from "@/components/Lightbox/ImageLightbox";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Check, CheckCheck, Loader2 } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
@@ -20,10 +21,12 @@ function ChatMediaImage({
   url,
   compact,
   onFailed,
+  onOpen,
 }: {
   url: string;
   compact?: boolean;
   onFailed?: (url: string) => void;
+  onOpen?: () => void;
 }) {
   const isBlob = url.startsWith("blob:");
   const cdn =
@@ -38,11 +41,10 @@ function ChatMediaImage({
       : cskhMediaSrc(url);
   if (failed || !src) return null;
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="block overflow-hidden rounded-lg"
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block overflow-hidden rounded-lg text-left"
     >
       <img
         src={src}
@@ -62,7 +64,7 @@ function ChatMediaImage({
           }
         }}
       />
-    </a>
+    </button>
   );
 }
 
@@ -124,6 +126,7 @@ export const ChatMessage = memo(function ChatMessage({
   );
   const [resolving, setResolving] = useState(false);
   const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const resolveAttemptedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -296,6 +299,7 @@ export const ChatMessage = memo(function ChatMessage({
                   key={`${url}-${idx}`}
                   url={url}
                   compact={imageUrls.length > 1}
+                  onOpen={() => setLightboxIndex(idx)}
                   onFailed={(failed) =>
                     setFailedUrls((prev) => {
                       const next = new Set(prev);
@@ -364,30 +368,41 @@ export const ChatMessage = memo(function ChatMessage({
   };
 
   return (
-    <div
-      className={cn("flex mb-3 gap-2", isOwn ? "justify-end" : "justify-start")}
-    >
+    <>
       <div
         className={cn(
-          "px-4 py-2 rounded-lg shadow-md",
-          imageUrls.length > 1 ? "max-w-sm" : "max-w-xs",
-          isOwn
-            ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-blue-200/50"
-            : "bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200 shadow-gray-100/50",
+          "flex mb-3 gap-2",
+          isOwn ? "justify-end" : "justify-start",
         )}
       >
-        {renderContent()}
-
         <div
           className={cn(
-            "text-xs mt-1 flex items-center justify-end gap-1",
-            isOwn ? "text-blue-100" : "text-gray-500",
+            "px-4 py-2 rounded-lg shadow-md",
+            imageUrls.length > 1 ? "max-w-sm" : "max-w-xs",
+            isOwn
+              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-blue-200/50"
+              : "bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200 shadow-gray-100/50",
           )}
         >
-          <span>{formatTime(message.sentAt)}</span>
-          {isOwn && statusIcon}
+          {renderContent()}
+
+          <div
+            className={cn(
+              "text-xs mt-1 flex items-center justify-end gap-1",
+              isOwn ? "text-blue-100" : "text-gray-500",
+            )}
+          >
+            <span>{formatTime(message.sentAt)}</span>
+            {isOwn && statusIcon}
+          </div>
         </div>
       </div>
-    </div>
+
+      <ImageLightbox
+        urls={imageUrls}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
+    </>
   );
 });
