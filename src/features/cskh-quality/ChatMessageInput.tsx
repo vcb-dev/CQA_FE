@@ -20,6 +20,7 @@ type ChatMessageInputProps = {
   placeholder?: string;
   draftText?: string;
   onDraftApplied?: () => void;
+  textOnly?: boolean;
 };
 
 type PendingAttachment = { file: File; previewUrl: string };
@@ -34,6 +35,7 @@ export function ChatMessageInput({
   placeholder = "Gõ tiếng Việt... (Shift+Enter xuống dòng)",
   draftText,
   onDraftApplied,
+  textOnly,
 }: ChatMessageInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -75,6 +77,7 @@ export function ChatMessageInput({
   }
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (textOnly) return;
     const dt = e.clipboardData;
     if (!dt) return;
 
@@ -234,6 +237,7 @@ export function ChatMessageInput({
         </div>
       )}
 
+      {!textOnly && (
       <div className="flex items-center gap-2 px-3.5 pt-2">
         <label className="flex cursor-pointer items-center gap-1.5 select-none text-[11.5px] text-slate-600">
           <input
@@ -251,8 +255,9 @@ export function ChatMessageInput({
           </span>
         )}
       </div>
+      )}
 
-      {attachment && (
+      {attachment && !textOnly && (
         <div className="px-3.5 pt-2">
           <div className="relative inline-block">
             {attachment.previewUrl ? (
@@ -292,6 +297,8 @@ export function ChatMessageInput({
           onPaste={onPaste}
         />
 
+        {!textOnly && (
+          <>
         <input
           ref={fileInputRef}
           type="file"
@@ -310,6 +317,8 @@ export function ChatMessageInput({
         >
           <Paperclip />
         </Button>
+          </>
+        )}
         <Button
           onClick={() => void handleSend()}
           disabled={

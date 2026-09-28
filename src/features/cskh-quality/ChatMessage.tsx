@@ -33,7 +33,7 @@ function ChatMediaImage({
     !isBlob &&
     /fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(url);
   const [failed, setFailed] = useState(false);
-  const [useProxy, setUseProxy] = useState(cdn);
+  const [useProxy, setUseProxy] = useState(false);
   const src = isBlob
     ? url
     : useProxy
@@ -57,7 +57,7 @@ function ChatMediaImage({
         }
         loading="lazy"
         onError={() => {
-          if (!useProxy) setUseProxy(true);
+          if (!useProxy && cdn) setUseProxy(true);
           else {
             setFailed(true);
             onFailed?.(url);
@@ -127,6 +127,8 @@ export const ChatMessage = memo(function ChatMessage({
   const [resolving, setResolving] = useState(false);
   const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [useVideoProxy, setUseVideoProxy] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const resolveAttemptedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -141,6 +143,8 @@ export const ChatMessage = memo(function ChatMessage({
     setResolvedType(message.messageType ?? null);
     setResolvedText(message.text);
     setFailedUrls(new Set());
+    setUseVideoProxy(false);
+    setVideoFailed(false);
   }, [
     message.id,
     message.attachmentUrl,
@@ -311,13 +315,21 @@ export const ChatMessage = memo(function ChatMessage({
               ))}
             </div>
           ) : null}
-          {videoUrl ? (
+          {videoUrl && !videoFailed ? (
             <video
-              src={cskhMediaSrc(videoUrl) ?? cskhMediaProxySrc(videoUrl)}
+              src={
+                useVideoProxy
+                  ? cskhMediaProxySrc(videoUrl)
+                  : (cskhMediaSrc(videoUrl) ?? cskhMediaProxySrc(videoUrl))
+              }
               controls
               playsInline
               preload="metadata"
               className="max-h-64 max-w-full rounded-lg"
+              onError={() => {
+                if (!useVideoProxy) setUseVideoProxy(true);
+                else setVideoFailed(true);
+              }}
             />
           ) : null}
           {caption ? (

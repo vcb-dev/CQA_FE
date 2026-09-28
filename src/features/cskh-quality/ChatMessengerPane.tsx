@@ -53,6 +53,7 @@ import {
   fetchInboxMessagesProgressive,
   isAsyncInboxSync,
   prefetchInboxMessages,
+  syncFbComments,
   syncInboxFromGraph,
   type CskhInboxConversation,
   type CskhInboxConversationPage,
@@ -788,22 +789,61 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   }, [convStats]);
 
   const syncMut = useMutation({
-    mutationFn: () =>
-      syncInboxFromGraph(
+    mutationFn: async () => {
+      const inbox = await syncInboxFromGraph(
         selectedPageIds.length === 1 ? selectedPageIds[0] : undefined,
-      ),
+      );
+      const fbPages = (
+        selectedPageIds.length > 0
+          ? filteredPages.filter((p) => selectedPageIds.includes(p.pageId))
+          : filteredPages
+      )
+        .filter((p) => pageBucket(p.platform) === "facebook")
+        .slice(0, 20);
+      let commentThreads = 0;
+      const commentErrors: string[] = [];
+      for (const page of fbPages) {
+        try {
+          const r = await syncFbComments(page.pageId);
+          commentThreads += r.threadTouches ?? 0;
+        } catch (e) {
+          commentErrors.push(
+            `${page.pageName || page.pageId}: ${getApiErrorMessage(e)}`,
+          );
+        }
+      }
+      return {
+        inbox,
+        commentThreads,
+        fbPageCount: fbPages.length,
+        commentErrors,
+      };
+    },
     onSuccess: (result) => {
       void qc.invalidateQueries({
         queryKey: ["cskh", "inbox", "conversations"],
       });
-      if (isAsyncInboxSync(result)) {
+      if (result.commentErrors.length) {
+        toast.error(
+          `Comment: ${result.commentErrors[0]}` +
+            (result.commentErrors.length > 1
+              ? ` (+${result.commentErrors.length - 1})`
+              : ""),
+        );
+      }
+      const commentBit = result.fbPageCount
+        ? ` · ${result.commentThreads} comment (${result.fbPageCount} page)`
+        : "";
+      if (isAsyncInboxSync(result.inbox)) {
         toast.info(
-          result.message || "Đang đồng bộ nền — làm mới danh sách sau vài phút",
+          (result.inbox.message ||
+            "Đang đồng bộ nền — làm mới danh sách sau vài phút") + commentBit,
         );
         return;
       }
       toast.success(
-        `Đã đồng bộ ${result.synced} tin nhắn từ ${result.pageCount} kênh`,
+        `Đã đồng bộ ${result.inbox.synced} tin nhắn` +
+          (commentBit || ` từ ${result.inbox.pageCount} kênh`),
       );
     },
     onError: () => {
@@ -838,6 +878,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const shouldLoadAdInsights =
     !!sidebarConversation &&
+    sidebarConversation.kind !== "fb_comment" &&
     (sidebarConversation.fromAd ||
       sidebarConversation.referralSource === "HEURISTIC");
 
@@ -850,7 +891,10 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryKey: ["cskh", "inbox", "intent", selectedId],
     queryFn: ({ signal }) =>
       selectedId ? fetchCustomerIntent(selectedId, undefined, signal) : null,
-    enabled: !!selectedId && messagesReady,
+    enabled:
+      !!selectedId &&
+      messagesReady &&
+      sidebarConversation?.kind !== "fb_comment",
     staleTime: 180_000,
   });
 
@@ -932,6 +976,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       adInsightsVisitCountsRef.current.set(conv.id, visitGen);
 
       setSelectedConversation(opened);
+      if (conv.kind === "fb_comment") setAssistantOpen(false);
       setInputDraft("");
       setAdInsightsSelectGen({ id: conv.id, gen: visitGen });
 
@@ -1273,6 +1318,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             )}
 
             {/* Right Sidebar */}
+            {sidebarConversation?.kind !== "fb_comment" && (
             <div className="hidden lg:flex shrink-0 h-full min-h-0">
               <ChatRightSidebar
                 conversation={sidebarConversation ?? selectedConversation}
@@ -1285,6 +1331,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 isRefreshingAdInsights={isRefreshingAdInsights}
               />
             </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 hidden md:flex items-center justify-center bg-gradient-to-br from-slate-50/80 to-indigo-50/20">
