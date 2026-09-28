@@ -1,51 +1,29 @@
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ArrowDown, ArrowUp, ArrowUpDown, Link2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import {
-  connectTikTokAccounts,
-  deleteCskhPage,
+  MagnifyingGlass, FloppyDisk, Sparkle, CheckCircle, CaretRight, Sliders, Play, GearSix,
+  Shield, HardDrive, ArrowsCounterClockwise, Megaphone, Package, Wrench, Brain, Key,
+  FacebookLogo, InstagramLogo, YoutubeLogo, ThreadsLogo, TiktokLogo,
+  Lightbulb, Bell, Link, ClipboardText
+} from '@phosphor-icons/react';
+import { settingsTabs, qaPrompts, qaCriteria, settingsQuickLinks } from '../../data/mockData';
+import {
   fetchCskhPages,
   getCskhOAuthStartUrl,
-  isAsyncInboxSync,
   refreshCskhOAuth,
+  connectTikTokAccounts,
   setCskhPageEnabled,
+  deleteCskhPage,
   syncInboxFromGraph,
-} from "@/features/cskh-quality/api";
-import { InstagramTestPrepPanel } from "@/features/cskh-quality/InstagramTestPrepPanel";
-import PancakeChannelsPanel from "@/features/pancake-test/PancakeChannelsPanel";
-import { buildOAuthChannelReturnUrl } from "@/lib/authSession";
-import {
-  ArrowsCounterClockwise,
-  Bell,
-  Brain,
-  CaretRight,
-  CheckCircle,
-  ClipboardText,
-  FacebookLogo,
-  FloppyDisk,
-  GearSix,
-  HardDrive,
-  InstagramLogo,
-  Key,
-  Lightbulb,
-  Link,
-  Megaphone,
-  Package,
-  Play,
-  Sparkle,
-  ThreadsLogo,
-  TiktokLogo,
-  Wrench,
-  YoutubeLogo,
-} from "@phosphor-icons/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
-import {
-  qaCriteria,
-  qaPrompts,
-  settingsQuickLinks,
-  settingsTabs,
-} from "../../data/mockData";
+  isAsyncInboxSync,
+} from '@/features/cskh-quality/api';
+import { fetchRbacRoles, fetchRbacUsers, assignRbacRole, createRbacUser } from '@/features/rbac/api';
+import { InstagramTestPrepPanel } from '@/features/cskh-quality/InstagramTestPrepPanel';
+import { buildOAuthChannelReturnUrl } from '@/lib/authSession';
+import PancakeChannelsPanel from '@/features/pancake-test/PancakeChannelsPanel';
 
 const FB_FALLBACK_IMG =
   "https://www.facebook.com/images/profile/timeline/homepage/composer/logo_graphic.png";
@@ -53,6 +31,69 @@ const IG_FALLBACK_IMG =
   "https://www.instagram.com/static/images/ico/favicon-192.png";
 const TT_FALLBACK_IMG =
   "https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/8152caf0c8e8bc67ae0d.png";
+
+/** Mốc hoạt động cuối → chuỗi tương đối tiếng Việt. */
+function formatLastActive(iso) {
+  if (!iso) return 'Chưa ghi nhận';
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return 'Chưa ghi nhận';
+  const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (diffSec < 60) return 'Vừa xong';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
+  if (diffSec < 2592000) return `${Math.floor(diffSec / 86400)} ngày trước`;
+  return new Date(ts).toLocaleDateString('vi-VN');
+}
+
+// Không có presence thật (không WebSocket) — suy ra "đang online" bằng
+// ngưỡng: hoạt động trong 3 phút gần đây. Ngưỡng này phải rộng hơn tổng độ
+// trễ ghi nhận thật (BE gom ghi mỗi 30s + FE tự load lại mỗi 30s), không
+// thì người vẫn đang dùng app có lúc bị hiện sai thành "không online".
+const RBAC_ONLINE_THRESHOLD_MS = 3 * 60_000;
+function isRbacUserOnline(iso) {
+  if (!iso) return false;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return false;
+  return Date.now() - ts < RBAC_ONLINE_THRESHOLD_MS;
+}
+
+/**
+ * Màu chip vai trò — admin nổi bật nhất, giảm dần theo quyền hạn.
+ * Dùng `backgroundColor` (longhand), KHÔNG dùng `background` (shorthand):
+ * chip vai trò trong bảng còn đặt thêm `backgroundImage` cho mũi tên dropdown,
+ * mà React trộn shorthand với longhand thì lúc re-render shorthand ghi đè, mất mũi tên.
+ */
+const ROLE_CHIP_STYLE = {
+  admin: { backgroundColor: '#e0e7ff', color: '#3730a3' },
+  manager: { backgroundColor: '#f0fdf4', color: '#16a34a' },
+  staff: { backgroundColor: '#fefce8', color: '#a16207' },
+  user: { backgroundColor: '#f3f4f6', color: '#4b5563' },
+};
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[0-9+\-\s()]{8,20}$/;
+
+/** Validate form "Tạo tài khoản nhân viên" — trả object rỗng nếu hợp lệ. */
+function validateNewUser(u) {
+  const errors = {};
+  const fullName = u.fullName.trim();
+  if (!fullName) errors.fullName = 'Vui lòng nhập họ tên';
+  else if (fullName.length < 2) errors.fullName = 'Họ tên phải từ 2 ký tự';
+
+  const email = u.email.trim();
+  if (!email) errors.email = 'Vui lòng nhập email';
+  else if (!EMAIL_PATTERN.test(email)) errors.email = 'Email không đúng định dạng';
+
+  if (!u.password) errors.password = 'Vui lòng nhập mật khẩu tạm';
+  else if (u.password.length < 6) errors.password = 'Mật khẩu tạm phải từ 6 ký tự';
+
+  const phone = u.phoneNumber.trim();
+  if (phone && !PHONE_PATTERN.test(phone)) errors.phoneNumber = 'Số điện thoại không hợp lệ';
+
+  if (!u.role) errors.role = 'Vui lòng chọn vai trò';
+
+  return errors;
+}
 
 function ChannelPagesTable({
   pages,
@@ -262,6 +303,114 @@ Các tiêu chí cần đánh giá:
     queryFn: () => fetchCskhPages(),
     refetchInterval: (query) =>
       query.state.data?.oauthSyncStatus === "running" ? 2_000 : false,
+  });
+
+  // Tab Phân quyền — chỉ gọi API khi tab đang mở
+  const isRbacTab = settingsTabs[activeTabIdx] === 'Phân quyền';
+
+  const rbacRolesQuery = useQuery({
+    queryKey: ['rbac', 'roles'],
+    queryFn: ({ signal }) => fetchRbacRoles(signal),
+    enabled: isRbacTab,
+  });
+
+  const RBAC_PAGE_SIZE = 10;
+  const [rbacSearchInput, setRbacSearchInput] = useState('');
+  const [rbacSearch, setRbacSearch] = useState('');
+  const [rbacRoleFilter, setRbacRoleFilter] = useState('');
+  const [rbacPage, setRbacPage] = useState(1);
+  // Mặc định sort theo tên (BE orderBy ở DB). Bấm cột "Hoạt động cuối" mới
+  // chuyển sang sort theo mốc đó — sort ở tầng BE vì mốc này không nằm trong DB.
+  // Mặc định vào tab đã sort theo "Hoạt động cuối", mới nhất trước.
+  const [rbacSortBy, setRbacSortBy] = useState('lastActive');
+  const [rbacSortDir, setRbacSortDir] = useState('desc');
+
+  const toggleLastActiveSort = () => {
+    if (rbacSortBy !== 'lastActive') {
+      setRbacSortBy('lastActive');
+      // Bấm lần đầu: desc → hoạt động gần đây nhất lên trước. Bấm lần nữa
+      // (nhánh else) đảo sang asc → null ("chưa hoạt động") lên đầu.
+      setRbacSortDir('desc');
+    } else {
+      setRbacSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    }
+    setRbacPage(1);
+  };
+
+  // Gõ xong 350ms mới gọi API, tránh bắn request mỗi ký tự.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setRbacSearch(rbacSearchInput.trim());
+      setRbacPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [rbacSearchInput]);
+
+  const rbacUsersQuery = useQuery({
+    queryKey: [
+      'rbac',
+      'users',
+      { search: rbacSearch, role: rbacRoleFilter, page: rbacPage, sortBy: rbacSortBy, sortDir: rbacSortDir },
+    ],
+    queryFn: ({ signal }) =>
+      fetchRbacUsers(
+        {
+          search: rbacSearch,
+          role: rbacRoleFilter,
+          page: rbacPage,
+          pageSize: RBAC_PAGE_SIZE,
+          sortBy: rbacSortBy,
+          sortDir: rbacSortDir,
+        },
+        signal,
+      ),
+    enabled: isRbacTab,
+    placeholderData: (prev) => prev,
+    // BE gom ghi "Hoạt động cuối" mỗi 30s (không ghi DB ngay lúc request) —
+    // tự load lại theo đúng nhịp đó, không thì bảng đứng yên tới khi F5.
+    // Mặc định TanStack Query tự dừng polling khi tab mất focus.
+    refetchInterval: isRbacTab ? 30_000 : false,
+  });
+
+  // BE trả 403 khi tài khoản không phải Admin → hiện thông báo thiếu quyền,
+  // không phải lỗi kết nối, nên không cho "Thử lại".
+  const rbacForbidden =
+    rbacUsersQuery.error?.response?.status === 403 ||
+    rbacRolesQuery.error?.response?.status === 403;
+
+  const [savingUserId, setSavingUserId] = useState(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const emptyNewUser = { email: '', fullName: '', password: '', role: 'staff', phoneNumber: '' };
+  const [newUser, setNewUser] = useState(emptyNewUser);
+  const [newUserErrors, setNewUserErrors] = useState({});
+
+  const createUserMutation = useMutation({
+    mutationFn: (input) => createRbacUser(input),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['rbac', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['rbac', 'roles'] });
+      setShowCreateUser(false);
+      setNewUser(emptyNewUser);
+      setNewUserErrors({});
+      toast.success(`Đã tạo tài khoản cho ${created.fullName || created.email}`);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Không tạo được người dùng. Thử lại sau.');
+    },
+  });
+
+  const assignRoleMutation = useMutation({
+    mutationFn: ({ userId, role }) => assignRbacRole(userId, role),
+    onMutate: ({ userId }) => setSavingUserId(userId),
+    onSuccess: (_data, { roleLabel, userName }) => {
+      queryClient.invalidateQueries({ queryKey: ['rbac', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['rbac', 'roles'] });
+      toast.success(`Đã đổi vai trò của ${userName} thành ${roleLabel}`);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Không đổi được vai trò. Thử lại sau.');
+    },
+    onSettled: () => setSavingUserId(null),
   });
 
   // Toggle active/inactive status
@@ -1999,110 +2148,401 @@ Các tiêu chí cần đánh giá:
               </p>
             </div>
 
-            <div style={{ overflow: "auto" }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Người dùng</th>
-                    <th>Email</th>
-                    <th>Vai trò</th>
-                    <th>Quyền chính</th>
-                    <th>Hoạt động cuối</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    {
-                      name: "Bùi Duy Cường",
-                      email: "cuong@vienchibao.com",
-                      role: "Admin",
-                      permission: "Toàn bộ hệ thống, chỉnh sửa tiêu chí & API",
-                      active: "Vừa xong",
-                    },
-                    {
-                      name: "Nguyễn Thu Hương",
-                      email: "huongnt@vienchibao.com",
-                      role: "Manager",
-                      permission: "Xem báo cáo, phê duyệt audit nháp",
-                      active: "10 phút trước",
-                    },
-                    {
-                      name: "Lê Thảo Vy",
-                      email: "vylt@vienchibao.com",
-                      role: "Auditor",
-                      permission: "Chấm điểm thủ công, đánh giá phụ",
-                      active: "30 phút trước",
-                    },
-                    {
-                      name: "Trần Minh Quân",
-                      email: "quantm@vienchibao.com",
-                      role: "Agent",
-                      permission: "Chỉ xem điểm cá nhân và chat khách hàng",
-                      active: "2 giờ trước",
-                    },
-                  ].map((user, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "12.5px",
-                            color: "#1f2937",
-                          }}
-                        >
-                          {user.name}
-                        </div>
-                      </td>
-                      <td style={{ fontSize: "12px", color: "#6b7280" }}>
-                        {user.email}
-                      </td>
-                      <td>
-                        <span
-                          className="tag"
-                          style={{
-                            background:
-                              user.role === "Admin"
-                                ? "#e0e7ff"
-                                : user.role === "Manager"
-                                  ? "#f0fdf4"
-                                  : "#f3f4f6",
-                            color:
-                              user.role === "Admin"
-                                ? "#3730a3"
-                                : user.role === "Manager"
-                                  ? "#16a34a"
-                                  : "#4b5563",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {user.role}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: "12px", color: "#4b5563" }}>
-                        {user.permission}
-                      </td>
-                      <td style={{ fontSize: "11px", color: "#9ca3af" }}>
-                        {user.active}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {rbacForbidden ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '40px 24px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <Shield size={30} style={{ color: '#d1d5db' }} weight="duotone" />
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>
+                  Bạn không đủ quyền để xem mục này
+                </span>
+                <span style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center', lineHeight: 1.6, maxWidth: '380px' }}>
+                  Chỉ tài khoản <strong>Quản trị viên</strong> mới xem và thay đổi phân quyền.
+                  Liên hệ quản trị viên nếu bạn cần truy cập mục này.
+                </span>
+              </div>
+            ) : (
+            <>
+            {rbacRolesQuery.data?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {rbacRolesQuery.data.map((role) => (
+                  <div
+                    key={role.code}
+                    title={role.permissions.join(' · ')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '5px 10px', borderRadius: '999px',
+                      border: '1px solid #e5e7eb', background: '#f9fafb',
+                      fontSize: '11.5px', color: '#4b5563',
+                    }}
+                  >
+                    <span className="tag" style={{ ...ROLE_CHIP_STYLE[role.code], fontWeight: 700 }}>
+                      {role.label}
+                    </span>
+                    <span style={{ fontWeight: 600 }}>{role.userCount}</span>
+                    <span>người</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+              <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '180px' }}>
+                <MagnifyingGlass
+                  size={14}
+                  style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}
+                />
+                <input
+                  value={rbacSearchInput}
+                  onChange={(e) => setRbacSearchInput(e.target.value)}
+                  placeholder="Tìm theo tên hoặc email..."
+                  style={{ width: '100%', padding: '7px 10px 7px 28px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', color: '#374151' }}
+                />
+              </div>
+
+              <select
+                value={rbacRoleFilter}
+                onChange={(e) => { setRbacRoleFilter(e.target.value); setRbacPage(1); }}
+                style={{ fontSize: '12px', padding: '7px 10px', borderRadius: '6px', border: '1px solid #e5e7eb', color: '#374151', background: '#fff', cursor: 'pointer' }}
+              >
+                <option value="">Tất cả vai trò</option>
+                {(rbacRolesQuery.data || []).map((role) => (
+                  <option key={role.code} value={role.code}>{role.label}</option>
+                ))}
+              </select>
+
+              {/* Luôn render, chỉ mờ đi khi chưa lọc — tránh layout shift lúc gõ tìm kiếm. */}
+              <button
+                disabled={!rbacSearch && !rbacRoleFilter}
+                onClick={() => { setRbacSearchInput(''); setRbacRoleFilter(''); setRbacPage(1); }}
+                style={{
+                  fontSize: '12px',
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb',
+                  backgroundColor: '#fff',
+                  color: '#6b7280',
+                  fontWeight: 500,
+                  opacity: !rbacSearch && !rbacRoleFilter ? 0.45 : 1,
+                  cursor: !rbacSearch && !rbacRoleFilter ? 'default' : 'pointer',
+                  transition: 'opacity 150ms',
+                }}
+              >
+                Xóa lọc
+              </button>
+
+              <button
+                onClick={() => setShowCreateUser((v) => !v)}
+                style={{ marginLeft: 'auto', fontSize: '12.5px', padding: '7px 14px', borderRadius: '6px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              >
+                + Thêm người dùng mới
+              </button>
             </div>
 
-            <button
-              style={{
-                padding: "6px",
-                fontSize: "12.5px",
-                color: "#4f46e5",
-                fontWeight: 600,
-                border: "1px dashed var(--primary-300)",
-                borderRadius: "6px",
-                marginTop: "6px",
-              }}
-            >
-              + Thêm người dùng mới / Gán vai trò
-            </button>
+            {showCreateUser && (
+              <form
+                autoComplete="off"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const errors = validateNewUser(newUser);
+                  setNewUserErrors(errors);
+                  if (Object.keys(errors).length > 0) return;
+                  createUserMutation.mutate({
+                    email: newUser.email.trim(),
+                    fullName: newUser.fullName.trim(),
+                    password: newUser.password,
+                    role: newUser.role,
+                    ...(newUser.phoneNumber.trim() ? { phoneNumber: newUser.phoneNumber.trim() } : {}),
+                  });
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              >
+                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1f2937' }}>Tạo tài khoản nhân viên</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#4b5563' }}>
+                    <span>Họ tên <span style={{ color: '#dc2626' }}>*</span></span>
+                    <input
+                      required minLength={2} maxLength={100}
+                      autoComplete="off"
+                      name="rbac_new_user_fullname"
+                      value={newUser.fullName}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewUser((u) => ({ ...u, fullName: v }));
+                        setNewUserErrors((er) => ({ ...er, fullName: undefined }));
+                      }}
+                      style={{ padding: '7px 10px', fontSize: '12px', border: `1px solid ${newUserErrors.fullName ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '6px' }}
+                    />
+                    {newUserErrors.fullName && (
+                      <span style={{ fontSize: '10.5px', color: '#dc2626' }}>{newUserErrors.fullName}</span>
+                    )}
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#4b5563' }}>
+                    <span>Email <span style={{ color: '#dc2626' }}>*</span></span>
+                    <input
+                      required type="email"
+                      autoComplete="off"
+                      name="rbac_new_user_email"
+                      value={newUser.email}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewUser((u) => ({ ...u, email: v }));
+                        setNewUserErrors((er) => ({ ...er, email: undefined }));
+                      }}
+                      style={{ padding: '7px 10px', fontSize: '12px', border: `1px solid ${newUserErrors.email ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '6px' }}
+                    />
+                    {newUserErrors.email && (
+                      <span style={{ fontSize: '10.5px', color: '#dc2626' }}>{newUserErrors.email}</span>
+                    )}
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#4b5563' }}>
+                    <span>Mật khẩu tạm <span style={{ color: '#dc2626' }}>*</span></span>
+                    <input
+                      required type="password" minLength={6}
+                      autoComplete="new-password"
+                      name="rbac_new_user_password"
+                      value={newUser.password}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewUser((u) => ({ ...u, password: v }));
+                        setNewUserErrors((er) => ({ ...er, password: undefined }));
+                      }}
+                      style={{ padding: '7px 10px', fontSize: '12px', border: `1px solid ${newUserErrors.password ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '6px' }}
+                    />
+                    {newUserErrors.password && (
+                      <span style={{ fontSize: '10.5px', color: '#dc2626' }}>{newUserErrors.password}</span>
+                    )}
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#4b5563' }}>
+                    <span>Số điện thoại <span style={{ color: '#9ca3af' }}>(không bắt buộc)</span></span>
+                    <input
+                      maxLength={20}
+                      autoComplete="off"
+                      name="rbac_new_user_phone"
+                      value={newUser.phoneNumber}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewUser((u) => ({ ...u, phoneNumber: v }));
+                        setNewUserErrors((er) => ({ ...er, phoneNumber: undefined }));
+                      }}
+                      style={{ padding: '7px 10px', fontSize: '12px', border: `1px solid ${newUserErrors.phoneNumber ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '6px' }}
+                    />
+                    {newUserErrors.phoneNumber && (
+                      <span style={{ fontSize: '10.5px', color: '#dc2626' }}>{newUserErrors.phoneNumber}</span>
+                    )}
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#4b5563' }}>
+                    <span>Vai trò <span style={{ color: '#dc2626' }}>*</span></span>
+                    <select
+                      value={newUser.role}
+                      onChange={(e) => setNewUser((u) => ({ ...u, role: e.target.value }))}
+                      style={{ padding: '7px 10px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff' }}
+                    >
+                      {(rbacRolesQuery.data || []).map((role) => (
+                        <option key={role.code} value={role.code}>{role.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>
+                  Nhân viên dùng mật khẩu tạm này để đăng nhập lần đầu và nên đổi ngay sau đó.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="submit"
+                    disabled={createUserMutation.isPending}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '7px 16px', borderRadius: '6px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 600, cursor: createUserMutation.isPending ? 'wait' : 'pointer', opacity: createUserMutation.isPending ? 0.7 : 1 }}
+                  >
+                    {createUserMutation.isPending && <Loader2 size={13} className="animate-spin" />}
+                    {createUserMutation.isPending ? 'Đang tạo...' : 'Tạo tài khoản'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreateUser(false); setNewUser(emptyNewUser); setNewUserErrors({}); }}
+                    style={{ fontSize: '12.5px', padding: '7px 16px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontWeight: 500, cursor: 'pointer' }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {rbacUsersQuery.isLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 24px', gap: '10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#6b7280' }}>
+                <Loader2 size={24} className="animate-spin" style={{ color: '#4f46e5' }} />
+                <span style={{ fontSize: '12px', fontWeight: 500 }}>Đang tải danh sách người dùng...</span>
+              </div>
+            ) : rbacUsersQuery.isError ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '28px 24px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca', color: '#b91c1c' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 600 }}>Không tải được danh sách người dùng</span>
+                <span style={{ fontSize: '11.5px', color: '#991b1b', textAlign: 'center', lineHeight: 1.5 }}>
+                  Kiểm tra kết nối mạng rồi thử lại.
+                </span>
+                <button
+                  onClick={() => { rbacUsersQuery.refetch(); rbacRolesQuery.refetch(); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, color: '#b91c1c', background: '#fff', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  <RefreshCw size={13} /> Thử lại
+                </button>
+              </div>
+            ) : !rbacUsersQuery.data?.items?.length ? (
+              <div style={{ padding: '18px', textAlign: 'center', background: '#f9fafb', borderRadius: '8px', color: '#6b7280', fontSize: '12px', border: '1px solid #e5e7eb', lineHeight: 1.5 }}>
+                {rbacSearch || rbacRoleFilter
+                  ? 'Không có người dùng nào khớp bộ lọc. Thử đổi từ khóa hoặc vai trò.'
+                  : 'Chưa có người dùng nào trong hệ thống. Bấm "Thêm người dùng mới" để tạo tài khoản đầu tiên.'}
+              </div>
+            ) : (
+              <div style={{ overflow: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Người dùng</th>
+                      <th>Email</th>
+                      <th>Vai trò</th>
+                      <th>Quyền chính</th>
+                      <th
+                        onClick={toggleLastActiveSort}
+                        title="Bấm để sắp theo hoạt động cuối"
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            color: rbacSortBy === 'lastActive' ? '#4f46e5' : 'inherit',
+                            textDecoration: 'underline',
+                            textDecorationStyle: 'dotted',
+                            textDecorationColor: rbacSortBy === 'lastActive' ? '#4f46e5' : '#9ca3af',
+                            textUnderlineOffset: '3px',
+                          }}
+                        >
+                          Hoạt động cuối
+                          {rbacSortBy === 'lastActive' ? (
+                            rbacSortDir === 'asc' ? (
+                              <ArrowUp size={12} style={{ color: '#4f46e5' }} />
+                            ) : (
+                              <ArrowDown size={12} style={{ color: '#4f46e5' }} />
+                            )
+                          ) : (
+                            <ArrowUpDown size={12} style={{ opacity: 0.6 }} />
+                          )}
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rbacUsersQuery.data.items.map((user) => {
+                      const saving = savingUserId === user.id;
+                      return (
+                        <tr key={user.id}>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ fontWeight: 600, fontSize: '12.5px', color: '#1f2937' }}>
+                              {user.fullName || 'Chưa đặt tên'}
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '12px', color: '#6b7280', whiteSpace: 'nowrap' }}>{user.email}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <select
+                                value={user.role}
+                                disabled={saving || assignRoleMutation.isPending}
+                                onChange={(e) => {
+                                  const nextRole = e.target.value;
+                                  if (nextRole === user.role) return;
+                                  const roleLabel =
+                                    rbacRolesQuery.data?.find((r) => r.code === nextRole)?.label || nextRole;
+                                  assignRoleMutation.mutate({
+                                    userId: user.id,
+                                    role: nextRole,
+                                    roleLabel,
+                                    userName: user.fullName || user.email,
+                                  });
+                                }}
+                                style={{
+                                  ...ROLE_CHIP_STYLE[user.role],
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  padding: '4px 8px',
+                                  borderRadius: '999px',
+                                  border: 'none',
+                                  cursor: saving ? 'wait' : 'pointer',
+                                  appearance: 'none',
+                                  paddingRight: '20px',
+                                  backgroundImage:
+                                    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>\")",
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundPosition: 'right 7px center',
+                                  opacity: saving ? 0.6 : 1,
+                                }}
+                              >
+                                {(rbacRolesQuery.data || []).map((role) => (
+                                  <option key={role.code} value={role.code} style={{ background: '#fff', color: '#374151', fontWeight: 500 }}>
+                                    {role.label}
+                                  </option>
+                                ))}
+                              </select>
+                              {saving && <Loader2 size={12} className="animate-spin" style={{ color: '#4f46e5' }} />}
+                            </div>
+                          </td>
+                          <td
+                            title={user.permissions?.join(' · ')}
+                            style={{ fontSize: '12px', color: '#4b5563', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {user.permissionSummary}
+                          </td>
+                          <td style={{ fontSize: '11px', color: user.lastActiveAt ? '#6b7280' : '#d1d5db', whiteSpace: 'nowrap' }}>
+                            {isRbacUserOnline(user.lastActiveAt) ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#16a34a', fontWeight: 600 }}>
+                                <span style={{ width: '7px', height: '7px', borderRadius: '999px', backgroundColor: '#22c55e', flexShrink: 0 }} />
+                                Đang hoạt động
+                              </span>
+                            ) : user.lastActiveAt ? (
+                              formatLastActive(user.lastActiveAt)
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {rbacUsersQuery.data?.total > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingTop: '4px' }}>
+                <span style={{ fontSize: '11.5px', color: '#6b7280' }}>
+                  {(() => {
+                    const { page, pageSize, total } = rbacUsersQuery.data;
+                    const from = (page - 1) * pageSize + 1;
+                    const to = Math.min(page * pageSize, total);
+                    return `Hiển thị ${from}–${to} trên ${total} người dùng`;
+                  })()}
+                </span>
+                <div style={{ display: rbacUsersQuery.data.totalPages > 1 ? 'flex' : 'none', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={() => setRbacPage((p) => Math.max(1, p - 1))}
+                    disabled={rbacUsersQuery.data.page <= 1 || rbacUsersQuery.isFetching}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: rbacUsersQuery.data.page <= 1 ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: rbacUsersQuery.data.page <= 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Trước
+                  </button>
+                  <span style={{ fontSize: '11.5px', color: '#4b5563', minWidth: '78px', textAlign: 'center' }}>
+                    Trang {rbacUsersQuery.data.page}/{rbacUsersQuery.data.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setRbacPage((p) => Math.min(rbacUsersQuery.data.totalPages, p + 1))}
+                    disabled={rbacUsersQuery.data.page >= rbacUsersQuery.data.totalPages || rbacUsersQuery.isFetching}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: rbacUsersQuery.data.page >= rbacUsersQuery.data.totalPages ? '#d1d5db' : '#4b5563', fontWeight: 500, cursor: rbacUsersQuery.data.page >= rbacUsersQuery.data.totalPages ? 'not-allowed' : 'pointer' }}
+                  >
+                    Sau
+                  </button>
+                  {rbacUsersQuery.isFetching && <Loader2 size={13} className="animate-spin" style={{ color: '#4f46e5' }} />}
+                </div>
+              </div>
+            )}
+            </>
+            )}
           </div>
         )}
 
