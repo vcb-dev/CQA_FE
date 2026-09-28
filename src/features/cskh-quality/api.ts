@@ -158,7 +158,9 @@ export interface CskhAuditRow {
     referralSource?: string | null;
     suggestedReplies?: string | string[] | null;
     actionItems?:
-      Array<{ issue: string; suggestedReply: string }> | string | null;
+      | Array<{ issue: string; suggestedReply: string }>
+      | string
+      | null;
     violations?: string | null;
     tokenUsage?: {
       prompt_tokens?: number;
@@ -1271,6 +1273,11 @@ export interface CskhInboxConversation {
   labels?: CskhInboxLabel[];
   labelsLocked?: boolean;
   viewers?: CskhInboxViewer[];
+
+  kind?: "dm" | "fb_comment" | string;
+  sourcePostId?: string | null;
+  sourcePermalink?: string | null;
+  sourceThumb?: string | null;
 }
 
 export interface CskhInboxMessage {
@@ -1923,6 +1930,49 @@ export async function hideIgComment(
 ): Promise<{ ok: boolean }> {
   const { data } = await apiClient.post<{ ok: boolean }>(
     `/cskh/instagram/comments/${encodeURIComponent(igCommentId)}/hide`,
+    {},
+    { params: { pageId } },
+  );
+  return data;
+}
+
+/**
+ * syncFbComments là hàm đồng bộ thông tin bình luận từ Facebook.
+ */
+export async function syncFbComments(pageId: string) {
+  const { data } = await apiClient.post<{
+    ok: boolean;
+    postCount: number;
+    threadTouches: number;
+  }>("/cskh/facebook/comments/sync", {}, { params: { pageId } });
+  return data;
+}
+
+/**
+ * replyFbComment là hàm trả lời bình luận Facebook.
+ */
+export async function replyFbComment(
+  pageId: string,
+  fbCommentId: string,
+  message: string,
+) {
+  const { data } = await apiClient.post<{
+    ok: boolean;
+    replyId: string | null;
+  }>(
+    `/cskh/facebook/comments/${encodeURIComponent(fbCommentId)}/reply`,
+    { message },
+    { params: { pageId } },
+  );
+  return data;
+}
+
+/**
+ * hideFbComment là hàm ẩn bình luận Facebook.
+ */
+export async function hideFbComment(pageId: string, fbCommentId: string) {
+  const { data } = await apiClient.post<{ ok: boolean }>(
+    `/cskh/facebook/comments/${encodeURIComponent(fbCommentId)}/hide`,
     {},
     { params: { pageId } },
   );

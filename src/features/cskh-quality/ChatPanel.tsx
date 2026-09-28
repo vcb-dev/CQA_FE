@@ -10,6 +10,7 @@ import {
   fetchInboxMessagesProgressive,
   markInboxAsUnread,
   notifyInboxTyping,
+  replyFbComment,
   sendInboxMessage,
   sendInboxMessageMedia,
   translateInboxConversation,
@@ -165,6 +166,9 @@ export function ChatPanel({
     ...conversation,
     ...(messagesData?.conversation ?? {}),
   };
+  const isFbComment =
+    conversationWithLabels.kind === "fb_comment" ||
+    conversation.kind === "fb_comment";
   const showInitialLoader =
     !hasRealMessages && (!isFetched || isLoading || isPending || isFetching);
   const showHydratingHint = isFetching && hasRealMessages;
@@ -182,6 +186,14 @@ export function ChatPanel({
       originalText?: string;
       file?: File;
     }) => {
+      if (isFbComment) {
+        if (file) throw new Error("Bình luận chỉ gửi chữ.");
+        const inbound = [...messages].reverse().find((m) => m.direction === "inbound");
+        const commentId = inbound?.fbMessageId;
+        if (!commentId) throw new Error("Không tìm thấy comment để trả lời.");
+        await replyFbComment(conversation.pageId, commentId, text);
+        return null;
+      }
       if (file) {
         return sendInboxMessageMedia(conversation.id, file, text || undefined);
       }
@@ -285,6 +297,16 @@ export function ChatPanel({
     onSuccess: (newMessage, _vars, context) => {
       if (context?.blobUrl) URL.revokeObjectURL(context.blobUrl);
 
+      if (isFbComment) {
+        void qc.invalidateQueries({
+          queryKey: ["cskh", "inbox", "messages", conversation.id],
+        });
+        void qc.invalidateQueries({
+          queryKey: ["cskh", "inbox", "conversations"],
+        });
+        return;
+      }
+
       qc.setQueryData<{
         conversation: CskhInboxConversation;
         messages: CskhInboxMessage[];
@@ -320,8 +342,8 @@ export function ChatPanel({
     },
   });
 
-  // Typing notification
   const handleTyping = () => {
+    if (isFbComment) return;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     void notifyInboxTyping(conversation.id).catch(() => {
@@ -335,6 +357,7 @@ export function ChatPanel({
 
   // Phát hiện ngôn ngữ khách → lưu BE (một lần / hội thoại nếu chưa có)
   useEffect(() => {
+    if (isFbComment) return;
     if (!hasRealMessages) return;
     if (conversationWithLabels.customerLang) return;
     let cancelled = false;
@@ -486,16 +509,23 @@ export function ChatPanel({
           />
           <div>
             <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
-              {conversationWithLabels.customerName ||
-                `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? "").slice(0, 8) || "?"}`}
+              {isFbComment
+                ? conversationWithLabels.customerName &&
+                  conversationWithLabels.customerName !== "Khách Facebook"
+                  ? conversationWithLabels.customerName
+                  : "Khách hàng Facebook"
+                : conversationWithLabels.customerName ||
+                  `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? "").slice(0, 8) || "?"}`}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">
-                {conversation.platform === "instagram"
-                  ? "Cuộc trò chuyện Instagram"
-                  : conversation.platform === "tiktok"
-                    ? "Cuộc trò chuyện TikTok"
-                    : "Cuộc trò chuyện Facebook"}
+                {isFbComment
+                  ? "Bình luận Facebook"
+                  : conversation.platform === "instagram"
+                    ? "Cuộc trò chuyện Instagram"
+                    : conversation.platform === "tiktok"
+                      ? "Cuộc trò chuyện TikTok"
+                      : "Cuộc trò chuyện Facebook"}
               </span>
               {translatingPending && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-600 leading-none">
@@ -516,7 +546,7 @@ export function ChatPanel({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {onToggleAssistant && (
+          {onToggleAssistant && !isFbComment && (
             <button
               type="button"
               onClick={onToggleAssistant}
@@ -544,6 +574,7 @@ export function ChatPanel({
             open={viewHistoryOpen}
             onOpenChange={setViewHistoryOpen}
           />
+          {!isFbComment && (
           <button
             type="button"
             onClick={() => translateThreadMut.mutate()}
@@ -558,6 +589,7 @@ export function ChatPanel({
             )}
             Dịch
           </button>
+          )}
           <button
             onClick={handleMarkAsUnread}
             disabled={markUnreadMutation.isPending}
@@ -590,6 +622,29 @@ export function ChatPanel({
         </button>
       )}
 
+      {isFbComment && (
+        <a
+          href={conversationWithLabels.sourcePermalink || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className="mx-3 mt-2 flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 shrink-0"
+        >
+          {conversationWithLabels.sourceThumb ? (
+            <img
+              src={conversationWithLabels.sourceThumb}
+              alt=""
+              className="h-14 w-14 rounded object-cover"
+            />
+          ) : null}
+          <span className="text-xs text-slate-600 line-clamp-3">
+            Bài Facebook
+            {conversationWithLabels.sourcePostId
+              ? ` · ${conversationWithLabels.sourcePostId}`
+              : ""}
+          </span>
+        </a>
+      )}
+
       {/* Messages Area */}
       <div
         ref={scrollRef}
@@ -605,11 +660,13 @@ export function ChatPanel({
           </div>
         ) : displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+            {!isFbComment && (
             <ConversationAdBanner
               conversation={conversationWithLabels}
               adInsights={adInsights}
               isLoadingAdInsights={isLoadingAdInsights}
             />
+            )}
             <AlertCircle className="w-10 h-10 opacity-40" />
             <p className="text-sm font-medium">Không có tin nhắn nào</p>
           </div>
@@ -626,7 +683,8 @@ export function ChatPanel({
               </div>
             )}
             {/* Chỉ hiện thẻ QC legacy khi chưa có tin ad_referral trong thread */}
-            {!displayMessages.some((m) => m.messageType === "ad_referral") && (
+            {!isFbComment &&
+              !displayMessages.some((m) => m.messageType === "ad_referral") && (
               <ConversationAdBanner
                 conversation={conversationWithLabels}
                 adInsights={adInsights}
@@ -659,6 +717,12 @@ export function ChatPanel({
             conversationId={conversation.id}
             customerLang={conversationWithLabels.customerLang}
             customerLangLabel={conversationWithLabels.customerLangLabel}
+            textOnly={isFbComment}
+            placeholder={
+              isFbComment
+                ? "Nhập bình luận... (Shift+Enter xuống dòng)"
+                : undefined
+            }
             onSend={async (text, options) => {
               await sendMut.mutateAsync({
                 text,
