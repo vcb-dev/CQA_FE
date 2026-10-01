@@ -1355,6 +1355,7 @@ export async function fetchInboxConversationsPage(options?: {
   unlabeledOnly?: boolean;
   includeLabels?: boolean;
   platform?: "messenger" | "instagram" | "tiktok";
+  kind?: "dm" | "comment";
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {};
   if (options?.pageId) params.pageId = options.pageId;
@@ -1374,6 +1375,7 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.unlabeledOnly) params.unlabeledOnly = "1";
   if (options?.includeLabels) params.includeLabels = "1";
   if (options?.platform) params.platform = options.platform;
+  if (options?.kind) params.kind = options.kind;
   const { data } = await apiClient.get<CskhInboxConversationPage>(
     "/cskh/inbox/conversations",
     {

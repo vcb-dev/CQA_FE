@@ -98,6 +98,7 @@ type ChatMessengerPaneProps = {
 };
 
 type FilterTab = "all" | "unread" | "ads" | "normal";
+type InboxKindFilter = "all" | "dm" | "comment";
 
 const INBOX_MONTH_OPTIONS = inboxMonthOptions(18);
 
@@ -315,6 +316,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [labelFilter, setLabelFilter] = useState<InboxLabelFilterValue>("all");
+  const [kindFilter, setKindFilter] = useState<InboxKindFilter>("all");
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>(() =>
     pageId ? [pageId] : [],
   );
@@ -343,6 +345,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       setSelectedConversation(null);
     }
   }, [selectedPageIds, selectedConversation]);
+
+  useEffect(() => {
+    if (!selectedConversation || kindFilter === "all") return;
+    const comment = isInboxComment(selectedConversation.kind);
+    if (kindFilter === "comment" ? !comment : comment) {
+      setSelectedConversation(null);
+    }
+  }, [kindFilter, selectedConversation]);
 
   const bumpTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -460,6 +470,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       includeLabels?: boolean;
       platform?: "messenger" | "instagram" | "tiktok";
       month?: string;
+      kind?: "dm" | "comment";
     } = {
       pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
       platform: graphPlatform,
@@ -482,12 +493,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       base.labelId = labelFilter;
     }
     base.includeLabels = labelFilter !== "all";
+    if (kindFilter !== "all") base.kind = kindFilter;
     return base;
   }, [
     selectedPageIds,
     platformFilter,
     activeFilter,
     labelFilter,
+    kindFilter,
     graphPlatform,
     selectedMonth,
   ]);
@@ -511,6 +524,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 .sort()
                 .join(",")),
         selectedMonth,
+        kindFilter,
       ] as const,
     [
       pageKey,
@@ -521,6 +535,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       channelScopeKey,
       filteredPages,
       selectedMonth,
+      kindFilter,
     ],
   );
 
@@ -1191,10 +1206,40 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               />
             </div>
 
+            <div className="mt-2 flex rounded-lg bg-slate-50 p-0.5">
+              {(
+                [
+                  { key: "all", label: "Tất cả" },
+                  { key: "dm", label: "Chat" },
+                  { key: "comment", label: "Comment" },
+                ] as const
+              ).map((tab) => {
+                const isActive = kindFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() =>
+                      startFilterTransition(() => setKindFilter(tab.key))
+                    }
+                    className={`flex-1 h-7 rounded-md text-[10.5px] font-semibold transition-colors ${
+                      isActive
+                        ? "bg-white text-slate-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <p className="text-[9.5px] text-slate-400 mt-1.5">
               {debouncedSearch
                 ? `Tìm trong ${formatInboxMonthLabel(selectedMonth, true)} · ${filterCounts.all.toLocaleString()} hội thoại`
-                : activeFilter === "all"
+                : kindFilter !== "all"
+                  ? `${formatInboxMonthLabel(selectedMonth, true)} · ${kindFilter === "comment" ? "Comment" : "Chat"} · Đã tải ${allConversations.length.toLocaleString()}`
+                  : activeFilter === "all"
                   ? (convStats?.total ?? 0) > 0
                     ? `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} / ${filterCounts.all.toLocaleString()} · Cuộn để xem thêm`
                     : `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} · Cuộn để xem thêm`
