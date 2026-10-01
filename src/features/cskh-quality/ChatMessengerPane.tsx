@@ -53,7 +53,9 @@ import {
   fetchInboxMessagesProgressive,
   isAsyncInboxSync,
   prefetchInboxMessages,
+  isInboxComment,
   syncFbComments,
+  syncIgPageComments,
   syncInboxFromGraph,
   type CskhInboxConversation,
   type CskhInboxConversationPage,
@@ -793,18 +795,24 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       const inbox = await syncInboxFromGraph(
         selectedPageIds.length === 1 ? selectedPageIds[0] : undefined,
       );
-      const fbPages = (
+      const commentPages = (
         selectedPageIds.length > 0
           ? filteredPages.filter((p) => selectedPageIds.includes(p.pageId))
           : filteredPages
       )
-        .filter((p) => pageBucket(p.platform) === "facebook")
+        .filter((p) => {
+          const bucket = pageBucket(p.platform);
+          return bucket === "facebook" || bucket === "instagram";
+        })
         .slice(0, 20);
       let commentThreads = 0;
       const commentErrors: string[] = [];
-      for (const page of fbPages) {
+      for (const page of commentPages) {
         try {
-          const r = await syncFbComments(page.pageId);
+          const r =
+            pageBucket(page.platform) === "instagram"
+              ? await syncIgPageComments(page.pageId)
+              : await syncFbComments(page.pageId);
           commentThreads += r.threadTouches ?? 0;
         } catch (e) {
           commentErrors.push(
@@ -815,7 +823,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       return {
         inbox,
         commentThreads,
-        fbPageCount: fbPages.length,
+        commentPageCount: commentPages.length,
         commentErrors,
       };
     },
@@ -831,8 +839,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               : ""),
         );
       }
-      const commentBit = result.fbPageCount
-        ? ` · ${result.commentThreads} comment (${result.fbPageCount} page)`
+      const commentBit = result.commentPageCount
+        ? ` · ${result.commentThreads} comment (${result.commentPageCount} page)`
         : "";
       if (isAsyncInboxSync(result.inbox)) {
         toast.info(
@@ -878,7 +886,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const shouldLoadAdInsights =
     !!sidebarConversation &&
-    sidebarConversation.kind !== "fb_comment" &&
+    !isInboxComment(sidebarConversation.kind) &&
     (sidebarConversation.fromAd ||
       sidebarConversation.referralSource === "HEURISTIC");
 
@@ -894,7 +902,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     enabled:
       !!selectedId &&
       messagesReady &&
-      sidebarConversation?.kind !== "fb_comment",
+      !isInboxComment(sidebarConversation?.kind),
     staleTime: 180_000,
   });
 
@@ -976,7 +984,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       adInsightsVisitCountsRef.current.set(conv.id, visitGen);
 
       setSelectedConversation(opened);
-      if (conv.kind === "fb_comment") setAssistantOpen(false);
+      if (isInboxComment(conv.kind)) setAssistantOpen(false);
       setInputDraft("");
       setAdInsightsSelectGen({ id: conv.id, gen: visitGen });
 
@@ -1318,7 +1326,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             )}
 
             {/* Right Sidebar */}
-            {sidebarConversation?.kind !== "fb_comment" && (
+            {!isInboxComment(sidebarConversation?.kind) && (
             <div className="hidden lg:flex shrink-0 h-full min-h-0">
               <ChatRightSidebar
                 conversation={sidebarConversation ?? selectedConversation}

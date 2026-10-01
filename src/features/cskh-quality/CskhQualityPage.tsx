@@ -3976,7 +3976,7 @@ export function CskhQualityPage() {
 
   useEffect(() => {
     if (tabParam === "ig-comments") {
-      navigate("/instagram-comments", { replace: true });
+      navigate("/conversations", { replace: true });
     }
   }, [tabParam, navigate]);
 

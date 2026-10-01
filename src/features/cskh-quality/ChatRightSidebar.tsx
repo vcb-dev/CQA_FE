@@ -142,12 +142,14 @@ export function ChatRightSidebar({
             className="mb-3 h-14 w-14 rounded-full text-lg shadow-lg ring-3 ring-white"
           />
           <h3 className="text-sm font-bold text-slate-800 truncate max-w-full">
-            {conversation.kind === "fb_comment"
-              ? conversation.customerName &&
-                conversation.customerName !== "Khách Facebook"
-                ? conversation.customerName
-                : "Khách hàng Facebook"
-              : conversation.customerName ||
+            {conversation.kind === "ig_comment"
+              ? conversation.customerName || "Khách hàng Instagram"
+              : conversation.kind === "fb_comment"
+                ? conversation.customerName &&
+                  conversation.customerName !== "Khách Facebook"
+                  ? conversation.customerName
+                  : "Khách hàng Facebook"
+                : conversation.customerName ||
                 (conversation.platform === "instagram"
                   ? "Khách Instagram"
                   : conversation.platform === "tiktok"

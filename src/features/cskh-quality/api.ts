@@ -1274,10 +1274,14 @@ export interface CskhInboxConversation {
   labelsLocked?: boolean;
   viewers?: CskhInboxViewer[];
 
-  kind?: "dm" | "fb_comment" | string;
+  kind?: "dm" | "fb_comment" | "ig_comment" | string;
   sourcePostId?: string | null;
   sourcePermalink?: string | null;
   sourceThumb?: string | null;
+}
+
+export function isInboxComment(kind?: string | null): boolean {
+  return kind === "fb_comment" || kind === "ig_comment";
 }
 
 export interface CskhInboxMessage {
@@ -1883,6 +1887,19 @@ export async function fetchIgComments(
  * @param mediaId ID của media Instagram.
  * @returns Số lượng comment đã đồng bộ.
  */
+export async function syncIgPageComments(pageId: string): Promise<{
+  ok: boolean;
+  postCount: number;
+  threadTouches: number;
+}> {
+  const { data } = await apiClient.post<{
+    ok: boolean;
+    postCount: number;
+    threadTouches: number;
+  }>("/cskh/instagram/comments/sync", {}, { params: { pageId } });
+  return data;
+}
+
 export async function syncIgCommentsFromGraph(
   pageId: string,
   mediaId: string,
