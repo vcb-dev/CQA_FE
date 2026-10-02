@@ -1479,19 +1479,6 @@ export async function fetchInboxMessagesProgressive(
   );
   onPartial?.(quick);
 
-  const needsBlockingRefresh = quick.messages.length === 0;
-
-  if (needsBlockingRefresh) {
-    const fresh = await fetchInboxMessages(
-      conversationId,
-      { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
-      signal,
-    );
-    lastInboxBackgroundRefresh.set(conversationId, Date.now());
-    onPartial?.(fresh);
-    return fresh;
-  }
-
   if (shouldBackgroundRefreshMessages(conversationId, quick)) {
     lastInboxBackgroundRefresh.set(conversationId, Date.now());
     void fetchInboxMessages(
