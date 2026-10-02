@@ -1266,6 +1266,7 @@ export interface CskhInboxConversation {
   lastMessageAt: string | null;
   unreadCount: number;
   awaitingLabel?: boolean;
+  needsReply?: boolean;
   pendingViewerCount?: number;
   updatedAt: string;
   customerLang?: string | null;
@@ -1309,6 +1310,7 @@ export interface CskhInboxConversationStats {
   total: number;
   fromAd: number;
   unread: number;
+  needsReply: number;
   normal: number;
 }
 
@@ -1346,6 +1348,7 @@ export async function fetchInboxConversationsPage(options?: {
   fromAdOnly?: boolean;
   unreadOnly?: boolean;
   organicOnly?: boolean;
+  needsReplyOnly?: boolean;
   limit?: number;
   cursor?: string;
   search?: string;
@@ -1363,6 +1366,7 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.fromAdOnly) params.fromAdOnly = "1";
   if (options?.unreadOnly) params.unreadOnly = "1";
   if (options?.organicOnly) params.organicOnly = "1";
+  if (options?.needsReplyOnly) params.needsReplyOnly = "1";
   if (options?.limit != null && options.limit > 0)
     params.limit = String(options.limit);
   if (options?.cursor) params.cursor = options.cursor;

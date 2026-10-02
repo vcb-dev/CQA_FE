@@ -97,7 +97,7 @@ type ChatMessengerPaneProps = {
   pageId?: string;
 };
 
-type FilterTab = "all" | "unread" | "ads" | "normal";
+type FilterTab = "all" | "unread" | "unreplied" | "ads" | "normal";
 type InboxKindFilter = "all" | "dm" | "comment";
 
 const INBOX_MONTH_OPTIONS = inboxMonthOptions(18);
@@ -111,6 +111,7 @@ const EMPTY_STATS: CskhInboxConversationStats = {
   total: 0,
   fromAd: 0,
   unread: 0,
+  needsReply: 0,
   normal: 0,
 };
 
@@ -465,6 +466,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       fromAdOnly?: boolean;
       unreadOnly?: boolean;
       organicOnly?: boolean;
+      needsReplyOnly?: boolean;
       labelId?: string;
       unlabeledOnly?: boolean;
       includeLabels?: boolean;
@@ -482,6 +484,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         break;
       case "unread":
         base.unreadOnly = true;
+        break;
+      case "unreplied":
+        base.needsReplyOnly = true;
         break;
       case "normal":
         base.organicOnly = true;
@@ -800,6 +805,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     return {
       all: convStats?.total ?? 0,
       unread: convStats?.unread ?? 0,
+      unreplied: convStats?.needsReply ?? 0,
       ads: convStats?.fromAd ?? 0,
       normal: convStats?.normal ?? 0,
     };
@@ -1053,6 +1059,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       label: "Chưa đọc",
       color: "text-slate-500",
       activeColor: "text-orange-600 border-orange-500",
+    },
+    {
+      key: "unreplied",
+      label: "Chưa TL",
+      color: "text-slate-500",
+      activeColor: "text-rose-600 border-rose-500",
     },
     {
       key: "ads",

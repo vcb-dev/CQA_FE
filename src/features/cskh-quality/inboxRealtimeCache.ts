@@ -131,6 +131,7 @@ function matchesConversationFilter(
   if (!conversationInInboxMonth(conv.lastMessageAt, monthKey)) return false
   if (activeFilter === 'ads' && !conv.fromAd) return false
   if (activeFilter === 'unread' && !(conv.unreadCount > 0 || conv.awaitingLabel)) return false
+  if (activeFilter === 'unreplied' && !conv.needsReply) return false
   if (activeFilter === 'normal' && conv.fromAd) return false
   if (kindFilter === 'comment' && !isInboxComment(conv.kind)) return false
   if (kindFilter === 'dm' && isInboxComment(conv.kind)) return false
