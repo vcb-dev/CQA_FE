@@ -53,7 +53,9 @@ import {
   fetchInboxMessagesProgressive,
   isAsyncInboxSync,
   prefetchInboxMessages,
+  isInboxComment,
   syncFbComments,
+  syncIgPageComments,
   syncInboxFromGraph,
   type CskhInboxConversation,
   type CskhInboxConversationPage,
@@ -95,7 +97,8 @@ type ChatMessengerPaneProps = {
   pageId?: string;
 };
 
-type FilterTab = "all" | "unread" | "ads" | "normal";
+type FilterTab = "all" | "unread" | "unreplied" | "ads" | "normal";
+type InboxKindFilter = "all" | "dm" | "comment";
 
 const INBOX_MONTH_OPTIONS = inboxMonthOptions(18);
 
@@ -108,6 +111,7 @@ const EMPTY_STATS: CskhInboxConversationStats = {
   total: 0,
   fromAd: 0,
   unread: 0,
+  needsReply: 0,
   normal: 0,
 };
 
@@ -313,6 +317,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [labelFilter, setLabelFilter] = useState<InboxLabelFilterValue>("all");
+  const [kindFilter, setKindFilter] = useState<InboxKindFilter>("all");
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>(() =>
     pageId ? [pageId] : [],
   );
@@ -341,6 +346,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       setSelectedConversation(null);
     }
   }, [selectedPageIds, selectedConversation]);
+
+  useEffect(() => {
+    if (!selectedConversation || kindFilter === "all") return;
+    const comment = isInboxComment(selectedConversation.kind);
+    if (kindFilter === "comment" ? !comment : comment) {
+      setSelectedConversation(null);
+    }
+  }, [kindFilter, selectedConversation]);
 
   const bumpTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -453,11 +466,13 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       fromAdOnly?: boolean;
       unreadOnly?: boolean;
       organicOnly?: boolean;
+      needsReplyOnly?: boolean;
       labelId?: string;
       unlabeledOnly?: boolean;
       includeLabels?: boolean;
       platform?: "messenger" | "instagram" | "tiktok";
       month?: string;
+      kind?: "dm" | "comment";
     } = {
       pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
       platform: graphPlatform,
@@ -470,6 +485,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       case "unread":
         base.unreadOnly = true;
         break;
+      case "unreplied":
+        base.needsReplyOnly = true;
+        break;
       case "normal":
         base.organicOnly = true;
         break;
@@ -480,12 +498,14 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       base.labelId = labelFilter;
     }
     base.includeLabels = labelFilter !== "all";
+    if (kindFilter !== "all") base.kind = kindFilter;
     return base;
   }, [
     selectedPageIds,
     platformFilter,
     activeFilter,
     labelFilter,
+    kindFilter,
     graphPlatform,
     selectedMonth,
   ]);
@@ -509,6 +529,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 .sort()
                 .join(",")),
         selectedMonth,
+        kindFilter,
       ] as const,
     [
       pageKey,
@@ -519,6 +540,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       channelScopeKey,
       filteredPages,
       selectedMonth,
+      kindFilter,
     ],
   );
 
@@ -783,6 +805,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     return {
       all: convStats?.total ?? 0,
       unread: convStats?.unread ?? 0,
+      unreplied: convStats?.needsReply ?? 0,
       ads: convStats?.fromAd ?? 0,
       normal: convStats?.normal ?? 0,
     };
@@ -793,18 +816,24 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       const inbox = await syncInboxFromGraph(
         selectedPageIds.length === 1 ? selectedPageIds[0] : undefined,
       );
-      const fbPages = (
+      const commentPages = (
         selectedPageIds.length > 0
           ? filteredPages.filter((p) => selectedPageIds.includes(p.pageId))
           : filteredPages
       )
-        .filter((p) => pageBucket(p.platform) === "facebook")
+        .filter((p) => {
+          const bucket = pageBucket(p.platform);
+          return bucket === "facebook" || bucket === "instagram";
+        })
         .slice(0, 20);
       let commentThreads = 0;
       const commentErrors: string[] = [];
-      for (const page of fbPages) {
+      for (const page of commentPages) {
         try {
-          const r = await syncFbComments(page.pageId);
+          const r =
+            pageBucket(page.platform) === "instagram"
+              ? await syncIgPageComments(page.pageId)
+              : await syncFbComments(page.pageId);
           commentThreads += r.threadTouches ?? 0;
         } catch (e) {
           commentErrors.push(
@@ -815,7 +844,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       return {
         inbox,
         commentThreads,
-        fbPageCount: fbPages.length,
+        commentPageCount: commentPages.length,
         commentErrors,
       };
     },
@@ -831,8 +860,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               : ""),
         );
       }
-      const commentBit = result.fbPageCount
-        ? ` · ${result.commentThreads} comment (${result.fbPageCount} page)`
+      const commentBit = result.commentPageCount
+        ? ` · ${result.commentThreads} comment (${result.commentPageCount} page)`
         : "";
       if (isAsyncInboxSync(result.inbox)) {
         toast.info(
@@ -878,7 +907,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const shouldLoadAdInsights =
     !!sidebarConversation &&
-    sidebarConversation.kind !== "fb_comment" &&
+    !isInboxComment(sidebarConversation.kind) &&
     (sidebarConversation.fromAd ||
       sidebarConversation.referralSource === "HEURISTIC");
 
@@ -894,7 +923,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     enabled:
       !!selectedId &&
       messagesReady &&
-      sidebarConversation?.kind !== "fb_comment",
+      !isInboxComment(sidebarConversation?.kind),
     staleTime: 180_000,
   });
 
@@ -976,7 +1005,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       adInsightsVisitCountsRef.current.set(conv.id, visitGen);
 
       setSelectedConversation(opened);
-      if (conv.kind === "fb_comment") setAssistantOpen(false);
+      if (isInboxComment(conv.kind)) setAssistantOpen(false);
       setInputDraft("");
       setAdInsightsSelectGen({ id: conv.id, gen: visitGen });
 
@@ -1030,6 +1059,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       label: "Chưa đọc",
       color: "text-slate-500",
       activeColor: "text-orange-600 border-orange-500",
+    },
+    {
+      key: "unreplied",
+      label: "Chưa TL",
+      color: "text-slate-500",
+      activeColor: "text-rose-600 border-rose-500",
     },
     {
       key: "ads",
@@ -1183,10 +1218,40 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               />
             </div>
 
+            <div className="mt-2 flex rounded-lg bg-slate-50 p-0.5">
+              {(
+                [
+                  { key: "all", label: "Tất cả" },
+                  { key: "dm", label: "Chat" },
+                  { key: "comment", label: "Comment" },
+                ] as const
+              ).map((tab) => {
+                const isActive = kindFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() =>
+                      startFilterTransition(() => setKindFilter(tab.key))
+                    }
+                    className={`flex-1 h-7 rounded-md text-[10.5px] font-semibold transition-colors ${
+                      isActive
+                        ? "bg-white text-slate-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <p className="text-[9.5px] text-slate-400 mt-1.5">
               {debouncedSearch
                 ? `Tìm trong ${formatInboxMonthLabel(selectedMonth, true)} · ${filterCounts.all.toLocaleString()} hội thoại`
-                : activeFilter === "all"
+                : kindFilter !== "all"
+                  ? `${formatInboxMonthLabel(selectedMonth, true)} · ${kindFilter === "comment" ? "Comment" : "Chat"} · Đã tải ${allConversations.length.toLocaleString()}`
+                  : activeFilter === "all"
                   ? (convStats?.total ?? 0) > 0
                     ? `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} / ${filterCounts.all.toLocaleString()} · Cuộn để xem thêm`
                     : `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} · Cuộn để xem thêm`
@@ -1318,7 +1383,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             )}
 
             {/* Right Sidebar */}
-            {sidebarConversation?.kind !== "fb_comment" && (
+            {!isInboxComment(sidebarConversation?.kind) && (
             <div className="hidden lg:flex shrink-0 h-full min-h-0">
               <ChatRightSidebar
                 conversation={sidebarConversation ?? selectedConversation}
