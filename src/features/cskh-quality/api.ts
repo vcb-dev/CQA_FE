@@ -1266,6 +1266,7 @@ export interface CskhInboxConversation {
   lastMessageAt: string | null;
   unreadCount: number;
   awaitingLabel?: boolean;
+  needsReply?: boolean;
   pendingViewerCount?: number;
   updatedAt: string;
   customerLang?: string | null;
@@ -1274,10 +1275,14 @@ export interface CskhInboxConversation {
   labelsLocked?: boolean;
   viewers?: CskhInboxViewer[];
 
-  kind?: "dm" | "fb_comment" | string;
+  kind?: "dm" | "fb_comment" | "ig_comment" | string;
   sourcePostId?: string | null;
   sourcePermalink?: string | null;
   sourceThumb?: string | null;
+}
+
+export function isInboxComment(kind?: string | null): boolean {
+  return kind === "fb_comment" || kind === "ig_comment";
 }
 
 export interface CskhInboxMessage {
@@ -1305,6 +1310,7 @@ export interface CskhInboxConversationStats {
   total: number;
   fromAd: number;
   unread: number;
+  needsReply: number;
   normal: number;
 }
 
@@ -1342,6 +1348,7 @@ export async function fetchInboxConversationsPage(options?: {
   fromAdOnly?: boolean;
   unreadOnly?: boolean;
   organicOnly?: boolean;
+  needsReplyOnly?: boolean;
   limit?: number;
   cursor?: string;
   search?: string;
@@ -1351,6 +1358,7 @@ export async function fetchInboxConversationsPage(options?: {
   unlabeledOnly?: boolean;
   includeLabels?: boolean;
   platform?: "messenger" | "instagram" | "tiktok";
+  kind?: "dm" | "comment";
 }): Promise<CskhInboxConversationPage> {
   const params: Record<string, string> = {};
   if (options?.pageId) params.pageId = options.pageId;
@@ -1358,6 +1366,7 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.fromAdOnly) params.fromAdOnly = "1";
   if (options?.unreadOnly) params.unreadOnly = "1";
   if (options?.organicOnly) params.organicOnly = "1";
+  if (options?.needsReplyOnly) params.needsReplyOnly = "1";
   if (options?.limit != null && options.limit > 0)
     params.limit = String(options.limit);
   if (options?.cursor) params.cursor = options.cursor;
@@ -1370,6 +1379,7 @@ export async function fetchInboxConversationsPage(options?: {
   if (options?.unlabeledOnly) params.unlabeledOnly = "1";
   if (options?.includeLabels) params.includeLabels = "1";
   if (options?.platform) params.platform = options.platform;
+  if (options?.kind) params.kind = options.kind;
   const { data } = await apiClient.get<CskhInboxConversationPage>(
     "/cskh/inbox/conversations",
     {
@@ -1468,19 +1478,6 @@ export async function fetchInboxMessagesProgressive(
     signal,
   );
   onPartial?.(quick);
-
-  const needsBlockingRefresh = quick.messages.length === 0;
-
-  if (needsBlockingRefresh) {
-    const fresh = await fetchInboxMessages(
-      conversationId,
-      { refresh: true, limit: INBOX_MESSAGES_OPEN_LIMIT },
-      signal,
-    );
-    lastInboxBackgroundRefresh.set(conversationId, Date.now());
-    onPartial?.(fresh);
-    return fresh;
-  }
 
   if (shouldBackgroundRefreshMessages(conversationId, quick)) {
     lastInboxBackgroundRefresh.set(conversationId, Date.now());
@@ -1883,6 +1880,19 @@ export async function fetchIgComments(
  * @param mediaId ID của media Instagram.
  * @returns Số lượng comment đã đồng bộ.
  */
+export async function syncIgPageComments(pageId: string): Promise<{
+  ok: boolean;
+  postCount: number;
+  threadTouches: number;
+}> {
+  const { data } = await apiClient.post<{
+    ok: boolean;
+    postCount: number;
+    threadTouches: number;
+  }>("/cskh/instagram/comments/sync", {}, { params: { pageId } });
+  return data;
+}
+
 export async function syncIgCommentsFromGraph(
   pageId: string,
   mediaId: string,

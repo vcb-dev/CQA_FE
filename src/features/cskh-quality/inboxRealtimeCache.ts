@@ -1,5 +1,5 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query'
-import type { CskhInboxConversation, CskhInboxConversationPage, CskhInboxMessage } from './api'
+import { isInboxComment, type CskhInboxConversation, type CskhInboxConversationPage, type CskhInboxMessage } from './api'
 import { groupLiveMediaMessages } from './auditHelpers'
 import { inboxRtLog, inboxRtWarn } from './inboxRealtimeDebug'
 import { conversationInInboxMonth } from './inboxMonth'
@@ -115,6 +115,7 @@ function matchesConversationFilter(
   platformFilter?: string,
   platformScopeKey?: string,
   monthKey?: string,
+  kindFilter?: string,
 ): boolean {
   if (pageIdFilter && conv.pageId !== pageIdFilter) return false
   if (platformScopeKey) {
@@ -130,7 +131,10 @@ function matchesConversationFilter(
   if (!conversationInInboxMonth(conv.lastMessageAt, monthKey)) return false
   if (activeFilter === 'ads' && !conv.fromAd) return false
   if (activeFilter === 'unread' && !(conv.unreadCount > 0 || conv.awaitingLabel)) return false
+  if (activeFilter === 'unreplied' && !conv.needsReply) return false
   if (activeFilter === 'normal' && conv.fromAd) return false
+  if (kindFilter === 'comment' && !isInboxComment(conv.kind)) return false
+  if (kindFilter === 'dm' && isInboxComment(conv.kind)) return false
   const q = search?.trim().toLowerCase()
   if (q) {
     const hay = `${conv.customerName ?? ''} ${conv.lastMessage ?? ''} ${conv.pageName ?? ''}`.toLowerCase()
@@ -193,6 +197,7 @@ function patchInfiniteConversationList(
   const platformFilter = (key[7] as string | undefined) ?? 'all'
   const platformScopeKey = (key[8] as string | undefined) ?? ''
   const monthKey = (key[9] as string | undefined) ?? ''
+  const kindFilter = (key[10] as string | undefined) ?? 'all'
 
   const pages = prev.pages.map((p) => ({ ...p, items: [...p.items] }))
   let foundPage = -1
@@ -220,6 +225,7 @@ function patchInfiniteConversationList(
       platformFilter,
       platformScopeKey,
       monthKey,
+      kindFilter,
     )
     if (!stillMatches) {
       pages[foundPage].items.splice(foundIdx, 1)
@@ -250,7 +256,7 @@ function patchInfiniteConversationList(
     }
   } else {
     const row = patch as CskhInboxConversation
-    if (matchesConversationFilter(row, pageIdFilter, activeFilter, search, labelFilter, platformFilter, platformScopeKey, monthKey)) {
+    if (matchesConversationFilter(row, pageIdFilter, activeFilter, search, labelFilter, platformFilter, platformScopeKey, monthKey, kindFilter)) {
       pages[0].items = [row, ...pages[0].items.filter((c) => c.id !== row.id)]
       pages[0].items.sort(sortConversationsByRecent)
       action = 'inserted-top'
