@@ -15,6 +15,8 @@ type ChatMessageProps = {
   message: CskhInboxMessage;
   isOwn: boolean;
   expectMinImages?: number;
+  /** Permalink bài FB của QC (từ ad-insights / conversation). */
+  adPostUrl?: string | null;
 };
 
 function ChatMediaImage({
@@ -76,6 +78,7 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   isOwn,
   expectMinImages = 0,
+  adPostUrl = null,
 }: ChatMessageProps) {
   const statusIcon =
     message.status === "pending" ? (
@@ -222,19 +225,31 @@ export const ChatMessage = memo(function ChatMessage({
     const img = message.attachmentUrl?.startsWith("http")
       ? message.attachmentUrl
       : null;
-    return (
-      <div className="flex mb-3 justify-start">
-        <div className="max-w-[min(100%,280px)] rounded-2xl rounded-bl-md border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-          <div className="px-2.5 pt-1.5 pb-1 flex items-center justify-between gap-2">
-            <p className="text-[10px] text-slate-400 font-medium">
-              Đã trả lời một quảng cáo
-            </p>
-            <span className="text-[10px] text-slate-400 shrink-0">
-              {formatTime(message.sentAt)}
-            </span>
-          </div>
-          <div className="flex gap-2 px-2.5 pb-2.5">
-            {img ? (
+    const postUrl =
+      adPostUrl?.trim().startsWith("http") ? adPostUrl.trim() : null;
+    const card = (
+      <div className="max-w-[min(100%,280px)] rounded-2xl rounded-bl-md border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+        <div className="px-2.5 pt-1.5 pb-1 flex items-center justify-between gap-2">
+          <p className="text-[10px] text-slate-400 font-medium">
+            Đã trả lời một quảng cáo
+          </p>
+          <span className="text-[10px] text-slate-400 shrink-0">
+            {formatTime(message.sentAt)}
+          </span>
+        </div>
+        <div className="flex gap-2 px-2.5 pb-2.5">
+          {img ? (
+            postUrl ? (
+              <span className="shrink-0 block w-12 h-12 rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
+                <img
+                  src={img}
+                  alt={title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              </span>
+            ) : (
               <a
                 href={img}
                 target="_blank"
@@ -249,24 +264,46 @@ export const ChatMessage = memo(function ChatMessage({
                   referrerPolicy="no-referrer"
                 />
               </a>
-            ) : (
-              <div className="shrink-0 w-12 h-12 rounded-lg border border-dashed border-slate-200 bg-slate-50" />
-            )}
-            <div className="min-w-0 flex-1 self-center space-y-0.5">
-              <p className="text-[12px] font-medium text-slate-800 leading-snug line-clamp-2">
-                {title}
+            )
+          ) : (
+            <div className="shrink-0 w-12 h-12 rounded-lg border border-dashed border-slate-200 bg-slate-50" />
+          )}
+          <div className="min-w-0 flex-1 self-center space-y-0.5">
+            <p className="text-[12px] font-medium text-slate-800 leading-snug line-clamp-2">
+              {title}
+            </p>
+            {idLine ? (
+              <p
+                className="text-[10px] text-slate-400 font-mono truncate select-all"
+                title={idLine}
+              >
+                {idLine}
               </p>
-              {idLine ? (
-                <p
-                  className="text-[10px] text-slate-400 font-mono truncate select-all"
-                  title={idLine}
-                >
-                  {idLine}
-                </p>
-              ) : null}
-            </div>
+            ) : null}
+            {postUrl ? (
+              <p className="text-[10px] text-indigo-600 font-medium">
+                Xem bài đăng trên Facebook
+              </p>
+            ) : null}
           </div>
         </div>
+      </div>
+    );
+    return (
+      <div className="flex mb-3 justify-start">
+        {postUrl ? (
+          <a
+            href={postUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block rounded-2xl hover:opacity-95 transition-opacity"
+            title="Mở bài đăng trên Facebook"
+          >
+            {card}
+          </a>
+        ) : (
+          card
+        )}
       </div>
     );
   }

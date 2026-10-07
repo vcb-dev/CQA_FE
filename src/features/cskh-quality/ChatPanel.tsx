@@ -23,6 +23,7 @@ import {
 import { ChatLabelBar, ConversationLabelBadges } from "./ChatLabelBar";
 import { ChatMessage } from "./ChatMessage";
 import { ChatMessageInput } from "./ChatMessageInput";
+import { resolveAdPostUrl } from "./adPostLink";
 import { ConversationAdBanner } from "./ConversationAdBanner";
 import { ConversationViewHistory } from "./ConversationViewHistory";
 import { CskhPageAvatar } from "./cskhUi";
@@ -168,6 +169,7 @@ export function ChatPanel({
     ...conversation,
     ...(messagesData?.conversation ?? {}),
   };
+  const adPostUrl = resolveAdPostUrl(conversationWithLabels, adInsights);
   const isComment =
     isInboxComment(conversationWithLabels.kind) ||
     isInboxComment(conversation.kind);
@@ -709,6 +711,7 @@ export function ChatPanel({
                 key={msg.id}
                 message={msg}
                 isOwn={msg.isOwn}
+                adPostUrl={adPostUrl}
                 expectMinImages={Math.max(
                   parseInboxPhotoPreviewCount(msg.text),
                   idx === displayMessages.length - 1

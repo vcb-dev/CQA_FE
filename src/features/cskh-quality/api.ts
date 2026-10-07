@@ -1190,6 +1190,8 @@ export interface CskhAdInsights {
   campaignName: string | null;
   /** Ảnh creative / thumbnail từ Meta Marketing API */
   adImageUrl?: string | null;
+  /** Permalink bài đăng Facebook của quảng cáo */
+  adPostUrl?: string | null;
   currency: string | null;
   spend: number | null;
   impressions: number | null;
@@ -1261,6 +1263,7 @@ export interface CskhInboxConversation {
   fromAd?: boolean;
   adId?: string | null;
   adTitle?: string | null;
+  adPostPermalink?: string | null;
   referralSource?: string | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
