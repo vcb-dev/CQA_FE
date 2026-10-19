@@ -1991,3 +1991,97 @@ export async function hideFbComment(pageId: string, fbCommentId: string) {
   );
   return data;
 }
+
+export interface MediaFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface MediaAsset {
+  id: string;
+  folderId: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;
+  thumbUrl: string;
+  createdAt: string;
+}
+
+/**
+ * fetchMediaFolders là hàm lấy danh sách thư mục media.
+ */
+export async function fetchMediaFolders(): Promise<MediaFolder[]> {
+  const { data } = await apiClient.get<MediaFolder[]>(
+    "/cskh/media-library/folders",
+  );
+  return data;
+}
+
+/**
+ * createMediaFolder là hàm tạo thư mục media.
+ */
+export async function createMediaFolder(name: string): Promise<MediaFolder> {
+  const { data } = await apiClient.post<MediaFolder>(
+    "/cskh/media-library/folders",
+    {
+      name,
+    },
+  );
+  return data;
+}
+
+/**
+ * deleteMediaFolder là hàm xóa thư mục media.
+ */
+export async function deleteMediaFolder(folderId: string): Promise<void> {
+  await apiClient.delete(`/cskh/media-library/folders/${folderId}`);
+}
+
+/**
+ * fetchMediaAssets là hàm lấy danh sách tài sản media.
+ */
+export async function fetchMediaAssets(
+  folderId?: string,
+): Promise<MediaAsset[]> {
+  const { data } = await apiClient.get<MediaAsset[]>(
+    "/cskh/media-library/assets",
+    {
+      params: folderId ? { folderId } : undefined,
+    },
+  );
+  return data;
+}
+
+/**
+ * uploadMediaAssets là hàm tải lên tài sản media.
+ */
+export async function uploadMediaAssets(
+  folderId: string,
+  files: File[],
+): Promise<MediaAsset[]> {
+  const form = new FormData();
+  for (const file of files) form.append("files", file, file.name);
+  const { data } = await apiClient.post<MediaAsset[]>(
+    `/cskh/media-library/folders/${folderId}/assets`,
+    form,
+    {
+      timeout: 120_000,
+      transformRequest: [
+        (body, headers) => {
+          if (body instanceof FormData) delete headers["Content-Type"];
+          return body;
+        },
+      ],
+    },
+  );
+  return data;
+}
+
+/**
+ * deleteMediaAsset là hàm xóa tài sản media.
+ */
+export async function deleteMediaAsset(assetId: string): Promise<void> {
+  await apiClient.delete(`/cskh/media-library/assets/${assetId}`);
+}

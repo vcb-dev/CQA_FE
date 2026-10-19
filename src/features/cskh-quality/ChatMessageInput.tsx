@@ -4,6 +4,7 @@ import { Loader2, Paperclip, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { previewInboxTranslate } from "./api";
+import { MediaLibraryButton } from "./MediaLibraryButton";
 
 const ASSIST_TRANSLATE_KEY = "cskh.inbox.autoTranslate";
 
@@ -49,7 +50,7 @@ export function ChatMessageInput({
   const [preview, setPreview] = useState<string>("");
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  const [attachment, setAttachment] = useState<PendingAttachment | null>(null);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,23 +60,37 @@ export function ChatMessageInput({
   const sendingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function setFiles(files: File[]) {
+    setAttachments((current) => {
+      for (const item of current) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
+      return files
+        .filter((file) => file.size > 0)
+        .map((file) => ({
+          file,
+          previewUrl: file.type.startsWith("image/")
+            ? URL.createObjectURL(file)
+            : "",
+        }));
+    });
+  }
+
   function setFile(file: File) {
     if (!file.size) {
       toast.error("File rỗng — chọn lại hoặc copy ảnh khác.");
       return;
     }
-    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
-    const previewUrl = file.type.startsWith("image/")
-      ? URL.createObjectURL(file)
-      : "";
-    setAttachment({ file, previewUrl });
+    setFiles([file]);
   }
-
-  function clearAttachment() {
-    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
-    setAttachment(null);
+  function clearAttachments() {
+    setAttachments((current) => {
+      for (const item of current) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
+      return [];
+    });
   }
-
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     if (textOnly) return;
     const dt = e.clipboardData;
@@ -156,23 +171,33 @@ export function ChatMessageInput({
 
   const handleSend = async () => {
     const trimmed = text.trim();
-    const file = attachment?.file;
-    if ((!trimmed && !file) || sending || sendingRef.current) return;
-
-    // Chỉ text: chờ dịch như cũ
-    if (!file && assistTranslate && previewLoading) return;
+    const files = attachments.map((item) => item.file);
+    if ((!trimmed && files.length === 0) || sending || sendingRef.current)
+      return;
+    if (files.length === 0 && assistTranslate && previewLoading) return;
 
     const outboundText =
-      !file && assistTranslate && preview.trim() ? preview.trim() : trimmed;
+      files.length === 0 && assistTranslate && preview.trim()
+        ? preview.trim()
+        : trimmed;
 
     sendingRef.current = true;
     setSending(true);
     try {
-      await onSend(outboundText, { autoTranslate: false, file });
+      if (files.length === 0) {
+        await onSend(outboundText, { autoTranslate: false });
+      } else {
+        for (let i = 0; i < files.length; i++) {
+          await onSend(i === 0 ? trimmed : "", {
+            autoTranslate: false,
+            file: files[i],
+          });
+        }
+      }
       setText("");
       setPreview("");
       previewEditedRef.current = false;
-      clearAttachment();
+      clearAttachments();
       textareaRef.current?.focus();
     } finally {
       sendingRef.current = false;
@@ -205,9 +230,11 @@ export function ChatMessageInput({
 
   useEffect(() => {
     return () => {
-      if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      for (const item of attachments) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
     };
-  }, [attachment]);
+  }, [attachments]);
 
   return (
     <div className="border-t border-slate-100 bg-white">
@@ -238,49 +265,61 @@ export function ChatMessageInput({
       )}
 
       {!textOnly && (
-      <div className="flex items-center gap-2 px-3.5 pt-2">
-        <label className="flex cursor-pointer items-center gap-1.5 select-none text-[11.5px] text-slate-600">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-200"
-            checked={assistTranslate}
-            onChange={(e) => setAssistTranslate(e.target.checked)}
-            disabled={disabled || sending}
-          />
-          AI hỗ trợ dịch
-        </label>
-        {assistTranslate && (
-          <span className="text-[10.5px] text-slate-400">
-            Xem bản dịch rồi mới gửi
-          </span>
-        )}
-      </div>
+        <div className="flex items-center gap-2 px-3.5 pt-2">
+          <label className="flex cursor-pointer items-center gap-1.5 select-none text-[11.5px] text-slate-600">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-200"
+              checked={assistTranslate}
+              onChange={(e) => setAssistTranslate(e.target.checked)}
+              disabled={disabled || sending}
+            />
+            AI hỗ trợ dịch
+          </label>
+          {assistTranslate && (
+            <span className="text-[10.5px] text-slate-400">
+              Xem bản dịch rồi mới gửi
+            </span>
+          )}
+        </div>
       )}
 
-      {attachment && !textOnly && (
-        <div className="px-3.5 pt-2">
-          <div className="relative inline-block">
-            {attachment.previewUrl ? (
-              <img
-                src={attachment.previewUrl}
-                alt=""
-                className="h-16 w-16 rounded-lg object-cover ring-1 ring-slate-200"
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-500 ring-1 ring-slate-200">
-                {attachment.file.type.startsWith("video/") ? "Video" : "File"}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={clearAttachment}
-              disabled={sending}
-              aria-label="Xóa ảnh"
-              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-900 disabled:opacity-50"
+      {attachments.length > 0 && !textOnly && (
+        <div className="flex flex-wrap gap-2 px-3.5 pt-2">
+          {attachments.map((item, index) => (
+            <div
+              key={`${item.file.name}-${index}`}
+              className="relative inline-block"
             >
-              ×
-            </button>
-          </div>
+              {item.previewUrl ? (
+                <img
+                  src={item.previewUrl}
+                  alt=""
+                  className="h-16 w-16 rounded-lg object-cover ring-1 ring-slate-200"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-500 ring-1 ring-slate-200">
+                  {item.file.type.startsWith("video/") ? "Video" : "File"}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setAttachments((current) => {
+                    const target = current[index];
+                    if (target?.previewUrl)
+                      URL.revokeObjectURL(target.previewUrl);
+                    return current.filter((_, i) => i !== index);
+                  })
+                }
+                disabled={sending}
+                aria-label="Xóa ảnh"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-900 disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -299,33 +338,37 @@ export function ChatMessageInput({
 
         {!textOnly && (
           <>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept="image/*,video/*,.pdf"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) setFile(f);
-            e.target.value = "";
-          }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Paperclip />
-        </Button>
+            <MediaLibraryButton
+              disabled={disabled || sending}
+              onPick={setFiles}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,video/*,.pdf"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setFile(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip />
+            </Button>
           </>
         )}
         <Button
           onClick={() => void handleSend()}
           disabled={
-            (!text.trim() && !attachment) ||
+            (!text.trim() && !attachments.length) ||
             sending ||
             disabled ||
-            (assistTranslate && previewLoading && !attachment)
+            (assistTranslate && previewLoading && !attachments.length)
           }
           size="sm"
           className="self-end h-[38px] bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 text-white rounded-xl shadow-sm shadow-blue-200/40 px-4 cursor-pointer font-semibold"
