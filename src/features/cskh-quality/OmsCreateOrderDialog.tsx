@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Loader2, Plus, Search, ShoppingCart, X } from 'lucide-react'
+import { Loader2, Megaphone, Plus, Search, ShoppingCart, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhCustomerIntent, CskhInboxConversation, OmsCatalogItem } from './api'
-import { createOmsOrder, fetchOmsCatalog, fetchOmsOrderSuggest } from './api'
+import {
+  createOmsOrder,
+  fetchInboxMessages,
+  fetchOmsCatalog,
+  fetchOmsOrderSuggest,
+} from './api'
 import { cn } from '@/lib/utils'
 
 type LineItemDraft = {
@@ -18,6 +23,8 @@ type LineItemDraft = {
   locationId: string
   matchReason?: string
 }
+
+type AdOption = { adId: string; adTitle: string | null }
 
 type OmsCreateOrderDialogProps = {
   open: boolean
@@ -54,7 +61,12 @@ export function OmsCreateOrderDialog({
   const [debouncedQ, setDebouncedQ] = useState('')
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([])
   const [suggestNote, setSuggestNote] = useState<string | null>(null)
+  const [selectedAdId, setSelectedAdId] = useState('')
   const appliedSuggest = useRef(false)
+
+  const fromAd = Boolean(
+    conversation.fromAd || conversation.referralSource === 'HEURISTIC' || conversation.adId,
+  )
 
   const mentions = useMemo(() => {
     return [
@@ -81,7 +93,42 @@ export function OmsCreateOrderDialog({
     setDebouncedQ('')
     setLineItems([])
     setSuggestNote(null)
-  }, [open, conversation.id])
+    setSelectedAdId(conversation.adId?.trim() || '')
+  }, [open, conversation.id, conversation.adId])
+
+  const adsInThreadQ = useQuery({
+    queryKey: ['cskh', 'oms', 'ads-in-thread', conversation.id],
+    queryFn: async (): Promise<AdOption[]> => {
+      const { messages } = await fetchInboxMessages(conversation.id, { limit: 80 })
+      const map = new Map<string, AdOption>()
+      if (conversation.adId?.trim()) {
+        map.set(conversation.adId.trim(), {
+          adId: conversation.adId.trim(),
+          adTitle: conversation.adTitle ?? null,
+        })
+      }
+      for (const m of messages) {
+        if (m.messageType !== 'ad_referral') continue
+        const idLine = (m.translatedText || '').replace(/^ID\s+/i, '').trim()
+        const adId = idLine || ''
+        if (!adId) continue
+        if (!map.has(adId)) {
+          map.set(adId, { adId, adTitle: m.text?.trim() || null })
+        }
+      }
+      return [...map.values()]
+    },
+    enabled: open && fromAd,
+    staleTime: 30_000,
+  })
+
+  const adOptions = adsInThreadQ.data ?? []
+  useEffect(() => {
+    if (!open || !fromAd) return
+    if (selectedAdId) return
+    const first = conversation.adId?.trim() || adOptions[0]?.adId || ''
+    if (first) setSelectedAdId(first)
+  }, [open, fromAd, selectedAdId, conversation.adId, adOptions])
 
   const catalogQ = useQuery({
     queryKey: ['cskh', 'oms', 'catalog', debouncedQ],
@@ -110,11 +157,19 @@ export function OmsCreateOrderDialog({
   const createMutation = useMutation({
     mutationFn: createOmsOrder,
     onSuccess: (result) => {
-      toast.success(
-        result.orderName
-          ? `Đã gửi đơn ${result.orderName} sang kho`
-          : `Đã gửi đơn #${result.orderId} sang kho`,
-      )
+      const base = result.orderName
+        ? `Đã gửi đơn ${result.orderName} sang kho`
+        : `Đã gửi đơn #${result.orderId} sang kho`
+      if (result.metaPurchase?.attempted && result.metaPurchase.ok) {
+        toast.success(`${base}. Đã báo lượt mua lên Meta (bên thứ ba / CAPI).`)
+      } else if (result.metaPurchase?.attempted && !result.metaPurchase.ok) {
+        toast.success(base)
+        toast.warning(
+          `Đơn đã tạo nhưng Meta chưa nhận Purchase: ${result.metaPurchase.reason || 'lỗi CAPI'}. Kiểm tra page_events / dataset.`,
+        )
+      } else {
+        toast.success(base)
+      }
       onClose()
     },
     onError: (err: Error & { response?: { data?: { message?: string } } }) => {
@@ -166,6 +221,12 @@ export function OmsCreateOrderDialog({
       toast.error('Chọn ít nhất một sản phẩm')
       return
     }
+    if (fromAd && adOptions.length > 0 && !selectedAdId.trim()) {
+      toast.error('Chọn quảng cáo để gắn lượt mua Meta')
+      return
+    }
+    const ad = adOptions.find((a) => a.adId === selectedAdId)
+    const canReportMeta = fromAd && Boolean(selectedAdId.trim())
     createMutation.mutate({
       customerName,
       phone: phone.trim() || undefined,
@@ -173,6 +234,9 @@ export function OmsCreateOrderDialog({
       note: note.trim() || undefined,
       conversationId: conversation.id,
       platform: conversation.platform,
+      adId: canReportMeta ? selectedAdId.trim() : undefined,
+      adTitle: canReportMeta ? ad?.adTitle || conversation.adTitle || undefined : undefined,
+      reportMetaPurchase: canReportMeta,
       lineItems: lineItems.map((item) => ({
         variantId: item.variantId,
         quantity: item.quantity,
@@ -248,6 +312,45 @@ export function OmsCreateOrderDialog({
               </label>
             </div>
           </div>
+
+          {fromAd ? (
+            <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-amber-800/80 flex items-center gap-1.5">
+                <Megaphone className="h-3 w-3" />
+                Chọn quảng cáo
+              </h3>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Chỉ hiện với hội thoại từ Ads. Sau khi tạo đơn, CRM báo Purchase lên Meta (CAPI —
+                hiện ở “báo cáo bên thứ ba”, không phải “Meta tự phát hiện”).
+              </p>
+              {adsInThreadQ.isLoading ? (
+                <p className="text-[11px] text-amber-800 flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Đang tải quảng cáo trong hội thoại…
+                </p>
+              ) : adOptions.length === 0 ? (
+                <p className="text-[11px] text-amber-900/80">
+                  Hội thoại chưa có mã ad (ad_id). Không báo được lượt mua Meta cho đơn này.
+                </p>
+              ) : (
+                <label className="block space-y-1">
+                  <span className="text-[10px] text-slate-500">Quảng cáo gắn đơn</span>
+                  <select
+                    value={selectedAdId}
+                    onChange={(e) => setSelectedAdId(e.target.value)}
+                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-[11px] text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    required
+                  >
+                    {adOptions.map((ad) => (
+                      <option key={ad.adId} value={ad.adId}>
+                        {(ad.adTitle || 'Quảng cáo').slice(0, 80)} · ID {ad.adId}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sản phẩm trong đơn</h3>

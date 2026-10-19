@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const baseURL = getApiBaseUrl();
 
 const CSRF_COOKIE = 'cqacrm_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -138,6 +139,14 @@ apiClient.interceptors.request.use(async (config) => {
     config.headers = config.headers || {};
     config.headers[CSRF_HEADER] = csrf;
   }
+
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  }
+
   return config;
 });
 
@@ -179,7 +188,7 @@ export function getApiErrorMessage(error: any): string {
         return 'Máy chủ phản hồi quá chậm (timeout). Thử lại sau.';
       }
       if (error.code === 'ERR_NETWORK' || /network|cors|connection refused/i.test(error.message || '')) {
-        return 'Không kết nối được máy chủ. Kiểm tra BE đang chạy (localhost:3001).';
+        return 'Không kết nối được máy chủ. Chạy BE (thường localhost:3001) và restart FE sau khi đổi VITE_BE_PROXY.';
       }
       return error.message || 'Không kết nối được máy chủ';
     }

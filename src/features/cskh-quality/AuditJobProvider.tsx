@@ -20,6 +20,7 @@ import {
   type CskhAuditProgress,
 } from './api'
 import { auditProgressPercent } from './cskhUi'
+import { isActiveAuditStatus } from './auditHelpers'
 
 export const AUDIT_JOB_STORAGE_KEY = 'cskh:audit-job-id'
 export const AUDIT_JOB_STOPPED_KEY = 'cskh:audit-user-stopped'
@@ -38,7 +39,6 @@ function persistUserStopRequested(stopped: boolean) {
     if (stopped) sessionStorage.setItem(AUDIT_JOB_STOPPED_KEY, '1')
     else sessionStorage.removeItem(AUDIT_JOB_STOPPED_KEY)
   } catch {
-    /* ignore */
   }
 }
 
@@ -57,7 +57,6 @@ function persistJobId(jobId: string | null) {
     if (jobId) sessionStorage.setItem(AUDIT_JOB_STORAGE_KEY, jobId)
     else sessionStorage.removeItem(AUDIT_JOB_STORAGE_KEY)
   } catch {
-    /* ignore */
   }
 }
 
@@ -76,9 +75,7 @@ type AuditJobContextValue = {
   progress: CskhAuditProgress | undefined
   isRunning: boolean
   isFetching: boolean
-  /** User bấm Hủy/Tạm dừng — ẩn job trên mọi tab cho đến khi BE xác nhận dừng. */
   userStopRequested: boolean
-  /** ID job đang chạy trên server (kể cả khi user đã dismiss UI). */
   remoteRunningJobId: string | null
   setJobId: (jobId: string | null) => void
   clearJobId: () => void
@@ -105,7 +102,7 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [trackedJobId, setTrackedJobId] = useState<string | null>(() => loadStoredJobId())
   const [userStopRequested, setUserStopRequested] = useState(() => loadUserStopRequested())
-  const prevStatusRef = useRef<string | null>(null)
+  const handledTerminalProgressRef = useRef<string | null>(null)
 
   const dismissRunningJob = useCallback(() => {
     setUserStopRequested(true)
@@ -143,7 +140,7 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
 
   const jobId = useMemo(() => {
     if (userStopRequested) return null
-    if (runningJob?.status === 'running') return runningJob.id
+    if (isActiveAuditStatus(runningJob?.status)) return runningJob!.id
     return trackedJobId
   }, [runningJob, trackedJobId, userStopRequested])
 
@@ -166,11 +163,11 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (userStopRequested) return
-    if (runningJob?.status === 'running' && runningJob.id !== trackedJobId) {
-      setTrackedJobId(runningJob.id)
-      persistJobId(runningJob.id)
+    if (isActiveAuditStatus(runningJob?.status) && runningJob!.id !== trackedJobId) {
+      setTrackedJobId(runningJob!.id)
+      persistJobId(runningJob!.id)
     }
-    if (runningJob && runningJob.status !== 'running') {
+    if (runningJob && !isActiveAuditStatus(runningJob.status)) {
       setTrackedJobId(null)
       persistJobId(null)
     }
@@ -180,7 +177,7 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
   }, [runningJob, trackedJobId, userStopRequested])
 
   useEffect(() => {
-    if (userStopRequested && runningJob && runningJob.status !== 'running') {
+    if (userStopRequested && runningJob && !isActiveAuditStatus(runningJob.status)) {
       setUserStopRequested(false)
       persistUserStopRequested(false)
     }
@@ -190,11 +187,10 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     }
   }, [runningJob, userStopRequested])
 
-  const remoteRunningJobId =
-    runningJob?.status === 'running' ? runningJob.id : null
+  const remoteRunningJobId = isActiveAuditStatus(runningJob?.status) ? runningJob!.id : null
 
   const {
-    data: progress,
+    data: fetchedProgress,
     isFetching,
     isError: progressError,
     error: progressErr,
@@ -205,8 +201,8 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     enabled: !!jobId,
     refetchInterval: (query) => {
       const data = query.state.data
-      if (data?.status === 'running') {
-        return data.summary?.pauseRequested ? 1000 : 2000
+      if (isActiveAuditStatus(data?.status)) {
+        return data?.summary?.pauseRequested ? 1000 : 2000
       }
       return false
     },
@@ -215,17 +211,21 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     retryDelay: cskhQueryRetryDelay,
   })
 
+  const progress = fetchedProgress?.id === jobId ? fetchedProgress : undefined
+
   const isRunning =
     !userStopRequested &&
-    runningJob?.status === 'running' &&
-    progress?.status !== 'paused' &&
-    progress?.status !== 'failed' &&
+    !!jobId &&
+    (progress
+      ? isActiveAuditStatus(progress.status)
+      : runningJob?.id === jobId && isActiveAuditStatus(runningJob.status)) &&
     !progress?.summary?.pauseRequested
 
   useEffect(() => {
-    if (!progress || progress.status === 'running') return
-    if (prevStatusRef.current === progress.status) return
-    prevStatusRef.current = progress.status
+    if (!progress || isActiveAuditStatus(progress.status)) return
+    const terminalProgressKey = `${progress.id}:${progress.status}`
+    if (handledTerminalProgressRef.current === terminalProgressKey) return
+    handledTerminalProgressRef.current = terminalProgressKey
 
     const count = progress.summary?.auditCount ?? progress.audits?.length ?? 0
 
@@ -260,6 +260,9 @@ export function AuditJobProvider({ children }: { children: ReactNode }) {
     persistJobId(null)
     setUserStopRequested(false)
     persistUserStopRequested(false)
+    qc.setQueryData(['cskh', 'running-audit-job'], (previous: typeof runningJob) =>
+      previous?.id === progress.id ? null : previous
+    )
     void qc.invalidateQueries({ queryKey: ['cskh', 'audits'] })
     void qc.invalidateQueries({ queryKey: ['cskh', 'audit-day-stats'] })
     void qc.invalidateQueries({ queryKey: ['cskh', 'inbox'] })
