@@ -10,7 +10,9 @@ import {
   fetchInboxMessagesProgressive,
   markInboxAsUnread,
   notifyInboxTyping,
+  isInboxComment,
   replyFbComment,
+  replyIgComment,
   sendInboxMessage,
   sendInboxMessageMedia,
   translateInboxConversation,
@@ -166,9 +168,12 @@ export function ChatPanel({
     ...conversation,
     ...(messagesData?.conversation ?? {}),
   };
-  const isFbComment =
-    conversationWithLabels.kind === "fb_comment" ||
-    conversation.kind === "fb_comment";
+  const isComment =
+    isInboxComment(conversationWithLabels.kind) ||
+    isInboxComment(conversation.kind);
+  const isIgComment =
+    conversationWithLabels.kind === "ig_comment" ||
+    conversation.kind === "ig_comment";
   const showInitialLoader =
     !hasRealMessages && (!isFetched || isLoading || isPending || isFetching);
   const showHydratingHint = isFetching && hasRealMessages;
@@ -186,12 +191,16 @@ export function ChatPanel({
       originalText?: string;
       file?: File;
     }) => {
-      if (isFbComment) {
+      if (isComment) {
         if (file) throw new Error("Bình luận chỉ gửi chữ.");
         const inbound = [...messages].reverse().find((m) => m.direction === "inbound");
         const commentId = inbound?.fbMessageId;
         if (!commentId) throw new Error("Không tìm thấy comment để trả lời.");
-        await replyFbComment(conversation.pageId, commentId, text);
+        if (isIgComment) {
+          await replyIgComment(conversation.pageId, commentId, text);
+        } else {
+          await replyFbComment(conversation.pageId, commentId, text);
+        }
         return null;
       }
       if (file) {
@@ -297,7 +306,7 @@ export function ChatPanel({
     onSuccess: (newMessage, _vars, context) => {
       if (context?.blobUrl) URL.revokeObjectURL(context.blobUrl);
 
-      if (isFbComment) {
+      if (isComment) {
         void qc.invalidateQueries({
           queryKey: ["cskh", "inbox", "messages", conversation.id],
         });
@@ -343,7 +352,7 @@ export function ChatPanel({
   });
 
   const handleTyping = () => {
-    if (isFbComment) return;
+    if (isComment) return;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     void notifyInboxTyping(conversation.id).catch(() => {
@@ -357,7 +366,7 @@ export function ChatPanel({
 
   // Phát hiện ngôn ngữ khách → lưu BE (một lần / hội thoại nếu chưa có)
   useEffect(() => {
-    if (isFbComment) return;
+    if (isComment) return;
     if (!hasRealMessages) return;
     if (conversationWithLabels.customerLang) return;
     let cancelled = false;
@@ -509,19 +518,23 @@ export function ChatPanel({
           />
           <div>
             <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
-              {isFbComment
-                ? conversationWithLabels.customerName &&
-                  conversationWithLabels.customerName !== "Khách Facebook"
-                  ? conversationWithLabels.customerName
-                  : "Khách hàng Facebook"
-                : conversationWithLabels.customerName ||
-                  `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? "").slice(0, 8) || "?"}`}
+              {isIgComment
+                ? conversationWithLabels.customerName || "Khách hàng Instagram"
+                : isComment
+                  ? conversationWithLabels.customerName &&
+                    conversationWithLabels.customerName !== "Khách Facebook"
+                    ? conversationWithLabels.customerName
+                    : "Khách hàng Facebook"
+                  : conversationWithLabels.customerName ||
+                    `Khách hàng ${(conversationWithLabels.participantPsid ?? conversation.participantPsid ?? "").slice(0, 8) || "?"}`}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium">
-                {isFbComment
-                  ? "Bình luận Facebook"
-                  : conversation.platform === "instagram"
+                {isIgComment
+                  ? "Bình luận Instagram"
+                  : isComment
+                    ? "Bình luận Facebook"
+                    : conversation.platform === "instagram"
                     ? "Cuộc trò chuyện Instagram"
                     : conversation.platform === "tiktok"
                       ? "Cuộc trò chuyện TikTok"
@@ -546,7 +559,7 @@ export function ChatPanel({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {onToggleAssistant && !isFbComment && (
+          {onToggleAssistant && !isComment && (
             <button
               type="button"
               onClick={onToggleAssistant}
@@ -574,7 +587,7 @@ export function ChatPanel({
             open={viewHistoryOpen}
             onOpenChange={setViewHistoryOpen}
           />
-          {!isFbComment && (
+          {!isComment && (
           <button
             type="button"
             onClick={() => translateThreadMut.mutate()}
@@ -622,7 +635,7 @@ export function ChatPanel({
         </button>
       )}
 
-      {isFbComment && (
+      {isComment && (
         <a
           href={conversationWithLabels.sourcePermalink || undefined}
           target="_blank"
@@ -637,7 +650,7 @@ export function ChatPanel({
             />
           ) : null}
           <span className="text-xs text-slate-600 line-clamp-3">
-            Bài Facebook
+            {isIgComment ? "Bài Instagram" : "Bài Facebook"}
             {conversationWithLabels.sourcePostId
               ? ` · ${conversationWithLabels.sourcePostId}`
               : ""}
@@ -660,7 +673,7 @@ export function ChatPanel({
           </div>
         ) : displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
-            {!isFbComment && (
+            {!isComment && (
             <ConversationAdBanner
               conversation={conversationWithLabels}
               adInsights={adInsights}
@@ -683,7 +696,7 @@ export function ChatPanel({
               </div>
             )}
             {/* Chỉ hiện thẻ QC legacy khi chưa có tin ad_referral trong thread */}
-            {!isFbComment &&
+            {!isComment &&
               !displayMessages.some((m) => m.messageType === "ad_referral") && (
               <ConversationAdBanner
                 conversation={conversationWithLabels}
@@ -717,9 +730,9 @@ export function ChatPanel({
             conversationId={conversation.id}
             customerLang={conversationWithLabels.customerLang}
             customerLangLabel={conversationWithLabels.customerLangLabel}
-            textOnly={isFbComment}
+            textOnly={isComment}
             placeholder={
-              isFbComment
+              isComment
                 ? "Nhập bình luận... (Shift+Enter xuống dòng)"
                 : undefined
             }

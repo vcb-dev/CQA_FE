@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, MessageCircle, MessageSquareText } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
-import { type CskhInboxConversation } from "./api";
+import { isInboxComment, type CskhInboxConversation } from "./api";
 import { ConversationLabelBadges } from "./ChatLabelBar";
 import { CskhPageAvatar, inboxChannelLabel } from "./cskhUi";
 
@@ -154,13 +154,15 @@ const ConversationRow = memo(function ConversationRow({
                     : "font-semibold text-slate-700",
                 )}
               >
-                {conv.kind === "fb_comment"
-                  ? conv.customerName &&
-                    conv.customerName !== "Khách Facebook"
-                    ? conv.customerName
-                    : "Khách hàng Facebook"
-                  : conv.customerName ||
-                    `Khách ${(conv.participantPsid ?? "").slice(0, 8) || "?"}`}
+                {conv.kind === "ig_comment"
+                  ? conv.customerName || "Khách hàng Instagram"
+                  : conv.kind === "fb_comment"
+                    ? conv.customerName &&
+                      conv.customerName !== "Khách Facebook"
+                      ? conv.customerName
+                      : "Khách hàng Facebook"
+                    : conv.customerName ||
+                      `Khách ${(conv.participantPsid ?? "").slice(0, 8) || "?"}`}
               </h3>
               {conv.fromAd && (
                 <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-sm leading-none shrink-0">
@@ -190,7 +192,7 @@ const ConversationRow = memo(function ConversationRow({
           </div>
 
           <div className="flex items-center gap-1 mt-0.5">
-            {conv.kind !== "fb_comment" && (
+            {!isInboxComment(conv.kind) && (
               <span
                 className={cn(
                   "inline-flex items-center gap-0.5 text-[9.5px] font-medium",
@@ -216,7 +218,7 @@ const ConversationRow = memo(function ConversationRow({
             )}
             {conv.pageName && (
               <>
-                {conv.kind !== "fb_comment" && (
+                {!isInboxComment(conv.kind) && (
                   <span className="text-[9px] text-slate-300">·</span>
                 )}
                 <span className="text-[9.5px] text-slate-400 font-medium truncate max-w-[120px]">
@@ -286,11 +288,18 @@ const ConversationRow = memo(function ConversationRow({
                 </span>
               )}
             </div>
-            {conv.kind === "fb_comment" && (
+            {isInboxComment(conv.kind) && (
               <MessageSquareText
-                className="w-3.5 h-3.5 text-sky-600 shrink-0"
+                className={cn(
+                  "w-3.5 h-3.5 shrink-0",
+                  conv.kind === "ig_comment" ? "text-pink-600" : "text-sky-600",
+                )}
                 strokeWidth={2.25}
-                aria-label="Bình luận Facebook"
+                aria-label={
+                  conv.kind === "ig_comment"
+                    ? "Bình luận Instagram"
+                    : "Bình luận Facebook"
+                }
               />
             )}
           </div>

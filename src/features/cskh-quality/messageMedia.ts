@@ -170,7 +170,7 @@ export function cskhCustomerAvatarSrc(input: {
     }
     return pictureUrl
   }
-  if (liveFetch && pageId && psid) {
+  if (liveFetch && pageId && psid && !psid.startsWith("c:")) {
     const base = getApiBaseUrl()
     return `${base}/cskh/media/customer-avatar?pageId=${encodeURIComponent(pageId)}&psid=${encodeURIComponent(psid)}`
   }
