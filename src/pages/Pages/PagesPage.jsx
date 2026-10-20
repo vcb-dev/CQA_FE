@@ -402,6 +402,9 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
     pageId: p.pageId,
     name: p.pageName || `Trang #${p.pageId}`,
     type: getPageType(p.pageName),
+    team: p.team,
+    managerName: p.managerName,
+    region: p.region,
     msgs: pageMessageCount(p),
     // Tin mới đến: ưu tiên inbound đã sync từ Meta Graph theo ngày; fallback hội thoại messaging từ Meta Ads
     newInbound:
@@ -949,10 +952,13 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
           </div>
           
           <div className="overflow-auto flex-1 min-h-0">
-            <table className="w-full text-left border-collapse min-w-[680px]">
+            <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
                   <th className="px-5 py-3.5">Page / Kênh</th>
+                  <th className="px-4 py-3.5">Team</th>
+                  <th className="px-4 py-3.5">Người quản lý</th>
+                  <th className="px-4 py-3.5">Khu vực</th>
                   <th className="px-4 py-3.5 text-center">
                     <div>Tin nhắn</div>
                     <div className="text-[9px] font-semibold normal-case text-slate-300 mt-0.5">{selectedDateLabel}</div>
@@ -974,7 +980,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
                 {filteredPerformance.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
                       Không có trang nào thuộc nền tảng này.
                     </td>
                   </tr>
@@ -1023,6 +1029,15 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                           <div className="text-[10px] text-slate-400 font-semibold">{p.type}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600">
+                      {p.team || <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600">
+                      {p.managerName || <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600">
+                      {p.region || <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-3.5 text-center font-bold text-slate-700">
                       {p.msgs > 0 ? p.msgs.toLocaleString() : (
