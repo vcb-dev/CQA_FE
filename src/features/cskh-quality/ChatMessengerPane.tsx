@@ -1391,7 +1391,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 isLoadingIntent={isLoadingIntent}
                 adInsights={adInsightsPending ? undefined : adInsights}
                 isLoadingAdInsights={adInsightsPending}
-                onApplySuggestedReply={(text) => setInputDraft(text)}
                 onRefreshAdInsights={handleRefreshAdInsights}
                 isRefreshingAdInsights={isRefreshingAdInsights}
               />
