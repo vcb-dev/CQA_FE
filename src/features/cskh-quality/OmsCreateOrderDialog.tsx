@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Loader2, Megaphone, Plus, Search, ShoppingCart, X } from 'lucide-react'
+import { Loader2, Megaphone, ShoppingCart, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CskhCustomerIntent, CskhInboxConversation, OmsCatalogItem } from './api'
 import {
   createOmsOrder,
   fetchInboxMessages,
-  fetchOmsCatalog,
   fetchOmsOrderSuggest,
 } from './api'
 import { cn } from '@/lib/utils'
+import { OmsCatalogSearchBlock } from './OmsCatalogSearchBlock'
 
 type LineItemDraft = {
   variantId: string
@@ -57,8 +57,6 @@ export function OmsCreateOrderDialog({
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [note, setNote] = useState('')
-  const [productSearch, setProductSearch] = useState('')
-  const [debouncedQ, setDebouncedQ] = useState('')
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([])
   const [suggestNote, setSuggestNote] = useState<string | null>(null)
   const [selectedAdId, setSelectedAdId] = useState('')
@@ -79,18 +77,11 @@ export function OmsCreateOrderDialog({
   }, [intent])
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedQ(productSearch.trim()), 350)
-    return () => window.clearTimeout(t)
-  }, [productSearch])
-
-  useEffect(() => {
     if (!open) return
     appliedSuggest.current = false
     setPhone('')
     setAddress('')
     setNote('')
-    setProductSearch('')
-    setDebouncedQ('')
     setLineItems([])
     setSuggestNote(null)
     setSelectedAdId(conversation.adId?.trim() || '')
@@ -130,12 +121,7 @@ export function OmsCreateOrderDialog({
     if (first) setSelectedAdId(first)
   }, [open, fromAd, selectedAdId, conversation.adId, adOptions])
 
-  const catalogQ = useQuery({
-    queryKey: ['cskh', 'oms', 'catalog', debouncedQ],
-    queryFn: () => fetchOmsCatalog(debouncedQ),
-    enabled: open,
-    staleTime: 30_000,
-  })
+  const catalogSeed = useMemo(() => mentions[0] ?? '', [mentions])
 
   const suggestQ = useQuery({
     queryKey: ['cskh', 'oms', 'suggest', conversation.id, mentions.join('|')],
@@ -177,11 +163,10 @@ export function OmsCreateOrderDialog({
     },
   })
 
-  const availableToAdd = useMemo(() => {
-    return (catalogQ.data?.items ?? []).filter(
-      (p) => !lineItems.some((l) => l.variantId === p.variantId),
-    )
-  }, [catalogQ.data?.items, lineItems])
+  const excludeVariantIds = useMemo(
+    () => lineItems.map((l) => l.variantId),
+    [lineItems],
+  )
 
   if (!open) return null
 
@@ -414,64 +399,13 @@ export function OmsCreateOrderDialog({
 
           <div className="space-y-2">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Thêm sản phẩm từ kho</h3>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="search"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Tìm tên hoặc SKU trên kho..."
-                className="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-[11px] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-            {catalogQ.isLoading ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-8 flex flex-col items-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-                <p className="text-[11px] text-slate-500">Đang tải catalog kho...</p>
-              </div>
-            ) : catalogQ.isError ? (
-              <p className="text-[11px] text-rose-600">
-                {(catalogQ.error as Error & { response?: { data?: { message?: string } } }).response
-                  ?.data?.message || 'Không tải được sản phẩm từ kho.'}
-              </p>
-            ) : availableToAdd.length === 0 ? (
-              <p className="text-[11px] text-slate-400 italic py-2">
-                {debouncedQ ? 'Không tìm thấy sản phẩm.' : 'Không có sản phẩm khả dụng.'}
-              </p>
-            ) : (
-              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                {availableToAdd.map((p) => (
-                  <button
-                    key={p.variantId}
-                    type="button"
-                    disabled={!p.inStock}
-                    onClick={() => addCatalogItem(p)}
-                    className={cn(
-                      'w-full flex items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
-                      p.inStock
-                        ? 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
-                        : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed',
-                    )}
-                  >
-                    <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-600 mt-0.5" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-slate-700 leading-snug break-words">
-                        {p.name}
-                      </span>
-                      <span className="block text-[9px] text-emerald-700/90 font-medium mt-0.5">
-                        {[p.variantTitle, p.sku ? `SKU ${p.sku}` : null].filter(Boolean).join(' · ')}
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-violet-600 font-bold shrink-0 pt-0.5">
-                      {p.priceLabel}
-                    </span>
-                    <span className={cn('text-[9px] shrink-0 pt-0.5', p.inStock ? 'text-slate-400' : 'text-rose-500')}>
-                      Tồn {p.inventoryQuantity}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <OmsCatalogSearchBlock
+              conversationKey={conversation.id}
+              seedQuery={catalogSeed}
+              excludeVariantIds={excludeVariantIds}
+              enabled={open}
+              onPick={addCatalogItem}
+            />
           </div>
 
           <label className="block space-y-1">

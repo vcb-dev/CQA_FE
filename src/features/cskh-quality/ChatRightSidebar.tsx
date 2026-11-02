@@ -1,24 +1,21 @@
 import { cn } from "@/lib/utils";
 import {
-  Check,
-  Copy,
   Loader2,
   Megaphone,
-  MessageSquare,
+  PackageSearch,
   RefreshCw,
   ShoppingCart,
   Sparkles,
   User,
-  Zap,
 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import type {
   CskhAdInsights,
   CskhCustomerIntent,
   CskhInboxConversation,
 } from "./api";
 import { CskhPageAvatar } from "./cskhUi";
+import { OmsCatalogSearchBlock } from "./OmsCatalogSearchBlock";
 import { OmsCreateOrderDialog } from "./OmsCreateOrderDialog";
 
 type ChatRightSidebarProps = {
@@ -27,7 +24,6 @@ type ChatRightSidebarProps = {
   isLoadingIntent?: boolean;
   adInsights?: CskhAdInsights | null;
   isLoadingAdInsights?: boolean;
-  onApplySuggestedReply: (text: string) => void;
   onRefreshAdInsights?: () => void;
   isRefreshingAdInsights?: boolean;
 };
@@ -79,19 +75,18 @@ export function ChatRightSidebar({
   isLoadingIntent,
   adInsights,
   isLoadingAdInsights,
-  onApplySuggestedReply,
   onRefreshAdInsights,
   isRefreshingAdInsights,
 }: ChatRightSidebarProps) {
-  const [copied, setCopied] = useState(false);
   const [sapoOrderOpen, setSapoOrderOpen] = useState(false);
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Đã sao chép vào bộ nhớ tạm");
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const catalogSeedQuery = useMemo(() => {
+    const mention = (intent?.productMentions ?? [])
+      .map((s) => s.trim())
+      .find((s) => s.length >= 3);
+    if (mention) return mention;
+    return intent?.products?.[0]?.name?.trim() || "";
+  }, [intent?.productMentions, intent?.products]);
 
   const getUrgencyText = (urgency: string) => {
     switch (urgency) {
@@ -554,83 +549,17 @@ export function ChatRightSidebar({
         {/* Divider */}
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
-        {/* AI Suggested Response */}
+        {/* Tra cứu kho — thay AI gợi ý trả lời */}
         <div className="px-5 py-4 space-y-3">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-500 flex items-center gap-1.5 w-full">
-            <MessageSquare className="w-3 h-3" />
-            AI gợi ý trả lời
-            {intent?.isStale && (
-              <span className="ml-auto flex items-center gap-1 text-[9px] text-blue-400 normal-case font-medium animate-pulse">
-                <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                Đang cập nhật...
-              </span>
-            )}
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-1.5 w-full">
+            <PackageSearch className="w-3 h-3" />
+            Tra cứu sản phẩm / tồn kho
           </h4>
-
-          {isLoadingIntent ? (
-            <div className="flex items-center gap-2 py-3 text-[11px] text-blue-500">
-              <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              Đang tạo gợi ý phản hồi...
-            </div>
-          ) : !intent || (!intent.suggestedFocus && !intent.suggestedReply) ? (
-            <div className="text-[11px] text-slate-400 italic py-2">
-              Chưa có gợi ý trả lời nào từ AI.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Guidance focus advice */}
-              {intent.suggestedFocus && (
-                <div className="bg-slate-50 border border-slate-200/40 rounded-xl p-3 text-[10px] text-slate-500 leading-relaxed">
-                  <span className="font-semibold text-slate-600 block mb-0.5">
-                    💡 Hướng xử lý:
-                  </span>
-                  {intent.suggestedFocus}
-                </div>
-              )}
-
-              {/* Actual Suggested Reply Card */}
-              <div className="relative bg-gradient-to-br from-blue-50/50 to-indigo-50/30 rounded-xl border border-blue-100/50 p-3.5 shadow-sm">
-                <div className="absolute top-2 right-2">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400/40" />
-                </div>
-                <span className="font-semibold text-blue-600 text-[10.5px] block mb-1">
-                  ✨ Tin nhắn gợi ý:
-                </span>
-                <p className="text-[11px] text-slate-700 leading-relaxed pr-4 whitespace-pre-wrap">
-                  {intent.suggestedReply || intent.suggestedFocus}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  disabled={!intent.analyzedAt}
-                  onClick={() =>
-                    handleCopy(intent.suggestedReply || intent.suggestedFocus)
-                  }
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200/60 rounded-xl hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-200 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {copied ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                  Sao chép
-                </button>
-                <button
-                  disabled={!intent.analyzedAt}
-                  onClick={() =>
-                    onApplySuggestedReply(
-                      intent.suggestedReply || intent.suggestedFocus,
-                    )
-                  }
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:from-blue-600 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  Áp dụng
-                </button>
-              </div>
-            </div>
-          )}
+          <OmsCatalogSearchBlock
+            conversationKey={conversation.id}
+            seedQuery={catalogSeedQuery}
+            listMaxHeightClass="max-h-72"
+          />
         </div>
 
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
