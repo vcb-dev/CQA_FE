@@ -1,8 +1,8 @@
 import {
-  connectTikTokAccounts,
   deleteCskhPage,
   fetchCskhPages,
   getCskhOAuthStartUrl,
+  getCskhTikTokOAuthStartUrl,
   isAsyncInboxSync,
   refreshCskhOAuth,
   setCskhPageEnabled,
@@ -348,21 +348,6 @@ Các tiêu chí cần đánh giá:
   const igPages = allChannelPages.filter((p) => p.platform === "instagram");
   const ttPages = allChannelPages.filter((p) => p.platform === "tiktok");
   const tiktokConnected = ttPages.length > 0;
-
-  const tiktokConnectMutation = useMutation({
-    mutationFn: () => connectTikTokAccounts(),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["cskh", "pages"] });
-      queryClient.invalidateQueries({ queryKey: ["cskh", "inbox"] });
-      toast.success(
-        `Đã kết nối ${data.pageCount} kênh TikTok từ Business Center.`,
-      );
-    },
-    onError: (err) => {
-      toast.error("Không kết nối được TikTok: " + (err.message || err));
-    },
-  });
-  const isTikTokConnecting = tiktokConnectMutation.isPending;
 
   useEffect(() => {
     setTimeout(() => setAnim(true), 200);
@@ -1699,9 +1684,9 @@ Các tiêu chí cần đánh giá:
                         lineHeight: 1.5,
                       }}
                     >
-                      Scope <strong>TikTok Accounts</strong> — lấy kênh TikTok
-                      Business đã gắn Business Center vào CRM. Chat (Business
-                      Messaging) xin riêng sau khi list kênh xong.
+                      OAuth <strong>Advertiser / Business Center</strong> — kéo
+                      kênh TikTok đã gắn BC vào CRM. Chat (Business Messaging)
+                      xin riêng sau khi list kênh xong.
                     </p>
                     <div
                       style={{
@@ -1759,18 +1744,19 @@ Các tiêu chí cần đánh giá:
                               margin: "2px 0 0",
                             }}
                           >
-                            {isTikTokConnecting
-                              ? "Đang xác thực TikTok Accounts và lấy danh sách kênh từ BC…"
-                              : tiktokConnected
-                                ? "Đã ủy quyền. Danh sách bên dưới là TikTok account gắn Business Center."
-                                : "Bấm kết nối để ủy quyền TikTok Accounts và kéo kênh vào CRM."}
+                            {tiktokConnected
+                              ? "Đã ủy quyền. Danh sách bên dưới là kênh gắn Business Center."
+                              : "Bấm kết nối để ủy quyền TikTok for Business và kéo kênh vào CRM."}
                           </p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        disabled={isTikTokConnecting}
-                        onClick={() => tiktokConnectMutation.mutate()}
+                        onClick={() => {
+                          window.location.href = getCskhTikTokOAuthStartUrl(
+                            buildOAuthChannelReturnUrl(),
+                          );
+                        }}
                         style={{
                           padding: "8px 16px",
                           borderRadius: "6px",
@@ -1782,15 +1768,11 @@ Các tiêu chí cần đánh giá:
                           display: "flex",
                           alignItems: "center",
                           gap: 6,
-                          cursor: isTikTokConnecting ? "wait" : "pointer",
+                          cursor: "pointer",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {isTikTokConnecting ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Link2 size={14} />
-                        )}
+                        <Link2 size={14} />
                         {tiktokConnected
                           ? "Cập nhật kết nối TikTok"
                           : "Kết nối TikTok for Business"}
@@ -1800,9 +1782,9 @@ Các tiêu chí cần đánh giá:
                       pages={ttPages}
                       nameHeader="Tên kênh TikTok"
                       fallbackImg={TT_FALLBACK_IMG}
-                      busy={isTikTokConnecting}
+                      busy={false}
                       busyText="Đang lấy kênh TikTok từ Business Center..."
-                      emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Accounts API."
+                      emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Business Center."
                       onToggle={(pageId, enabled) =>
                         toggleMutation.mutate({ pageId, enabled })
                       }
