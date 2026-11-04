@@ -2091,3 +2091,13 @@ export async function uploadMediaAssets(
 export async function deleteMediaAsset(assetId: string): Promise<void> {
   await apiClient.delete(`/cskh/media-library/assets/${assetId}`);
 }
+
+/** getCskhTikTokOAuthStartUrl là hàm để lấy URL đăng nhập cho TikTok Advertiser */
+export function getCskhTikTokOAuthStartUrl(returnUrl?: string): string {
+  backupAuthForOAuth();
+  const base = getApiBaseUrl();
+  const ret =
+    returnUrl ||
+    (typeof window !== "undefined" ? window.location.href.split("#")[0] : "");
+  return `${base}/oauth/tiktok/start?returnUrl=${encodeURIComponent(ret)}`;
+}

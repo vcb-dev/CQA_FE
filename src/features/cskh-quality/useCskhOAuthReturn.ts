@@ -43,11 +43,14 @@ export function useCskhOAuthReturn() {
   useEffect(() => {
     const oauthError = searchParams.get('oauth_error')
     const fbConnected = searchParams.get('fb_connected')
+    const ttConnected = searchParams.get('tt_connected')
     const signature = oauthError
       ? `err:${oauthError}`
-      : fbConnected != null && fbConnected !== ''
-        ? `ok:${fbConnected}`
-        : null
+      : ttConnected != null && ttConnected !== ''
+        ? `tt:${ttConnected}`
+        : fbConnected != null && fbConnected !== ''
+          ? `ok:${fbConnected}`
+          : null
 
     if (!signature || handledRef.current === signature) return
     handledRef.current = signature
@@ -55,9 +58,26 @@ export function useCskhOAuthReturn() {
     const next = new URLSearchParams(searchParams)
 
     if (oauthError) {
-      toast.error(`Lỗi kết nối Facebook: ${decodeURIComponent(oauthError)}`)
+      toast.error(`Lỗi kết nối kênh: ${decodeURIComponent(oauthError)}`)
       next.delete('oauth_error')
       next.delete('fb_connected')
+      next.delete('tt_connected')
+      setSearchParams(next, { replace: true })
+      return
+    }
+
+    if (ttConnected != null && ttConnected !== '') {
+      const n = Number(ttConnected)
+      toast.success(
+        Number.isFinite(n) && n > 0
+          ? `Kết nối TikTok thành công — ${n} kênh từ Business Center.`
+          : 'Kết nối TikTok thành công, chưa thấy kênh nào trong BC.',
+      )
+      next.delete('tt_connected')
+      next.delete('fb_connected')
+      next.delete('oauth_error')
+      void queryClient.invalidateQueries({ queryKey: ['cskh'] })
+      void queryClient.refetchQueries({ queryKey: ['cskh', 'pages'] })
       setSearchParams(next, { replace: true })
       return
     }
@@ -84,6 +104,7 @@ export function useCskhOAuthReturn() {
     }
 
     next.delete('fb_connected')
+    next.delete('tt_connected')
     next.delete('oauth_error')
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams, queryClient])
