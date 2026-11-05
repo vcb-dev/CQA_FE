@@ -161,7 +161,13 @@ function ChannelPagesTable({
                     color: "#1f2937",
                   }}
                 >
-                  {page.pageName || "Không có tên"}
+                  {page.pageName &&
+                  page.pageName !== "undefined" &&
+                  page.pageName !== "null"
+                    ? page.pageName
+                    : page.handle
+                      ? `@${page.handle}`
+                      : "Không có tên"}
                 </div>
                 {page.handle &&
                 page.pageName !== `@${page.handle}` &&
