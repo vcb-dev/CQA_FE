@@ -1,4 +1,5 @@
 import {
+  connectTikTokAccounts,
   deleteCskhPage,
   fetchCskhPages,
   getCskhOAuthStartUrl,
@@ -37,7 +38,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2, Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -154,6 +155,13 @@ function ChannelPagesTable({
                 >
                   {page.pageName || "Không có tên"}
                 </div>
+                {page.handle &&
+                page.pageName !== `@${page.handle}` &&
+                page.pageName !== page.handle ? (
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>
+                    @{page.handle}
+                  </div>
+                ) : null}
               </td>
               <td
                 style={{
@@ -162,7 +170,9 @@ function ChannelPagesTable({
                   fontFamily: "monospace",
                 }}
               >
-                {page.pageId}
+                {page.handle
+                  ? `@${page.handle}`
+                  : String(page.pageId || "").replace(/^tt_/, "")}
               </td>
               <td>
                 <div
@@ -349,6 +359,30 @@ Các tiêu chí cần đánh giá:
   const ttPages = allChannelPages.filter((p) => p.platform === "tiktok");
   const tiktokConnected = ttPages.length > 0;
 
+  const reconnectTikTokOn404Ref = useRef(false);
+  const autoTikTokRefreshRef = useRef(false);
+  const refreshTikTokMutation = useMutation({
+    mutationFn: () => connectTikTokAccounts(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["cskh", "pages"] });
+      toast.success(`Đã cập nhật ${data.pageCount} kênh TikTok`);
+    },
+    onError: (err) => {
+      const status = err?.response?.status;
+      if (status === 404 && reconnectTikTokOn404Ref.current) {
+        window.location.href = getCskhTikTokOAuthStartUrl(
+          buildOAuthChannelReturnUrl(),
+        );
+        return;
+      }
+      toast.error(
+        err?.response?.data?.message ||
+          err.message ||
+          "Không cập nhật được kênh TikTok. Bấm Kết nối TikTok for Business.",
+      );
+    },
+  });
+
   useEffect(() => {
     setTimeout(() => setAnim(true), 200);
   }, []);
@@ -362,6 +396,27 @@ Các tiêu chí cần đánh giá:
       }
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (autoTikTokRefreshRef.current) return;
+    if (isLoadingPages || refreshTikTokMutation.isPending) return;
+    if (settingsTabs[activeTabIdx] !== "Cài đặt kênh") return;
+    if (!tiktokConnected) return;
+    const stale = ttPages.some((page) => {
+      const name = String(page.pageName || "").replace(/^@/, "");
+      return /^\d{10,}$/.test(name) || !page.pagePictureUrl;
+    });
+    if (!stale) return;
+    autoTikTokRefreshRef.current = true;
+    reconnectTikTokOn404Ref.current = false;
+    refreshTikTokMutation.mutate();
+  }, [
+    activeTabIdx,
+    isLoadingPages,
+    refreshTikTokMutation,
+    tiktokConnected,
+    ttPages,
+  ]);
 
   const handleWeightChange = (id, newWeight) => {
     setCriteria((prev) =>
@@ -1752,7 +1807,13 @@ Các tiêu chí cần đánh giá:
                       </div>
                       <button
                         type="button"
+                        disabled={refreshTikTokMutation.isPending}
                         onClick={() => {
+                          if (tiktokConnected) {
+                            reconnectTikTokOn404Ref.current = true;
+                            refreshTikTokMutation.mutate();
+                            return;
+                          }
                           window.location.href = getCskhTikTokOAuthStartUrl(
                             buildOAuthChannelReturnUrl(),
                           );
@@ -1782,8 +1843,8 @@ Các tiêu chí cần đánh giá:
                       pages={ttPages}
                       nameHeader="Tên kênh TikTok"
                       fallbackImg={TT_FALLBACK_IMG}
-                      busy={false}
-                      busyText="Đang lấy kênh TikTok từ Business Center..."
+                      busy={refreshTikTokMutation.isPending}
+                      busyText="Đang lấy tên, ID và ảnh kênh TikTok..."
                       emptyText="Chưa có kênh TikTok. Bấm Kết nối TikTok for Business để ủy quyền Business Center."
                       onToggle={(pageId, enabled) =>
                         toggleMutation.mutate({ pageId, enabled })

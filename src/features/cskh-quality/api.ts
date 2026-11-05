@@ -6,6 +6,7 @@ export interface CskhPage {
   pageId: string;
   pageName: string | null;
   pagePictureUrl?: string | null;
+  handle?: string | null;
   platform?: "messenger" | "instagram" | "tiktok" | string;
   enabled: boolean;
   updatedAt: string;
