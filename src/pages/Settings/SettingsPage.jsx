@@ -134,6 +134,7 @@ function ChannelPagesTable({
                 pictureUrl: page.pagePictureUrl,
                 pageId: page.pageId,
               }) || fallbackImg;
+            const numericId = String(page.pageId || "").replace(/^tt_/, "");
             return (
             <tr key={page.pageId}>
               <td>
@@ -184,9 +185,16 @@ function ChannelPagesTable({
                   fontFamily: "monospace",
                 }}
               >
-                {page.handle
-                  ? `@${page.handle}`
-                  : String(page.pageId || "").replace(/^tt_/, "")}
+                {page.handle ? (
+                  <div>
+                    <div>@{page.handle}</div>
+                    <div style={{ fontSize: 10, color: "#9ca3af" }}>
+                      {numericId}
+                    </div>
+                  </div>
+                ) : (
+                  numericId
+                )}
               </td>
               <td>
                 <div
