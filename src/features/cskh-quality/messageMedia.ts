@@ -142,7 +142,11 @@ export function cskhPageAvatarSrc(input: {
   const base = getApiBaseUrl()
 
   if (pictureUrl?.startsWith('http')) {
-    if (/fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com/i.test(pictureUrl)) {
+    if (
+      /fbcdn|fbsbx|facebook\.com|fb\.com|cdninstagram|instagram\.com|tiktokcdn|tiktokv|ttwstatic|byteoversea|byteimg|muscdn/i.test(
+        pictureUrl,
+      )
+    ) {
       return `${base}/cskh/media/avatar?url=${encodeURIComponent(pictureUrl)}`
     }
     return pictureUrl

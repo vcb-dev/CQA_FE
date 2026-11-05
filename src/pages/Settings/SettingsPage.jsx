@@ -10,6 +10,7 @@ import {
   syncInboxFromGraph,
 } from "@/features/cskh-quality/api";
 import { InstagramTestPrepPanel } from "@/features/cskh-quality/InstagramTestPrepPanel";
+import { cskhPageAvatarSrc } from "@/features/cskh-quality/messageMedia";
 import PancakeChannelsPanel from "@/features/pancake-test/PancakeChannelsPanel";
 import { buildOAuthChannelReturnUrl } from "@/lib/authSession";
 import {
@@ -127,12 +128,19 @@ function ChannelPagesTable({
           </tr>
         </thead>
         <tbody>
-          {pages.map((page) => (
+          {pages.map((page) => {
+            const avatarSrc =
+              cskhPageAvatarSrc({
+                pictureUrl: page.pagePictureUrl,
+                pageId: page.pageId,
+              }) || fallbackImg;
+            return (
             <tr key={page.pageId}>
               <td>
                 <img
-                  src={page.pagePictureUrl || fallbackImg}
+                  src={avatarSrc}
                   alt={page.pageName || ""}
+                  referrerPolicy="no-referrer"
                   style={{
                     width: "32px",
                     height: "32px",
@@ -221,7 +229,8 @@ function ChannelPagesTable({
                 </button>
               </td>
             </tr>
-          ))}
+          );
+          })}
         </tbody>
       </table>
     </div>
