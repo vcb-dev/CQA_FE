@@ -375,7 +375,6 @@ Các tiêu chí cần đánh giá:
   const tiktokConnected = ttPages.length > 0;
 
   const reconnectTikTokOn404Ref = useRef(false);
-  const autoTikTokRefreshRef = useRef(false);
   const refreshTikTokMutation = useMutation({
     mutationFn: () => connectTikTokAccounts(),
     onSuccess: (data) => {
@@ -411,27 +410,6 @@ Các tiêu chí cần đánh giá:
       }
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (autoTikTokRefreshRef.current) return;
-    if (isLoadingPages || refreshTikTokMutation.isPending) return;
-    if (settingsTabs[activeTabIdx] !== "Cài đặt kênh") return;
-    if (!tiktokConnected) return;
-    const stale = ttPages.some((page) => {
-      const name = String(page.pageName || "").replace(/^@/, "");
-      return /^\d{10,}$/.test(name) || !page.pagePictureUrl;
-    });
-    if (!stale) return;
-    autoTikTokRefreshRef.current = true;
-    reconnectTikTokOn404Ref.current = false;
-    refreshTikTokMutation.mutate();
-  }, [
-    activeTabIdx,
-    isLoadingPages,
-    refreshTikTokMutation,
-    tiktokConnected,
-    ttPages,
-  ]);
 
   const handleWeightChange = (id, newWeight) => {
     setCriteria((prev) =>
