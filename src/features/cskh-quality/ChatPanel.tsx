@@ -206,9 +206,9 @@ export function ChatPanel({
         const commentId = inbound?.fbMessageId;
         if (!commentId) throw new Error("Không tìm thấy comment để trả lời.");
         if (isIgComment) {
-          await replyIgComment(conversation.pageId, commentId, text);
+          await replyIgComment(conversation.pageId, commentId, text, conversation.id);
         } else {
-          await replyFbComment(conversation.pageId, commentId, text);
+          await replyFbComment(conversation.pageId, commentId, text, conversation.id);
         }
         return null;
       }
