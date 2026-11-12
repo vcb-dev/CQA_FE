@@ -238,6 +238,15 @@
 }
 
 
+@keyframes dash-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Calendar pop/select animations */
 @keyframes calendar-pop {
   from {

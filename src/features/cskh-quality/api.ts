@@ -1936,6 +1936,7 @@ export async function replyIgComment(
   pageId: string,
   igCommentId: string,
   message: string,
+  conversationId?: string,
 ): Promise<{ ok: boolean; replyId: string | null }> {
   const { data } = await apiClient.post<{
     ok: boolean;
@@ -1943,7 +1944,7 @@ export async function replyIgComment(
   }>(
     `/cskh/instagram/comments/${encodeURIComponent(igCommentId)}/reply`,
     { message },
-    { params: { pageId } },
+    { params: { pageId, conversationId } },
   );
   return data;
 }
@@ -1985,6 +1986,7 @@ export async function replyFbComment(
   pageId: string,
   fbCommentId: string,
   message: string,
+  conversationId?: string,
 ) {
   const { data } = await apiClient.post<{
     ok: boolean;
@@ -1992,7 +1994,7 @@ export async function replyFbComment(
   }>(
     `/cskh/facebook/comments/${encodeURIComponent(fbCommentId)}/reply`,
     { message },
-    { params: { pageId } },
+    { params: { pageId, conversationId } },
   );
   return data;
 }

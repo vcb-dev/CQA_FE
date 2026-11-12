@@ -63,6 +63,7 @@ import { firstNonEmpty, loadAuditWorkspace } from "./auditWorkspaceState";
 import { ChatMessengerPane } from "./ChatMessengerPane";
 import { CskhGlassPanel, CskhPageAvatar, CskhPageShell } from "./cskhUi";
 import { InstagramTestPrepPanel } from "./InstagramTestPrepPanel";
+import { OverviewStaffRanking } from "./OverviewStaffRanking";
 
 // Custom Facebook Icon because newer versions of lucide-react do not export brand icons.
 function Facebook(props: React.SVGProps<SVGSVGElement>) {
@@ -372,54 +373,6 @@ const MOCK_CUSTOMERS_TO_CARE = [
     bg: "bg-rose-50/50",
     text: "text-rose-700",
     type: "negative",
-  },
-];
-
-const MOCK_STAFF_RANKING = [
-  {
-    rank: 1,
-    name: "Trung Hiếu",
-    hasTrophy: true,
-    qaScore: 92,
-    conversionRate: "34.6%",
-    conversations: 632,
-    avatar: "TH",
-  },
-  {
-    rank: 2,
-    name: "Hoangvan Hoangvan",
-    hasTrophy: false,
-    qaScore: 88,
-    conversionRate: "29.7%",
-    conversations: 598,
-    avatar: "HH",
-  },
-  {
-    rank: 3,
-    name: "Oanh Lê",
-    hasTrophy: false,
-    qaScore: 86,
-    conversionRate: "28.1%",
-    conversations: 512,
-    avatar: "OL",
-  },
-  {
-    rank: 4,
-    name: "Jarvis Nguyen",
-    hasTrophy: false,
-    qaScore: 84,
-    conversionRate: "27.4%",
-    conversations: 478,
-    avatar: "JN",
-  },
-  {
-    rank: 5,
-    name: "Goc Pho Mua Thu",
-    hasTrophy: false,
-    qaScore: 82,
-    conversionRate: "25.9%",
-    conversations: 430,
-    avatar: "GP",
   },
 ];
 
@@ -1894,61 +1847,7 @@ function OverviewTab() {
         {/* ================= COLUMN 4 ================= */}
         <div className="flex min-h-0 flex-col gap-2 sm:gap-2.5 lg:h-full">
           {/* 10. Xếp hạng nhân viên */}
-          <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card text-card-foreground p-3 shadow-sm lg:flex-1 lg:min-h-0">
-            <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
-              <h3 className="text-xs font-extrabold text-foreground sm:text-sm">
-                Xếp hạng nhân viên
-              </h3>
-              <span className="text-[10px] font-bold text-primary cursor-pointer hover:underline">
-                Tất cả
-              </span>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto [scrollbar-width:thin]">
-              <table className="w-full min-w-[240px] border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-border text-[9px] font-bold text-n-400 dark:text-n-500 uppercase tracking-wider sticky top-0 bg-card z-10">
-                    <th className="pb-1 text-center font-black w-5">#</th>
-                    <th className="pb-1 font-black">Nhân viên</th>
-                    <th className="pb-1 text-center font-black">QA</th>
-                    <th className="pb-1 text-right font-black">Chốt</th>
-                    <th className="pb-1 text-right font-black">Hội thoại</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {MOCK_STAFF_RANKING.map((staff, idx) => (
-                    <tr key={idx} className="text-[11px]">
-                      <td className="py-1 text-center font-black text-n-400 dark:text-n-500">
-                        {staff.rank}
-                      </td>
-                      <td className="py-1 font-bold text-n-700 dark:text-n-300 flex items-center gap-1 min-w-0">
-                        <div className="h-5 w-5 rounded-full bg-gradient-to-br from-indigo-50 to-purple-500 text-[9px] font-black text-white flex items-center justify-center shrink-0">
-                          {staff.avatar}
-                        </div>
-                        <span className="truncate flex items-center gap-0.5 min-w-0">
-                          <span className="truncate">{staff.name}</span>
-                          {staff.hasTrophy && (
-                            <span className="shrink-0 text-[10px]">🏆</span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-1 text-center">
-                        <span className="inline-flex min-w-[22px] items-center justify-center rounded bg-emerald-500/10 px-1 py-0.5 text-[9px] font-black text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          {staff.qaScore}
-                        </span>
-                      </td>
-                      <td className="py-1 text-right font-semibold text-n-800 dark:text-n-200 tabular-nums">
-                        {staff.conversionRate}
-                      </td>
-                      <td className="py-1 text-right font-semibold text-n-800 dark:text-n-200 tabular-nums">
-                        {formatNumber(staff.conversations)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <OverviewStaffRanking />
 
           {/* 11. Hoạt động gần đây */}
           <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card text-card-foreground p-3 shadow-sm lg:flex-1 lg:min-h-0">
