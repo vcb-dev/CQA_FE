@@ -3,7 +3,6 @@ import PageLoader from "@/components/PageLoader";
 
 const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage"));
 const ConversationsPage = lazy(() => import("@/pages/Conversations/ConversationsPage"));
-const PancakeTestPage = lazy(() => import("@/pages/PancakeTest/PancakeTestPage"));
 const AIInsightPage = lazy(() => import("@/pages/AIInsight/AIInsightPage"));
 const QualityPage = lazy(() => import("@/pages/Quality/QualityPage"));
 const EmployeesPage = lazy(() => import("@/pages/Employees/EmployeesPage"));
@@ -20,7 +19,6 @@ function lazyPage(element: ReactNode, label?: string) {
 export const routes = [
   { path: "/", element: lazyPage(<DashboardPage />, "Đang tải tổng quan...") },
   { path: "/conversations", element: lazyPage(<ConversationsPage />) },
-  { path: "/pancake-test", element: lazyPage(<PancakeTestPage />) },
   { path: "/ai-insight", element: lazyPage(<AIInsightPage />) },
   { path: "/quality", element: lazyPage(<QualityPage />) },
   { path: "/employees", element: lazyPage(<EmployeesPage />) },

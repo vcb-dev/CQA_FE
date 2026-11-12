@@ -11,6 +11,7 @@ import { apiClient } from "@/lib/axios";
 import PageLoader from "@/components/PageLoader";
 import { CSKH_PAGES_LITE_QUERY_KEY, fetchCskhPages } from "@/features/cskh-quality/api";
 import SapoOAuthBridge, { sapoOAuthBridgeRedirect } from "./pages/SapoOAuthBridge";
+import { RouteGate } from "@/features/user-access/RouteGate";
 
 function ProtectedLayout() {
   const queryClient = useQueryClient();
@@ -91,7 +92,11 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route element={<ProtectedLayout />}>
           {routes.map((route) => (
-            <Route key={route.path} path={route.path} element={route.element} />
+            <Route
+              key={route.path}
+              path={route.path}
+              element={<RouteGate path={route.path}>{route.element}</RouteGate>}
+            />
           ))}
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

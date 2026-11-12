@@ -16,6 +16,7 @@ import { invalidateInboxViewHistory } from './ConversationViewHistory'
 
 type ChatLabelBarProps = {
   conversation: CskhInboxConversation
+  readOnly?: boolean
 }
 
 function LabelChip({
@@ -59,7 +60,7 @@ function LabelChip({
   )
 }
 
-export function ChatLabelBar({ conversation }: ChatLabelBarProps) {
+export function ChatLabelBar({ conversation, readOnly = false }: ChatLabelBarProps) {
   const qc = useQueryClient()
 
   const { data: allLabels, isLoading } = useQuery<CskhInboxLabel[]>({
@@ -174,7 +175,7 @@ export function ChatLabelBar({ conversation }: ChatLabelBarProps) {
             label={label}
             active={activeIds.has(label.id)}
             locked={labelsLocked}
-            disabled={toggleMut.isPending}
+            disabled={readOnly || toggleMut.isPending}
             onClick={() => toggleMut.mutate(label.id)}
           />
         ))}
@@ -195,6 +196,7 @@ export function ChatLabelBar({ conversation }: ChatLabelBarProps) {
                 active={activeIds.has(label.id)}
                 locked={labelsLocked}
                 disabled={
+                  readOnly ||
                   toggleMut.isPending ||
                   (!!assignedStaffId && assignedStaffId !== label.id)
                 }

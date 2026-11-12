@@ -1,7 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useCurrentUserProfile } from '@/features/user-access/api';
+import { canAccessPath } from '@/router/navigation';
 import {
   Gauge, ChatCircleText, Brain, ShieldCheck, Users,
-  UserCircle, Globe, Megaphone, Package, GearSix, Plugs,
+  UserCircle, Globe, Megaphone, Package, GearSix,
 } from '@phosphor-icons/react';
 
 // Viên Chi Bảo flower logo — 8 petals at 45° intervals
@@ -34,7 +36,6 @@ function VCBIcon({ size = 26 }) {
 const navItems = [
   { to: '/', icon: Gauge, label: 'Tổng quan' },
   { to: '/conversations', icon: ChatCircleText, label: 'Hội thoại' },
-  { to: '/pancake-test', icon: Plugs, label: 'Lead Pancake' },
   { to: '/ai-insight', icon: Brain, label: 'AI Insight' },
   { to: '/quality', icon: ShieldCheck, label: 'Chất lượng CSKH' },
   { to: '/employees', icon: Users, label: 'Nhân viên' },
@@ -47,6 +48,8 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation();
+  const { data: currentUser } = useCurrentUserProfile();
+  const visibleNavItems = navItems.filter((item) => canAccessPath(currentUser, item.to));
   return (
     <aside className="flex h-screen w-[210px] min-w-[210px] flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-800 p-3.5 z-50">
       <div className="mb-5 flex items-center gap-2 px-2 py-1.5">
@@ -59,7 +62,7 @@ export default function Sidebar() {
         </div>
       </div>
       <nav className="flex flex-1 flex-col gap-px">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
 
