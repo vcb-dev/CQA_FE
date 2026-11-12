@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/axios'
+import { usePermission } from '@/features/user-access/api'
 import { cn } from '@/lib/utils'
 import { isTransientInfraError, toUserFacingError } from '@/lib/userFacingError'
 import {
@@ -1072,7 +1073,9 @@ export function AuditMessengerView({
 
   const alreadyScoredCount = dayStats?.total ?? sortedAudits.length
   const scanAllConversations = !batchLimitInput.trim()
+  const canRunAudit = usePermission('quality.run')
   const canRun =
+    canRunAudit &&
     filtersReady &&
     !isRunning &&
     (scanAllConversations || (parsedBatchLimit != null && parsedBatchLimit > 0))
@@ -1387,6 +1390,7 @@ export function AuditMessengerView({
                   {checkingAudit ? 'Kiểm tra…' : 'Tải…'}
                 </span>
               )}
+              {canRunAudit && (
               <button
                 type="button"
                 disabled={!canRun || runMut.isPending || isCancellingAudit || cancelMut.isPending}
@@ -1459,7 +1463,8 @@ export function AuditMessengerView({
                         : runButtonLabel}
                 </span>
               </button>
-              {isRunning && !isCancellingAudit && !cancelMut.isPending && (
+              )}
+              {canRunAudit && isRunning && !isCancellingAudit && !cancelMut.isPending && (
                 <>
                   <button
                     type="button"
@@ -1490,7 +1495,7 @@ export function AuditMessengerView({
                   Đang hủy…
                 </span>
               )}
-              {isFailed && sortedAudits.length === 0 && (
+              {canRunAudit && isFailed && sortedAudits.length === 0 && (
                 <button
                   type="button"
                   onClick={() => {

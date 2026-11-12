@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchInboxConversationStats } from "@/features/cskh-quality/api";
+import { ROLE_LABELS, hasAnyPermission } from "@/features/user-access/api";
 
 const getInitials = (name) => {
   if (!name) return "?";
@@ -21,28 +22,24 @@ const getInitials = (name) => {
 const pageTitles = {
   "/": {
     title: "Tổng quan",
-    sub: "Theo dõi chất lượng hội thoại và hiệu suất chăm sóc khách hàng",
+    sub: "Doanh thu, hiệu suất nhân viên và chất lượng chăm sóc khách hàng",
   },
   "/conversations": {
     title: "Hội thoại",
     sub: "Quản lý và phân tích toàn bộ hội thoại với khách hàng",
   },
   "/ai-insight": {
-    title: "AI Insight",
-    sub: "Phân tích chuyên sâu từ toàn bộ hội thoại bằng AI",
+    title: "AI Insight · Hành vi khách hàng",
+    sub: "Khách hỏi gì, nhắn lúc nào, chờ bao lâu và dừng lại ở đâu — tổng hợp theo tuần",
     badge: "Beta",
   },
   "/quality": {
     title: "Chất lượng CSKH",
     sub: "Đánh giá và theo dõi chất lượng chăm sóc khách hàng",
   },
-  "/pancake-test": {
-    title: "Lead Pancake",
-    sub: "Lead khách hàng theo từng kênh từ Pancake",
-  },
   "/settings": {
     title: "Cài đặt",
-    sub: "Cấu hình hệ thống, AI và kênh kết nối",
+    sub: "Cấu hình kênh kết nối và phân quyền",
   },
   "/employees": {
     title: "Nhân viên",
@@ -73,10 +70,12 @@ export default function Header() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const canSeeInboxStats = hasAnyPermission(user, ["inbox.view", "quality.view"]);
+
   const { data: convStats } = useQuery({
     queryKey: ["cskh", "inbox", "conversation-stats", "all"],
     queryFn: () => fetchInboxConversationStats(),
-    enabled: needsInboxStats,
+    enabled: needsInboxStats && canSeeInboxStats,
     staleTime: 90_000,
     refetchInterval: needsInboxStats ? 90_000 : false,
   });
@@ -172,7 +171,7 @@ export default function Header() {
             <div className="hidden flex-col md:flex">
               <span className="text-[13px] font-semibold leading-tight text-slate-700">{user?.fullName || "Chưa đăng nhập"}</span>
               <span className="text-[10px] text-slate-400 font-medium mt-0.5">
-                {user?.role === "admin" ? "Quản trị viên" : user?.role || "Nhân viên"}
+                {ROLE_LABELS[user?.role] || "Nhân viên"}
               </span>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { Calendar } from "@/components/custom-ui/calendar";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,9 @@ import {
 } from "@/components/ui/popover";
 import { getApiErrorMessage } from "@/lib/axios";
 import type { InfiniteData } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
+import { vi } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import {
   useInfiniteQuery,
   useMutation,
@@ -23,6 +27,7 @@ import {
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarRange,
   Check,
   ChevronDown,
   Inbox,
@@ -32,6 +37,7 @@ import {
   Search,
   Wifi,
   WifiOff,
+  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -62,6 +68,11 @@ import {
   type CskhInboxConversationStats,
   type CskhPage,
 } from "./api";
+import {
+  hasPermission,
+  useCurrentUserProfile,
+} from "@/features/user-access/api";
+import { vietnamTodayIso } from "./auditHelpers";
 import { ChatListPanel } from "./ChatListPanel";
 import { ChatPanel } from "./ChatPanel";
 import { ChatRightSidebar } from "./ChatRightSidebar";
@@ -77,9 +88,13 @@ import {
   type InboxLabelFilterValue,
 } from "./InboxLabelFilterPopover";
 import {
+  INBOX_DATE_RANGE_MAX_DAYS,
+  addDaysToInboxDate,
   currentInboxMonthKey,
-  formatInboxMonthLabel,
+  formatInboxPeriodLabel,
+  inboxDateRangeKey,
   inboxMonthOptions,
+  type InboxDateRange,
 } from "./inboxMonth";
 import {
   isInboxMessagePreview,
@@ -99,6 +114,14 @@ type ChatMessengerPaneProps = {
 
 type FilterTab = "all" | "unread" | "unreplied" | "ads" | "normal";
 type InboxKindFilter = "all" | "dm" | "comment";
+
+const FILTER_TABS: FilterTab[] = ["all", "unread", "unreplied", "ads", "normal"];
+
+function initialFilterFromUrl(): FilterTab {
+  if (typeof window === "undefined") return "all";
+  const value = new URLSearchParams(window.location.search).get("filter");
+  return FILTER_TABS.includes(value as FilterTab) ? (value as FilterTab) : "all";
+}
 
 const INBOX_MONTH_OPTIONS = inboxMonthOptions(18);
 
@@ -174,7 +197,7 @@ function InboxMonthSelect({
       <SelectTrigger className="h-8 w-[148px] text-[11px] font-semibold rounded-lg border-slate-200 bg-white px-2.5 shadow-none">
         <span className="flex items-center gap-1.5 min-w-0">
           <CalendarDays className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-          <SelectValue placeholder="Tháng" />
+          <SelectValue placeholder="Chọn tháng" />
         </span>
       </SelectTrigger>
       <SelectContent className="max-h-72 bg-white rounded-xl min-w-[180px]">
@@ -185,6 +208,157 @@ function InboxMonthSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+const DATE_RANGE_PRESETS = [
+  { label: "Hôm nay", fromOffset: 0, toOffset: 0 },
+  { label: "Hôm qua", fromOffset: -1, toOffset: -1 },
+  { label: "7 ngày qua", fromOffset: -6, toOffset: 0 },
+  { label: "30 ngày qua", fromOffset: -29, toOffset: 0 },
+] as const;
+
+function InboxDateRangeFilter({
+  value,
+  onChange,
+}: {
+  value: InboxDateRange | null;
+  onChange: (next: InboxDateRange | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<DateRange | undefined>();
+  const today = vietnamTodayIso();
+  const todayDate = parseISO(today);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setDraft(
+        value
+          ? { from: parseISO(value.from), to: parseISO(value.to) }
+          : undefined,
+      );
+    }
+    setOpen(next);
+  };
+
+  const apply = (range: InboxDateRange) => {
+    onChange(range);
+    setOpen(false);
+  };
+
+  const draftFrom = draft?.from ? format(draft.from, "yyyy-MM-dd") : "";
+  const draftTo = draft?.to ? format(draft.to, "yyyy-MM-dd") : draftFrom;
+  const activePreset = value
+    ? DATE_RANGE_PRESETS.find(
+        (p) =>
+          addDaysToInboxDate(today, p.fromOffset) === value.from &&
+          addDaysToInboxDate(today, p.toOffset) === value.to,
+      )
+    : undefined;
+
+  return (
+    <div className="relative shrink-0">
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            title="Lọc theo khoảng ngày"
+            className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border bg-white px-2.5 text-[11px] font-semibold ${
+              value
+                ? "border-indigo-300/70 pr-7 text-indigo-900"
+                : "border-slate-200 text-slate-500"
+            }`}
+          >
+            <CalendarRange
+              className={`h-3.5 w-3.5 shrink-0 ${value ? "text-indigo-600" : "text-slate-400"}`}
+            />
+            {value
+              ? activePreset?.label ??
+                formatInboxPeriodLabel(inboxDateRangeKey(value), true)
+              : "Khoảng ngày"}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-auto overflow-hidden rounded-2xl p-0"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="flex">
+            <div className="flex w-28 flex-col gap-0.5 border-r border-slate-100 p-2">
+              {DATE_RANGE_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() =>
+                    apply({
+                      from: addDaysToInboxDate(today, preset.fromOffset),
+                      to: addDaysToInboxDate(today, preset.toOffset),
+                    })
+                  }
+                  className={`rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold ${
+                    activePreset?.label === preset.label
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col">
+              <Calendar
+                mode="range"
+                resetOnSelect
+                locale={vi}
+                selected={draft}
+                onSelect={setDraft}
+                max={INBOX_DATE_RANGE_MAX_DAYS - 1}
+                disabled={{ after: todayDate }}
+                defaultMonth={draft?.from ?? todayDate}
+                endMonth={todayDate}
+                className="rounded-none border-0 p-3 shadow-none"
+                classNames={{
+                  selected: "bg-indigo-600 text-white rounded-xl",
+                  range_start: "rounded-r-none",
+                  range_end: "rounded-l-none",
+                  range_middle: "bg-indigo-50! text-indigo-900! rounded-none!",
+                }}
+              />
+              <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+                <span className="text-[10.5px] font-medium text-slate-500">
+                  {draftFrom
+                    ? formatInboxPeriodLabel(
+                        inboxDateRangeKey({ from: draftFrom, to: draftTo }),
+                        true,
+                      )
+                    : `Chọn ngày bắt đầu · tối đa ${INBOX_DATE_RANGE_MAX_DAYS} ngày`}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!draftFrom}
+                  onClick={() => apply({ from: draftFrom, to: draftTo })}
+                  className="h-7 rounded-lg px-3 text-[11px] font-semibold"
+                >
+                  Áp dụng
+                </Button>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          title="Bỏ lọc khoảng ngày"
+          aria-label="Bỏ lọc khoảng ngày"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -315,7 +489,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const qc = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [activeFilter, setActiveFilter] = useState<FilterTab>(initialFilterFromUrl);
   const [labelFilter, setLabelFilter] = useState<InboxLabelFilterValue>("all");
   const [kindFilter, setKindFilter] = useState<InboxKindFilter>("all");
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>(() =>
@@ -323,6 +497,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   );
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [selectedMonth, setSelectedMonth] = useState(currentInboxMonthKey);
+  const [dateRange, setDateRange] = useState<InboxDateRange | null>(null);
+  const periodKey = dateRange ? inboxDateRangeKey(dateRange) : selectedMonth;
   const [, startFilterTransition] = useTransition();
 
   useEffect(() => {
@@ -390,7 +566,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
   const pagesLoading = isLoadingPages && !pagesData;
 
+  const { data: currentUser } = useCurrentUserProfile();
+
   const allPages = useMemo(() => pagesData?.pages ?? [], [pagesData]);
+  const noAssignedChannels =
+    !!currentUser &&
+    !hasPermission(currentUser, "channel.all") &&
+    !!pagesData &&
+    allPages.length === 0;
+  const canSync = hasPermission(currentUser, "inbox.sync");
+  const canUseAssistant = hasPermission(currentUser, "ai.assistant");
   const filteredPages = useMemo(() => {
     if (platformFilter === "all") return allPages;
     return allPages.filter((p) => pageBucket(p.platform) === platformFilter);
@@ -411,10 +596,10 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         "conversation-stats",
         pageKey,
         platformFilter,
-        selectedMonth,
+        periodKey,
         channelScopeKey,
       ] as const,
-    [pageKey, platformFilter, selectedMonth, channelScopeKey],
+    [pageKey, platformFilter, periodKey, channelScopeKey],
   );
 
   useEffect(() => {
@@ -438,6 +623,8 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
             pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
             platform: graphPlatform,
             month: selectedMonth,
+            dateFrom: dateRange?.from,
+            dateTo: dateRange?.to,
             signal,
           })
         : Promise.resolve(EMPTY_STATS),
@@ -472,11 +659,15 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       includeLabels?: boolean;
       platform?: "messenger" | "instagram" | "tiktok";
       month?: string;
+      dateFrom?: string;
+      dateTo?: string;
       kind?: "dm" | "comment";
     } = {
       pageIds: selectedPageIds.length > 0 ? selectedPageIds : undefined,
       platform: graphPlatform,
       month: selectedMonth,
+      dateFrom: dateRange?.from,
+      dateTo: dateRange?.to,
     };
     switch (activeFilter) {
       case "ads":
@@ -508,6 +699,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     kindFilter,
     graphPlatform,
     selectedMonth,
+    dateRange,
   ]);
 
   const listQueryKey = useMemo(
@@ -528,7 +720,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 .map((p) => p.pageId)
                 .sort()
                 .join(",")),
-        selectedMonth,
+        periodKey,
         kindFilter,
       ] as const,
     [
@@ -539,7 +731,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       platformFilter,
       channelScopeKey,
       filteredPages,
-      selectedMonth,
+      periodKey,
       kindFilter,
     ],
   );
@@ -704,6 +896,9 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   ]);
 
   const listEmptyHint = useMemo(() => {
+    if (noAssignedChannels) {
+      return "Bạn chưa được phân kênh nào. Liên hệ trưởng nhóm để được giao kênh làm việc.";
+    }
     if (listError)
       return (
         getApiErrorMessage(listErr) || "Không tải được danh sách hội thoại"
@@ -746,7 +941,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       (convStats?.total ?? 0) > 0 &&
       (convStats?.unread ?? 0) === 0
     ) {
-      return `Không còn hội thoại chưa đọc trong ${formatInboxMonthLabel(selectedMonth)}`;
+      return `Không còn hội thoại chưa đọc trong ${formatInboxPeriodLabel(periodKey)}`;
     }
     if (
       !listError &&
@@ -756,10 +951,11 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       labelFilter === "all" &&
       (convStats?.total ?? 0) === 0
     ) {
-      return `Không có hội thoại trong ${formatInboxMonthLabel(selectedMonth)}`;
+      return `Không có hội thoại trong ${formatInboxPeriodLabel(periodKey)}`;
     }
     return undefined;
   }, [
+    noAssignedChannels,
     listError,
     listErr,
     labelFilter,
@@ -768,10 +964,12 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     platformFilter,
     filteredPages.length,
     pagesLoading,
-    selectedMonth,
+    periodKey,
     statsPending,
     statsError,
   ]);
+
+  const periodLabel = formatInboxPeriodLabel(periodKey, true);
 
   const showMigrationHint =
     labelFilter !== "all" &&
@@ -1111,9 +1309,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
         <div className="flex items-center gap-1.5 shrink-0">
           <InboxMonthSelect
-            value={selectedMonth}
+            value={dateRange ? "" : selectedMonth}
             onChange={(next) =>
-              startFilterTransition(() => setSelectedMonth(next))
+              startFilterTransition(() => {
+                setSelectedMonth(next);
+                setDateRange(null);
+              })
+            }
+          />
+          <InboxDateRangeFilter
+            value={dateRange}
+            onChange={(next) =>
+              startFilterTransition(() => setDateRange(next))
             }
           />
           <InboxPlatformSelect
@@ -1134,18 +1341,20 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
               startFilterTransition(() => setSelectedPageIds(next))
             }
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => syncMut.mutate()}
-            disabled={syncMut.isPending}
-            title="Đồng bộ hội thoại"
-            className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-lg shrink-0"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${syncMut.isPending ? "animate-spin" : ""}`}
-            />
-          </Button>
+          {canSync && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => syncMut.mutate()}
+              disabled={syncMut.isPending}
+              title="Đồng bộ hội thoại"
+              className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-lg shrink-0"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${syncMut.isPending ? "animate-spin" : ""}`}
+              />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1248,16 +1457,16 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
 
             <p className="text-[9.5px] text-slate-400 mt-1.5">
               {debouncedSearch
-                ? `Tìm trong ${formatInboxMonthLabel(selectedMonth, true)} · ${filterCounts.all.toLocaleString()} hội thoại`
+                ? `Tìm trong ${periodLabel} · ${filterCounts.all.toLocaleString()} hội thoại`
                 : kindFilter !== "all"
-                  ? `${formatInboxMonthLabel(selectedMonth, true)} · ${kindFilter === "comment" ? "Comment" : "Chat"} · Đã tải ${allConversations.length.toLocaleString()}`
+                  ? `${periodLabel} · ${kindFilter === "comment" ? "Comment" : "Chat"} · Đã tải ${allConversations.length.toLocaleString()}`
                   : activeFilter === "all"
                   ? (convStats?.total ?? 0) > 0
-                    ? `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} / ${filterCounts.all.toLocaleString()} · Cuộn để xem thêm`
-                    : `${formatInboxMonthLabel(selectedMonth, true)} · Đã tải ${allConversations.length.toLocaleString()} · Cuộn để xem thêm`
+                    ? `${periodLabel} · Đã tải ${allConversations.length.toLocaleString()} / ${filterCounts.all.toLocaleString()} · Cuộn để xem thêm`
+                    : `${periodLabel} · Đã tải ${allConversations.length.toLocaleString()} · Cuộn để xem thêm`
                   : activeFilter === "unread"
-                    ? `${formatInboxMonthLabel(selectedMonth, true)} · ${filterCounts.unread.toLocaleString()} chưa đọc · ${allConversations.length.toLocaleString()} đang hiển thị`
-                    : `${formatInboxMonthLabel(selectedMonth, true)} · ${allConversations.length.toLocaleString()} hội thoại`}
+                    ? `${periodLabel} · ${filterCounts.unread.toLocaleString()} chưa đọc · ${allConversations.length.toLocaleString()} đang hiển thị`
+                    : `${periodLabel} · ${allConversations.length.toLocaleString()} hội thoại`}
             </p>
 
             {showMigrationHint && (
@@ -1359,14 +1568,18 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                   draftText={inputDraft}
                   onDraftApplied={() => setInputDraft("")}
                   assistantOpen={assistantOpen}
-                  onToggleAssistant={() => setAssistantOpen((open) => !open)}
+                  onToggleAssistant={
+                    canUseAssistant
+                      ? () => setAssistantOpen((open) => !open)
+                      : undefined
+                  }
                   adInsights={adInsightsPending ? undefined : adInsights}
                   isLoadingAdInsights={adInsightsPending}
                 />
               </div>
             </div>
 
-            {assistantOpen && (
+            {assistantOpen && canUseAssistant && (
               <div className="absolute inset-y-0 right-0 z-20 flex h-full w-[min(100%,340px)] shadow-xl md:static md:z-auto md:w-auto md:shadow-none">
                 <InternalAssistantPanel
                   conversation={sidebarConversation ?? selectedConversation}

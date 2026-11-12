@@ -564,42 +564,6 @@ export const reportTypes = [
   { icon: '📈', title: 'Báo cáo xu hướng', desc: 'Xu hướng & dự đoán', count: 5 },
 ];
 
-// ==================== SETTINGS ====================
-export const settingsTabs = [
-  'Cài đặt hệ thống', 'AI & Chấm điểm', 'Cài đặt kênh', 'Hội thoại', 'Quảng cáo',
-  'Sản phẩm', 'Bảo hành', 'Automation', 'Phân quyền', 'Thông báo', 'Tích hợp',
-];
-
-export const qaPrompts = [
-  { name: 'Prompt phân tích hội thoại', desc: 'AI phân tích và đánh giá chất lượng hội thoại' },
-  { name: 'Prompt chấm điểm CSKH', desc: 'AI chấm điểm dựa trên tiêu chí và trọng số' },
-  { name: 'Prompt gợi ý trả lời', desc: 'AI gợi ý câu trả lời phù hợp ngữ cảnh' },
-  { name: 'Prompt phân tích cảm xúc', desc: 'AI nhận diện cảm xúc khách hàng' },
-  { name: 'Prompt tạo summary', desc: 'AI tóm tắt nội dung hội thoại' },
-];
-
-export const qaCriteria = [
-  { id: 1, name: 'Chào hỏi', weight: 10, desc: 'Chào hỏi, tạo thiện cảm', active: true },
-  { id: 2, name: 'Khai thác nhu cầu', weight: 25, desc: 'Hỏi đúng, nắm thắc mắc', active: true },
-  { id: 3, name: 'Tư vấn giải pháp', weight: 20, desc: 'Tư vấn đúng nhu cầu', active: true },
-  { id: 4, name: 'Xử lý từ chối', weight: 10, desc: 'Xử lý khéo léo', active: true },
-  { id: 5, name: 'Chốt đơn', weight: 25, desc: 'Dẫn đến chốt hiệu quả', active: true },
-  { id: 6, name: 'Follow-up & chăm sóc', weight: 10, desc: 'Quan tâm, theo dõi sau bán', active: true },
-];
-
-export const settingsQuickLinks = [
-  { icon: '📢', title: 'Cài đặt Quảng cáo', desc: 'Kết nối, mapping và theo dõi nguồn quảng cáo' },
-  { icon: '📦', title: 'Cài đặt Sản phẩm', desc: 'Quản lý danh mục, thuộc tính và AI matching' },
-  { icon: '🔧', title: 'Cài đặt Bảo hành', desc: 'Thiết lập quy trình, SLA và biểu mẫu' },
-  { icon: '🤖', title: 'Automation Center', desc: 'Thiết lập quy tắc tự động và lịch bán' },
-  { icon: '🔐', title: 'Phân quyền & Vai trò', desc: 'Quản lý người dùng, vai trò và quyền' },
-  { icon: '🔔', title: 'Thông báo', desc: 'Cấu hình thông báo theo kênh và mức độ' },
-  { icon: '🔗', title: 'Tích hợp', desc: 'Kết nối với các nền tảng bên thứ ba' },
-  { icon: '🧠', title: 'AI Learning', desc: 'Quản lý dữ liệu huấn luyện và mô hình AI' },
-  { icon: '💾', title: 'Sao lưu & Dữ liệu', desc: 'Quản lý sao lưu, xuất dữ liệu và API' },
-  { icon: '📋', title: 'Nhật ký hệ thống', desc: 'Xem nhật ký hoạt động và thay đổi' },
-];
-
 export const insightProducts = [
   { name: 'Nhẫn bạc Kim Hoàn Trọn Classic', emoji: '💍', visits: 1125, closeRate: '31.4%', revenue: '585.000.000đ' },
   { name: 'Dây chuyền bạc nữ Minimal', emoji: '📿', visits: 856, closeRate: '28.1%', revenue: '456.000.000đ' },

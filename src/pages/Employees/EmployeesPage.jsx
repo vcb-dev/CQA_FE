@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   CaretDown,
   CaretLeft,
@@ -8,65 +9,123 @@ import {
   CheckCircle,
   CurrencyCircleDollar,
   Funnel,
+  Info,
   MagnifyingGlass,
   Package,
-  Smiley,
   Star,
-  Storefront,
   Target,
   TrendUp,
   UsersThree,
   Warning,
 } from '@phosphor-icons/react';
-import { employees } from '../../data/mockData';
 import AnalyticsShell from '@/components/analytics/AnalyticsShell';
 import KpiGrid from '@/components/analytics/KpiGrid';
+import { getApiErrorMessage } from '@/lib/axios';
+import { ROLE_LABELS } from '@/features/user-access/api';
+import {
+  CRITERIA_LABELS,
+  CRITERIA_MAX,
+  fetchEmployeePerformance,
+} from '@/features/employees/api';
 
 const PAGE_SIZE = 10;
 
+const PERIOD_PRESETS = [
+  { key: 'month', label: 'Tháng này' },
+  { key: 'lastMonth', label: 'Tháng trước' },
+  { key: '7d', label: '7 ngày' },
+  { key: '30d', label: '30 ngày' },
+  { key: 'custom', label: 'Tuỳ chọn' },
+];
+
+const SORT_OPTIONS = [
+  { key: 'revenue', label: 'Doanh thu' },
+  { key: 'score', label: 'Điểm hội thoại' },
+  { key: 'closeRate', label: 'Tỷ lệ chốt' },
+  { key: 'orders', label: 'Đơn chốt' },
+  { key: 'conversations', label: 'Hội thoại' },
+];
+
+const STATUS_OPTIONS = ['Đạt chuẩn', 'Cần theo dõi', 'Cần cải thiện', 'Chưa có điểm'];
+
+const toDateKey = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const presetRange = (key) => {
+  const today = new Date();
+  if (key === 'lastMonth') {
+    return {
+      from: toDateKey(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+      to: toDateKey(new Date(today.getFullYear(), today.getMonth(), 0)),
+    };
+  }
+  if (key === '7d' || key === '30d') {
+    const days = key === '7d' ? 6 : 29;
+    return {
+      from: toDateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - days)),
+      to: toDateKey(today),
+    };
+  }
+  return {
+    from: toDateKey(new Date(today.getFullYear(), today.getMonth(), 1)),
+    to: toDateKey(today),
+  };
+};
+
+const formatDateLabel = (key) => key.split('-').reverse().join('/');
+
 const scoreColor = (score) => {
+  if (score == null) return '#9ca3af';
   if (score >= 80) return '#16a34a';
-  if (score >= 70) return '#d97706';
+  if (score >= 60) return '#d97706';
   return '#dc2626';
 };
 
-const improvementColor = (score) => {
-  if (score >= 32) return '#dc2626';
-  if (score >= 20) return '#d97706';
-  return '#16a34a';
+const employeeStatus = (score) => {
+  if (score == null) return 'Chưa có điểm';
+  if (score >= 80) return 'Đạt chuẩn';
+  if (score >= 60) return 'Cần theo dõi';
+  return 'Cần cải thiện';
 };
 
-const achievementColor = (value) => {
-  if (value >= 95) return '#16a34a';
-  if (value >= 82) return '#d97706';
-  return '#dc2626';
+const statusStyle = (status) => {
+  if (status === 'Đạt chuẩn') return { className: 'tag tag-green' };
+  if (status === 'Cần theo dõi') return { className: 'tag tag-orange' };
+  if (status === 'Cần cải thiện') return { className: 'tag tag-red' };
+  return { className: 'tag', style: { background: '#f3f4f6', color: '#6b7280' } };
 };
 
-const statusClass = (status) => {
-  if (status === 'Đạt chuẩn') return 'tag-green';
-  if (status === 'Cần theo dõi') return 'tag-orange';
-  return 'tag-red';
-};
-
-const average = (items, selector) => items.reduce((sum, item) => sum + selector(item), 0) / Math.max(items.length, 1);
-
-const formatPercent = (value) => `${value.toFixed(1)}%`;
+const formatMoney = (value) => `${Math.round(value).toLocaleString('vi-VN')}₫`;
 
 const formatMoneyShort = (value) => {
+  if (!value) return '0₫';
   if (value >= 1000000000) {
     return `${(value / 1000000000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} tỷ`;
   }
-
-  return `${Math.round(value / 1000000).toLocaleString('vi-VN')}tr`;
+  if (value >= 1000000) {
+    return `${(value / 1000000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}tr`;
+  }
+  return formatMoney(value);
 };
 
-const initials = (name) => name
-  .split(' ')
+const formatRate = (value) => (value == null ? '—' : `${value.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`);
+
+const initials = (name) => (name || '?')
+  .split(/[\s@.]+/)
   .filter(Boolean)
   .slice(0, 2)
   .map((word) => word[0])
   .join('')
   .toUpperCase();
+
+const sortValue = (employee, key) => {
+  const value = employee[key];
+  return value == null ? -1 : value;
+};
 
 const controlStyle = {
   height: '34px',
@@ -78,120 +137,100 @@ const controlStyle = {
   padding: '0 10px',
 };
 
+const panelStyle = { border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' };
+
 function MetricBar({ value, color, max = 100, width = 92 }) {
   return (
     <div style={{ height: '5px', width, background: '#f3f4f6', borderRadius: '999px', overflow: 'hidden', marginTop: '5px' }}>
-      <div style={{ height: '100%', width: `${Math.min((value / max) * 100, 100)}%`, background: color, borderRadius: '999px' }} />
+      <div style={{ height: '100%', width: `${Math.min(((value ?? 0) / max) * 100, 100)}%`, background: color, borderRadius: '999px' }} />
     </div>
   );
 }
 
-function KpiProgress({ label, actual, target, suffix = '', precision = 0 }) {
-  const ratio = Math.round((actual / target) * 100);
-  const color = achievementColor(ratio);
-  const displayActual = typeof actual === 'number' ? actual.toLocaleString('vi-VN', { maximumFractionDigits: precision }) : actual;
-  const displayTarget = typeof target === 'number' ? target.toLocaleString('vi-VN', { maximumFractionDigits: precision }) : target;
-
+function DetailRow({ label, value, hint }) {
   return (
-    <div style={{ border: '1px solid #f3f4f6', borderRadius: '8px', padding: '10px', background: '#fff' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
-        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: '12px', color, fontWeight: 800 }}>{ratio}%</span>
-      </div>
-      <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827' }}>
-        {displayActual}{suffix}
-        <span style={{ color: '#9ca3af', fontWeight: 600 }}> / {displayTarget}{suffix}</span>
-      </div>
-      <MetricBar value={ratio} color={color} width="100%" />
-    </div>
-  );
-}
-
-function QualityChart({ employee }) {
-  const maxTrend = Math.max(...employee.qualityTrend.map((item) => item.score), 100);
-
-  return (
-    <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '10px' }}>
-        <ChartBar size={17} weight="duotone" style={{ color: '#4f46e5' }} />
-        Biểu đồ chất lượng
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '9px', height: '96px', padding: '6px 4px 0', borderBottom: '1px solid #f3f4f6' }}>
-        {employee.qualityTrend.map((item) => (
-          <div key={item.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', height: '100%' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: scoreColor(item.score) }}>{item.score}</div>
-            <div style={{ width: '100%', maxWidth: '28px', height: `${Math.max(22, (item.score / maxTrend) * 68)}px`, borderRadius: '6px 6px 0 0', background: `linear-gradient(180deg, ${scoreColor(item.score)}, #c7d2fe)` }} />
-            <div style={{ fontSize: '10.5px', color: '#6b7280' }}>{item.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '9px 14px', marginTop: '12px' }}>
-        {employee.qualityBreakdown.map((item) => {
-          const color = scoreColor(item.score);
-
-          return (
-            <div key={item.label}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px' }}>
-                <span style={{ color: '#4b5563', fontWeight: 600 }}>{item.label}</span>
-                <span style={{ color, fontWeight: 800 }}>{item.score}</span>
-              </div>
-              <MetricBar value={item.score} color={color} width="100%" />
-            </div>
-          );
-        })}
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '7px 0', borderBottom: '1px dashed #f3f4f6', fontSize: '12.5px' }}>
+      <span style={{ color: '#4b5563' }}>
+        {label}
+        {hint && <span style={{ display: 'block', fontSize: '11px', color: '#9ca3af' }}>{hint}</span>}
+      </span>
+      <b style={{ color: '#111827', whiteSpace: 'nowrap' }}>{value}</b>
     </div>
   );
 }
 
 function ExpandedEmployeeDetail({ employee }) {
+  const hasCriteria = Object.values(employee.criteria).some((value) => value != null);
+
   return (
     <tr>
-      <td colSpan={11} style={{ padding: 0, background: '#f9fafb' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.05fr', gap: '12px', padding: '14px 16px 16px 58px', borderBottom: '1px solid #f3f4f6' }}>
-          <QualityChart employee={employee} />
-
-          <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
+      <td colSpan={8} style={{ padding: 0, background: '#f9fafb' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', padding: '14px 16px 16px 58px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={panelStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '10px' }}>
-              <Storefront size={17} weight="duotone" style={{ color: '#2563eb' }} />
-              Page được giao check
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {employee.assignedPages.map((page) => (
-                <div key={`${employee.id}-${page.name}`} style={{ border: '1px solid #f3f4f6', borderRadius: '8px', padding: '9px', background: '#f9fafb' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                    <div style={{ fontWeight: 800, color: '#111827' }}>{page.name}</div>
-                    <span className="tag tag-blue">{page.channel}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', fontSize: '12px', color: '#4b5563' }}>
-                    <span>Đã check: <b>{page.checked}</b></span>
-                    <span>Đang chờ: <b>{page.pending}</b></span>
-                    <span>QA: <b style={{ color: scoreColor(page.quality) }}>{page.quality}</b></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ border: '1px solid #f3f4f6', borderRadius: '10px', background: '#fff', padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800 }}>
-                <Target size={17} weight="duotone" style={{ color: '#16a34a' }} />
-                KPI được giao
-              </div>
-              <span className={`tag ${employee.achievementRate >= 95 ? 'tag-green' : employee.achievementRate >= 82 ? 'tag-orange' : 'tag-red'}`}>
-                Đạt {employee.achievementRate}%
+              <ChartBar size={17} weight="duotone" style={{ color: '#4f46e5' }} />
+              Điểm theo tiêu chí
+              <span style={{ marginLeft: 'auto', fontSize: '11.5px', fontWeight: 600, color: '#6b7280' }}>
+                {employee.auditCount.toLocaleString('vi-VN')} lượt chấm AI
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
-              <KpiProgress label="Hội thoại" actual={employee.conversations} target={employee.kpiTargets.conversations} />
-              <KpiProgress label="Đơn chốt" actual={employee.orders} target={employee.kpiTargets.orders} />
-              <KpiProgress label="Tỷ lệ chốt" actual={employee.closeRateValue} target={employee.kpiTargets.closeRate} suffix="%" precision={1} />
-              <KpiProgress label="CSAT" actual={employee.csatValue} target={employee.kpiTargets.csat} suffix="/5" precision={1} />
+            {hasCriteria ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
+                  const value = employee.criteria[key];
+                  const color = scoreColor(value == null ? null : (value / CRITERIA_MAX) * 100);
+                  return (
+                    <div key={key}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px' }}>
+                        <span style={{ color: '#4b5563', fontWeight: 600 }}>{label}</span>
+                        <span style={{ color, fontWeight: 800 }}>
+                          {value == null ? '—' : value.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}
+                          <span style={{ color: '#9ca3af', fontWeight: 600 }}>/{CRITERIA_MAX}</span>
+                        </span>
+                      </div>
+                      <MetricBar value={value} max={CRITERIA_MAX} color={color} width="100%" />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: '12.5px', color: '#6b7280', lineHeight: 1.5 }}>
+                Chưa có hội thoại nào của nhân viên được AI chấm điểm trong kỳ này.
+              </div>
+            )}
+          </div>
+
+          <div style={panelStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '4px' }}>
+              <ChatCircleText size={17} weight="duotone" style={{ color: '#2563eb' }} />
+              Hội thoại phụ trách
             </div>
-            <div style={{ marginTop: '10px', padding: '9px', borderRadius: '8px', background: '#fff7ed', color: '#9a3412', fontSize: '12px', lineHeight: 1.45 }}>
-              Cần cải thiện: <b>{employee.improvementFocus}</b>. Ưu tiên xử lý trước nhóm hội thoại có khách hỏi giá, size và bảo hành.
+            <DetailRow label="Đã trả lời từ CRM" value={employee.repliedConversations.toLocaleString('vi-VN')} />
+            <DetailRow label="Được gắn “Nhân viên chốt”" value={employee.labeledConversations.toLocaleString('vi-VN')} />
+            <DetailRow label="Chốt bằng đơn hàng" value={employee.closedByOrder.toLocaleString('vi-VN')} />
+            <DetailRow label="Chốt bằng nhãn “Đã chốt”" value={employee.closedByLabel.toLocaleString('vi-VN')} />
+            <DetailRow label="Kênh được giao" value={employee.assignedPageCount ? `${employee.assignedPageCount} kênh` : 'Chưa phân kênh'} />
+          </div>
+
+          <div style={panelStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, marginBottom: '4px' }}>
+              <Target size={17} weight="duotone" style={{ color: '#16a34a' }} />
+              Hiệu quả bán hàng
             </div>
+            <DetailRow label="Doanh thu" value={formatMoney(employee.revenue)} />
+            <DetailRow
+              label="Giá trị đơn trung bình"
+              value={employee.orders ? formatMoney(employee.revenue / employee.orders) : '—'}
+            />
+            <DetailRow
+              label="Doanh thu / hội thoại"
+              value={employee.conversations ? formatMoney(employee.revenue / employee.conversations) : '—'}
+            />
+            <DetailRow
+              label="Tỷ lệ chốt"
+              value={formatRate(employee.closeRate)}
+              hint={`${employee.closedConversations.toLocaleString('vi-VN')} chốt / ${employee.conversations.toLocaleString('vi-VN')} hội thoại`}
+            />
           </div>
         </div>
       </td>
@@ -200,149 +239,200 @@ function ExpandedEmployeeDetail({ employee }) {
 }
 
 export default function EmployeesPage() {
+  const [preset, setPreset] = useState('month');
+  const [range, setRange] = useState(() => presetRange('month'));
   const [search, setSearch] = useState('');
-  const [employeeFilter, setEmployeeFilter] = useState('all');
-  const [teamFilter, setTeamFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('revenue');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState(null);
   const normalizedSearch = search.trim().toLowerCase();
 
-  const teams = useMemo(() => [...new Set(employees.map((employee) => employee.team))], []);
-  const statuses = useMemo(() => [...new Set(employees.map((employee) => employee.status))], []);
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ['employees', 'performance', range.from, range.to],
+    queryFn: () => fetchEmployeePerformance(range.from, range.to),
+    enabled: !!range.from && !!range.to && range.from <= range.to,
+    staleTime: 60_000,
+    placeholderData: (previous) => previous,
+  });
 
-  const filtered = useMemo(() => employees.filter((employee) => {
-    const matchesSearch = !normalizedSearch || [employee.name, employee.team, employee.status, employee.improvementFocus]
-      .some((field) => field.toLowerCase().includes(normalizedSearch));
-    const matchesEmployee = employeeFilter === 'all' || employee.name === employeeFilter;
-    const matchesTeam = teamFilter === 'all' || employee.team === teamFilter;
+  const employees = useMemo(() => data?.employees ?? [], [data]);
+  const totals = data?.totals;
+
+  const ranked = useMemo(
+    () => [...employees]
+      .sort((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey) || (a.fullName || a.email).localeCompare(b.fullName || b.email, 'vi'))
+      .map((employee, index) => ({ ...employee, rank: index + 1, status: employeeStatus(employee.score) })),
+    [employees, sortKey],
+  );
+
+  const filtered = useMemo(() => ranked.filter((employee) => {
+    const matchesSearch = !normalizedSearch || [employee.fullName, employee.email, employee.phoneNumber]
+      .some((field) => field?.toLowerCase().includes(normalizedSearch));
     const matchesStatus = statusFilter === 'all' || employee.status === statusFilter;
-
-    return matchesSearch && matchesEmployee && matchesTeam && matchesStatus;
-  }), [employeeFilter, normalizedSearch, statusFilter, teamFilter]);
+    return matchesSearch && matchesStatus;
+  }), [ranked, normalizedSearch, statusFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
     setExpandedEmployeeId(null);
-  }, [employeeFilter, normalizedSearch, statusFilter, teamFilter]);
+  }, [normalizedSearch, statusFilter, sortKey, range.from, range.to]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const rangeStart = filtered.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, filtered.length);
+  const activeCount = employees.filter((employee) => employee.isActive).length;
+  const needImproveCount = ranked.filter((employee) => employee.status === 'Cần cải thiện').length;
 
-  const totalRevenue = employees.reduce((sum, employee) => sum + employee.revenueValue, 0);
-  const totalOrders = employees.reduce((sum, employee) => sum + employee.orders, 0);
-  const totalConversations = employees.reduce((sum, employee) => sum + employee.conversations, 0);
-  const needImproveCount = employees.filter((employee) => employee.status !== 'Đạt chuẩn').length;
-
-  const stats = [
+  const kpiItems = [
     {
-      label: 'Tổng nhân viên',
+      label: 'Nhân viên',
       value: employees.length,
-      sub: `${employees.filter((employee) => employee.online).length} đang online`,
-      Icon: UsersThree,
+      sub: `${activeCount} đang hoạt động`,
+      icon: UsersThree,
       color: '#4f46e5',
       bg: '#eef2ff',
     },
     {
-      label: 'QA Score TB',
-      value: Math.round(average(employees, (employee) => employee.score)),
-      sub: 'điểm chất lượng',
-      Icon: Star,
+      label: 'Điểm hội thoại TB',
+      value: totals?.score == null ? '—' : totals.score.toLocaleString('vi-VN', { maximumFractionDigits: 1 }),
+      sub: `${(totals?.auditCount ?? 0).toLocaleString('vi-VN')} lượt chấm AI`,
+      icon: Star,
       color: '#d97706',
       bg: '#fffbeb',
     },
     {
-      label: 'Tỷ lệ chốt TB',
-      value: formatPercent(average(employees, (employee) => employee.closeRateValue)),
-      sub: `${totalOrders.toLocaleString('vi-VN')} đơn`,
-      Icon: Target,
+      label: 'Tỷ lệ chốt',
+      value: formatRate(totals?.closeRate ?? null),
+      sub: `${(totals?.closedConversations ?? 0).toLocaleString('vi-VN')} hội thoại chốt`,
+      icon: Target,
       color: '#2563eb',
       bg: '#eff6ff',
     },
     {
-      label: 'CSAT TB',
-      value: `${average(employees, (employee) => employee.csatValue).toFixed(1)}/5`,
-      sub: 'điểm hài lòng',
-      Icon: Smiley,
-      color: '#16a34a',
-      bg: '#f0fdf4',
-    },
-    {
       label: 'Doanh thu',
-      value: formatMoneyShort(totalRevenue),
-      sub: 'ước tính từ chat',
-      Icon: CurrencyCircleDollar,
+      value: formatMoneyShort(totals?.revenue ?? 0),
+      sub: 'từ đơn tạo trong hội thoại',
+      icon: CurrencyCircleDollar,
       color: '#16a34a',
       bg: '#ecfdf5',
     },
     {
-      label: 'Cần cải thiện',
-      value: needImproveCount,
-      sub: `${totalConversations.toLocaleString('vi-VN')} hội thoại`,
-      Icon: Warning,
-      color: '#dc2626',
-      bg: '#fef2f2',
+      label: 'Hội thoại',
+      value: (totals?.conversations ?? 0).toLocaleString('vi-VN'),
+      sub: `${needImproveCount} nhân viên cần cải thiện`,
+      icon: ChatCircleText,
+      color: '#0891b2',
+      bg: '#ecfeff',
+    },
+    {
+      label: 'Đơn chốt',
+      value: (totals?.orders ?? 0).toLocaleString('vi-VN'),
+      sub: `${formatDateLabel(range.from)} – ${formatDateLabel(range.to)}`,
+      icon: Package,
+      color: '#7c3aed',
+      bg: '#f5f3ff',
     },
   ];
 
-  const resetFilters = () => {
-    setSearch('');
-    setEmployeeFilter('all');
-    setTeamFilter('all');
-    setStatusFilter('all');
+  const choosePreset = (key) => {
+    setPreset(key);
+    if (key !== 'custom') setRange(presetRange(key));
   };
 
-  const kpiItems = stats.map((stat) => ({
-    label: stat.label,
-    value: stat.value,
-    sub: stat.sub,
-    icon: stat.Icon,
-    color: stat.color,
-    bg: stat.bg,
-  }));
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setSortKey('revenue');
+    choosePreset('month');
+  };
 
   return (
-    <AnalyticsShell>
+    <AnalyticsShell demo={false}>
     <div className="page-scroll">
       <KpiGrid items={kpiItems} columns={6} />
 
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '12px 0', padding: '10px 12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12.5px', lineHeight: 1.5 }}>
+        <Info size={16} weight="duotone" style={{ color: '#6366f1', flexShrink: 0, marginTop: '2px' }} />
+        <span>
+          Hội thoại được tính cho nhân viên khi họ trả lời từ CRM, được gắn nhãn <b>“Nhân viên chốt”</b> hoặc tạo đơn trong hội thoại.
+          Hội thoại chốt là hội thoại có đơn hoặc nhãn <b>“Đã chốt”</b>. Điểm là trung bình điểm AI của các hội thoại đó.
+          Lượt trả lời và đơn hàng chỉ được ghi nhận từ khi tính năng này chạy, nên dữ liệu trước đó chỉ có ở hội thoại đã gắn nhãn.
+        </span>
+      </div>
+
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '220ms' }}>
-        <div className="card-title" style={{ marginBottom: '12px', alignItems: 'flex-start', gap: '12px' }}>
+        <div className="card-title" style={{ marginBottom: '12px', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '7px' }}>
             <UsersThree size={18} weight="duotone" style={{ color: '#4f46e5' }} />
             Danh sách nhân viên
             <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
               {rangeStart}-{rangeEnd}/{filtered.length} nhân viên
             </span>
+            {isFetching && !isLoading && (
+              <span style={{ fontSize: '11.5px', color: '#6366f1', fontWeight: 500 }}>Đang cập nhật…</span>
+            )}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: '7px', overflow: 'hidden', height: '34px' }}>
+              {PERIOD_PRESETS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => choosePreset(item.key)}
+                  style={{
+                    padding: '0 10px',
+                    fontSize: '12.5px',
+                    fontWeight: preset === item.key ? 700 : 500,
+                    background: preset === item.key ? '#eef2ff' : '#fff',
+                    color: preset === item.key ? '#3730a3' : '#4b5563',
+                    borderRight: '1px solid #f3f4f6',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            {preset === 'custom' && (
+              <>
+                <input
+                  type="date"
+                  value={range.from}
+                  max={range.to}
+                  onChange={(event) => event.target.value && setRange((prev) => ({ ...prev, from: event.target.value }))}
+                  style={{ ...controlStyle, width: '140px' }}
+                  aria-label="Từ ngày"
+                />
+                <input
+                  type="date"
+                  value={range.to}
+                  min={range.from}
+                  onChange={(event) => event.target.value && setRange((prev) => ({ ...prev, to: event.target.value }))}
+                  style={{ ...controlStyle, width: '140px' }}
+                  aria-label="Đến ngày"
+                />
+              </>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f9fafb', padding: '0 10px', borderRadius: '7px', border: '1px solid #e5e7eb', height: '34px' }}>
               <MagnifyingGlass size={15} style={{ color: '#9ca3af' }} />
               <input
                 type="text"
-                placeholder="Tìm nhân viên, team, điểm cần cải thiện..."
+                placeholder="Tìm tên, email, số điện thoại..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                style={{ background: 'transparent', fontSize: '13px', color: '#374151', width: '245px' }}
+                style={{ background: 'transparent', fontSize: '13px', color: '#374151', width: '200px' }}
               />
             </div>
-            <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)} style={{ ...controlStyle, width: '170px' }}>
-              <option value="all">Tất cả nhân viên</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.name}>{employee.name}</option>
+            <select value={sortKey} onChange={(event) => setSortKey(event.target.value)} style={{ ...controlStyle, width: '170px' }} aria-label="Xếp hạng theo">
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key}>Xếp hạng: {option.label}</option>
               ))}
             </select>
-            <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} style={{ ...controlStyle, width: '112px' }}>
-              <option value="all">Tất cả team</option>
-              {teams.map((team) => (
-                <option key={team} value={team}>{team}</option>
-              ))}
-            </select>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ ...controlStyle, width: '138px' }}>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ ...controlStyle, width: '150px' }} aria-label="Trạng thái">
               <option value="all">Tất cả trạng thái</option>
-              {statuses.map((status) => (
+              {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
@@ -354,31 +444,43 @@ export default function EmployeesPage() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ minWidth: '1360px' }}>
+          <table className="data-table" style={{ minWidth: '1080px' }}>
             <thead>
               <tr>
                 <th>#</th>
                 <th>Nhân viên</th>
-                <th>QA Score</th>
+                <th>Điểm hội thoại</th>
                 <th>Tỷ lệ chốt</th>
-                <th>CSAT</th>
                 <th>Doanh thu</th>
                 <th>Hội thoại</th>
                 <th>Đơn chốt</th>
-                <th>Page check</th>
-                <th>KPI đạt</th>
                 <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((employee) => {
-                const qaColor = scoreColor(employee.score);
-                const achievement = achievementColor(employee.achievementRate);
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px 0', color: '#6b7280' }}>Đang tải số liệu nhân viên…</td>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px 0', color: '#dc2626' }}>{getApiErrorMessage(error)}</td>
+                </tr>
+              ) : !currentItems.length ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px 0', color: '#6b7280' }}>
+                    {employees.length ? 'Không có nhân viên khớp bộ lọc' : 'Chưa có tài khoản nhân viên nào (không tính quản trị viên)'}
+                  </td>
+                </tr>
+              ) : currentItems.map((employee) => {
+                const color = scoreColor(employee.score);
                 const isExpanded = expandedEmployeeId === employee.id;
+                const status = statusStyle(employee.status);
+                const name = employee.fullName || employee.email;
 
                 return (
                   <Fragment key={employee.id}>
-                    <tr style={{ cursor: 'default', background: isExpanded ? '#eef2ff' : undefined }}>
+                    <tr style={{ cursor: 'default', background: isExpanded ? '#eef2ff' : undefined, opacity: employee.isActive ? 1 : 0.6 }}>
                       <td>
                         <span className={`rank-badge ${employee.rank <= 3 ? `rank-${employee.rank}` : 'rank-n'}`}>
                           {employee.rank}
@@ -388,45 +490,49 @@ export default function EmployeesPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedEmployeeId(isExpanded ? null : employee.id)}
+                          aria-expanded={isExpanded}
                           style={{ display: 'flex', alignItems: 'center', gap: '9px', width: '100%', textAlign: 'left', background: 'transparent', cursor: 'pointer' }}
                         >
-                          <div style={{ position: 'relative', flexShrink: 0 }}>
-                            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: `hsl(${employee.id * 41}, 58%, 54%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
-                              {initials(employee.name)}
-                            </div>
-                            <span style={{ position: 'absolute', right: '-1px', bottom: '-1px', width: '9px', height: '9px', borderRadius: '50%', background: employee.online ? '#22c55e' : '#d1d5db', border: '2px solid #fff' }} />
+                          <div style={{ width: '34px', height: '34px', flexShrink: 0, borderRadius: '50%', background: `hsl(${employee.id * 41}, 58%, 54%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                            {initials(name)}
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, color: '#111827' }}>
-                              {employee.name}
+                              {name}
+                              {!employee.isActive && (
+                                <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#6b7280', background: '#f3f4f6', borderRadius: '4px', padding: '0 5px' }}>Đã khóa</span>
+                              )}
                               <CaretDown size={13} weight="bold" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .16s ease', color: '#6b7280' }} />
                             </div>
-                            <div style={{ fontSize: '11.5px', color: '#6b7280' }}>{employee.team} • phản hồi TB {employee.avgResponse}</div>
+                            <div style={{ fontSize: '11.5px', color: '#6b7280' }}>
+                              {ROLE_LABELS[employee.role] ?? employee.role} • {employee.email} • {employee.assignedPageCount ? `${employee.assignedPageCount} kênh` : 'chưa phân kênh'}
+                            </div>
                           </div>
                         </button>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                          <span style={{ fontSize: '18px', fontWeight: 800, color: qaColor }}>{employee.score}</span>
-                          <TrendUp size={14} weight="bold" style={{ color: qaColor }} />
+                          <span style={{ fontSize: '18px', fontWeight: 800, color }}>
+                            {employee.score == null ? '—' : employee.score.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}
+                          </span>
+                          {employee.score != null && <TrendUp size={14} weight="bold" style={{ color }} />}
                         </div>
-                        <MetricBar value={employee.score} color={qaColor} />
+                        {employee.score == null ? (
+                          <div style={{ fontSize: '11.5px', color: '#9ca3af' }}>Chưa được chấm</div>
+                        ) : (
+                          <MetricBar value={employee.score} color={color} />
+                        )}
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700 }}>{employee.closeRate}</div>
-                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>{employee.orders} đơn / {employee.conversations} hội thoại</div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-                          <Smiley size={16} weight="duotone" style={{ color: employee.csatValue >= 4 ? '#16a34a' : '#d97706' }} />
-                          {employee.csat}
+                        <div style={{ fontWeight: 700 }}>{formatRate(employee.closeRate)}</div>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>
+                          {employee.closedConversations.toLocaleString('vi-VN')} chốt / {employee.conversations.toLocaleString('vi-VN')} hội thoại
                         </div>
-                        <MetricBar value={employee.csatValue} max={5} color={employee.csatValue >= 4 ? '#16a34a' : '#d97706'} />
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--success-700)' }}>
+                        <div title={formatMoney(employee.revenue)} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: employee.revenue ? 'var(--success-700)' : '#9ca3af' }}>
                           <CurrencyCircleDollar size={16} weight="duotone" />
-                          {employee.revenue}
+                          {formatMoneyShort(employee.revenue)}
                         </div>
                       </td>
                       <td>
@@ -434,27 +540,21 @@ export default function EmployeesPage() {
                           <ChatCircleText size={15} style={{ color: '#9ca3af' }} />
                           {employee.conversations.toLocaleString('vi-VN')}
                         </div>
-                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>KPI {employee.kpiTargets.conversations.toLocaleString('vi-VN')}</div>
+                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>
+                          {employee.repliedConversations.toLocaleString('vi-VN')} đã trả lời
+                        </div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
                           <Package size={15} weight="duotone" style={{ color: '#2563eb' }} />
                           {employee.orders.toLocaleString('vi-VN')}
                         </div>
-                        <div style={{ fontSize: '11.5px', color: '#6b7280' }}>KPI {employee.kpiTargets.orders.toLocaleString('vi-VN')}</div>
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 800 }}>{employee.assignedPages.length} page</div>
                         <div style={{ fontSize: '11.5px', color: '#6b7280' }}>
-                          {employee.assignedPages.reduce((sum, page) => sum + page.checked, 0).toLocaleString('vi-VN')} đã check
+                          {employee.orders ? `TB ${formatMoneyShort(employee.revenue / employee.orders)}/đơn` : 'chưa có đơn'}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 800, color: achievement }}>{employee.achievementRate}%</div>
-                        <MetricBar value={employee.achievementRate} color={achievement} />
-                      </td>
-                      <td>
-                        <span className={`tag ${statusClass(employee.status)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className={status.className} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', ...status.style }}>
                           {employee.status === 'Đạt chuẩn' ? <CheckCircle size={12} weight="bold" /> : <Warning size={12} weight="bold" />}
                           {employee.status}
                         </span>
@@ -470,7 +570,7 @@ export default function EmployeesPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
           <div style={{ fontSize: '12.5px', color: '#6b7280' }}>
-            Hiển thị {rangeStart}-{rangeEnd} trong {filtered.length} nhân viên, mỗi trang {PAGE_SIZE} bạn
+            Kỳ {formatDateLabel(range.from)} – {formatDateLabel(range.to)} · hiển thị {rangeStart}-{rangeEnd} trong {filtered.length} nhân viên
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button

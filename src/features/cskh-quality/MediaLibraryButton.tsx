@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { usePermission } from "@/features/user-access/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -37,6 +38,7 @@ export function MediaLibraryButton({
   onPick,
 }: MediaLibraryButtonProps) {
   const qc = useQueryClient();
+  const canManage = usePermission("media.manage");
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [folderId, setFolderId] = useState("");
@@ -226,7 +228,7 @@ export function MediaLibraryButton({
               <div className="px-4 py-4 text-[18px] font-semibold text-slate-800">
                 Thư viện
               </div>
-              <div className="relative px-3">
+              <div className={canManage ? "relative px-3" : "hidden"}>
                 <button
                   type="button"
                   onClick={() => setMenuOpen((value) => !value)}
@@ -370,14 +372,16 @@ export function MediaLibraryButton({
                             />
                             <span className="truncate">{folder.name}</span>
                           </button>
-                          <button
-                            type="button"
-                            aria-label={`Xóa ${folder.name}`}
-                            onClick={() => void removeFolder(folder.id)}
-                            className="text-slate-300 hover:text-red-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {canManage && (
+                            <button
+                              type="button"
+                              aria-label={`Xóa ${folder.name}`}
+                              onClick={() => void removeFolder(folder.id)}
+                              className="text-slate-300 hover:text-red-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -430,14 +434,16 @@ export function MediaLibraryButton({
                                 {asset.name.replace(/\.[^.]+$/, "")}
                               </span>
                             </button>
-                            <button
-                              type="button"
-                              aria-label="Xóa ảnh"
-                              onClick={() => void removeAsset(asset.id)}
-                              className="absolute right-1 top-1 hidden rounded-full bg-slate-900/70 p-1 text-white group-hover:block"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            {canManage && (
+                              <button
+                                type="button"
+                                aria-label="Xóa ảnh"
+                                onClick={() => void removeAsset(asset.id)}
+                                className="absolute right-1 top-1 hidden rounded-full bg-slate-900/70 p-1 text-white group-hover:block"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
