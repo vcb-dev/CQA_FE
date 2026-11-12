@@ -9,6 +9,11 @@ import {
   type CskhPagesResponse,
 } from "@/features/cskh-quality/api";
 import { cn } from "@/lib/utils";
+import {
+  hasPermission,
+  useCurrentUserProfile,
+  type PermissionKey,
+} from "@/features/user-access/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
@@ -3922,22 +3927,28 @@ function ProductsTab() {
     </div>
   );
 }
-const QUALITY_TABS: Array<{ id: string; label: string }> = [
-  { id: "audit", label: "Audit AI" },
-  { id: "chat", label: "Inbox chat" },
-  { id: "config", label: "Kết nối & IG" },
-  { id: "overview", label: "Tổng quan" },
-  { id: "fb-page", label: "Page / kênh" },
-  { id: "products", label: "Sản phẩm" },
+const QUALITY_TABS: Array<{ id: string; label: string; permission: PermissionKey }> = [
+  { id: "audit", label: "Audit AI", permission: "quality.view" },
+  { id: "chat", label: "Inbox chat", permission: "inbox.view" },
+  { id: "config", label: "Kết nối & IG", permission: "channel.manage" },
+  { id: "overview", label: "Tổng quan", permission: "dashboard.view" },
+  { id: "fb-page", label: "Page / kênh", permission: "channel.view" },
+  { id: "products", label: "Sản phẩm", permission: "product.view" },
 ];
 
-function CskhQualityTabBar({ active }: { active: string }) {
+function CskhQualityTabBar({
+  active,
+  tabs,
+}: {
+  active: string;
+  tabs: typeof QUALITY_TABS;
+}) {
   return (
     <nav
       className="mb-2 flex shrink-0 flex-wrap gap-1 border-b border-border px-1 pb-0"
       aria-label="CSKH Quality"
     >
-      {QUALITY_TABS.map((t) => (
+      {tabs.map((t) => (
         <Link
           key={t.id}
           to={`/quality?tab=${t.id}`}
@@ -3959,7 +3970,12 @@ export function CskhQualityPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const tab =
+  const { data: currentUser } = useCurrentUserProfile();
+  const allowedTabs = QUALITY_TABS.filter((t) =>
+    hasPermission(currentUser, t.permission),
+  );
+  const canOpen = (id: string) => allowedTabs.some((t) => t.id === id);
+  const requestedTab =
     tabParam === "config"
       ? "config"
       : tabParam === "overview"
@@ -3971,6 +3987,9 @@ export function CskhQualityPage() {
             : tabParam === "chat"
               ? "chat"
               : "audit";
+  const tab = canOpen(requestedTab)
+    ? requestedTab
+    : (allowedTabs[0]?.id ?? "audit");
   const auditJob = useOptionalAuditJob();
   const auditJobBusy = auditJob?.isRunning ?? false;
 
@@ -4028,7 +4047,7 @@ export function CskhQualityPage() {
         </p>
       ) : null}
 
-      <CskhQualityTabBar active={tab} />
+      <CskhQualityTabBar active={tab} tabs={allowedTabs} />
 
       <CskhGlassPanel
         className={
@@ -4041,44 +4060,56 @@ export function CskhQualityPage() {
                 : "min-h-0 overflow-x-hidden overflow-y-auto"
         }
       >
-        <div
-          className={
-            tab === "overview" ? "h-full min-h-0 flex flex-col" : "hidden"
-          }
-        >
-          <OverviewTab />
-        </div>
-        <div className={tab === "fb-page" ? "" : "hidden"}>
-          <FbPageTab />
-        </div>
-        <div
-          className={
-            tab === "products" ? "h-full min-h-0 flex flex-col" : "hidden"
-          }
-        >
-          <ProductsTab />
-        </div>
-        <div className={tab === "config" ? "min-h-0" : "hidden"}>
-          <ConfigTab />
-        </div>
-        <div
-          className={
-            tab === "audit"
-              ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              : "hidden"
-          }
-        >
-          <AuditMessengerView />
-        </div>
-        <div
-          className={
-            tab === "chat"
-              ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              : "hidden"
-          }
-        >
-          <ChatMessengerPane />
-        </div>
+        {canOpen("overview") && (
+          <div
+            className={
+              tab === "overview" ? "h-full min-h-0 flex flex-col" : "hidden"
+            }
+          >
+            <OverviewTab />
+          </div>
+        )}
+        {canOpen("fb-page") && (
+          <div className={tab === "fb-page" ? "" : "hidden"}>
+            <FbPageTab />
+          </div>
+        )}
+        {canOpen("products") && (
+          <div
+            className={
+              tab === "products" ? "h-full min-h-0 flex flex-col" : "hidden"
+            }
+          >
+            <ProductsTab />
+          </div>
+        )}
+        {canOpen("config") && (
+          <div className={tab === "config" ? "min-h-0" : "hidden"}>
+            <ConfigTab />
+          </div>
+        )}
+        {canOpen("audit") && (
+          <div
+            className={
+              tab === "audit"
+                ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+                : "hidden"
+            }
+          >
+            <AuditMessengerView />
+          </div>
+        )}
+        {canOpen("chat") && (
+          <div
+            className={
+              tab === "chat"
+                ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+                : "hidden"
+            }
+          >
+            <ChatMessengerPane />
+          </div>
+        )}
       </CskhGlassPanel>
     </CskhPageShell>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useDeferredValue, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePermission } from '@/features/user-access/api';
 import { 
   MagnifyingGlass, 
   FacebookLogo, 
@@ -206,6 +207,7 @@ const ChannelRow = memo(function ChannelRow({ channel, isActive, onSelect }) {
 export default function PagesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const canManageChannels = usePermission('channel.manage');
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [tab, setTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -670,6 +672,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
             >
               Hôm nay
             </button>
+            {canManageChannels && (
             <button
               type="button"
               onClick={() => handleStartBackfill(false)}
@@ -696,7 +699,8 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                       ? 'Đang khởi động...'
                       : 'Quét theo ngày'}
             </button>
-            {(backfillScanActive || backfillPaused || backfillPausing || backfillCancelling) && (
+            )}
+            {canManageChannels && (backfillScanActive || backfillPaused || backfillPausing || backfillCancelling) && (
               <button
                 type="button"
                 onClick={handleCancelBackfill}
@@ -708,7 +712,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                 {cancellingBackfill ? 'Đang hủy...' : 'Hủy quét'}
               </button>
             )}
-            {backfillScanActive && !backfillCancelling && (
+            {canManageChannels && backfillScanActive && !backfillCancelling && (
               <button
                 type="button"
                 onClick={handlePauseBackfill}
@@ -795,7 +799,7 @@ docker pull viejhaf/cqa-be:latest && docker restart cqa-be`;
                   <span className="text-amber-600"> · {backfillStatus.errorPages.length} kênh Facebook báo lỗi (sẽ thử lại sau)</span>
                 )}
               </p>
-              {!backfillRunning && (
+              {canManageChannels && !backfillRunning && (
                 <div className="flex items-center gap-3 shrink-0">
                   {backfillPaused && (
                     <button

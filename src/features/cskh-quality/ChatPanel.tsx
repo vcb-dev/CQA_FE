@@ -1,4 +1,5 @@
 import { getApiErrorMessage } from "@/lib/axios";
+import { hasPermission, useCurrentUserProfile } from "@/features/user-access/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Languages, Loader2, Mail, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -176,6 +177,12 @@ export function ChatPanel({
   const isIgComment =
     conversationWithLabels.kind === "ig_comment" ||
     conversation.kind === "ig_comment";
+  const { data: currentUser } = useCurrentUserProfile();
+  const canReply = hasPermission(
+    currentUser,
+    isComment ? "comment.reply" : "inbox.reply",
+  );
+  const canLabel = hasPermission(currentUser, "inbox.label");
   const showInitialLoader =
     !hasRealMessages && (!isFetched || isLoading || isPending || isFetching);
   const showHydratingHint = isFetching && hasRealMessages;
@@ -728,7 +735,17 @@ export function ChatPanel({
       {/* Label bar + Input — chỉ hiện khi đã có tin thật */}
       {!showInitialLoader && (
         <>
-          <ChatLabelBar conversation={conversationWithLabels} />
+          <ChatLabelBar
+            conversation={conversationWithLabels}
+            readOnly={!canLabel}
+          />
+          {!canReply ? (
+            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-center text-[12px] text-slate-500">
+              {isComment
+                ? "Bạn chỉ có quyền xem bình luận, chưa được phép trả lời."
+                : "Bạn chỉ có quyền xem hội thoại, chưa được phép trả lời khách."}
+            </div>
+          ) : (
           <ChatMessageInput
             conversationId={conversation.id}
             customerLang={conversationWithLabels.customerLang}
@@ -752,6 +769,7 @@ export function ChatPanel({
             draftText={draftText}
             onDraftApplied={onDraftApplied}
           />
+          )}
         </>
       )}
     </div>

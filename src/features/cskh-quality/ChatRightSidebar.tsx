@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { usePermission } from "@/features/user-access/api";
 import {
   Loader2,
   Megaphone,
@@ -79,6 +80,7 @@ export function ChatRightSidebar({
   isRefreshingAdInsights,
 }: ChatRightSidebarProps) {
   const [sapoOrderOpen, setSapoOrderOpen] = useState(false);
+  const canCreateOrder = usePermission("order.create");
 
   const catalogSeedQuery = useMemo(() => {
     const mention = (intent?.productMentions ?? [])
@@ -564,6 +566,7 @@ export function ChatRightSidebar({
 
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
+        {canCreateOrder && (
         <div className="px-5 py-4 pb-6">
           <button
             type="button"
@@ -574,6 +577,7 @@ export function ChatRightSidebar({
             Tạo đơn hàng
           </button>
         </div>
+        )}
       </div>
 
       <OmsCreateOrderDialog

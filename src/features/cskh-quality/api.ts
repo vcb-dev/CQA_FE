@@ -1335,13 +1335,18 @@ export async function fetchInboxConversationStats(options?: {
   pageIds?: string[];
   platform?: "messenger" | "instagram" | "tiktok";
   month?: string;
+  dateFrom?: string;
+  dateTo?: string;
   signal?: AbortSignal;
 }): Promise<CskhInboxConversationStats> {
   const params: Record<string, string> = {};
   if (options?.pageId) params.pageId = options.pageId;
   if (options?.pageIds?.length) params.pageIds = options.pageIds.join(",");
   if (options?.platform) params.platform = options.platform;
-  if (options?.month) params.month = options.month;
+  if (options?.dateFrom) {
+    params.dateFrom = options.dateFrom;
+    if (options.dateTo) params.dateTo = options.dateTo;
+  } else if (options?.month) params.month = options.month;
   const { data } = await apiClient.get<CskhInboxConversationStats>(
     "/cskh/inbox/conversation-stats",
     {
@@ -1364,6 +1369,8 @@ export async function fetchInboxConversationsPage(options?: {
   search?: string;
   sinceDays?: number;
   month?: string;
+  dateFrom?: string;
+  dateTo?: string;
   labelId?: string;
   unlabeledOnly?: boolean;
   includeLabels?: boolean;
@@ -1381,7 +1388,10 @@ export async function fetchInboxConversationsPage(options?: {
     params.limit = String(options.limit);
   if (options?.cursor) params.cursor = options.cursor;
   if (options?.search) params.search = options.search;
-  if (options?.month) params.month = options.month;
+  if (options?.dateFrom) {
+    params.dateFrom = options.dateFrom;
+    if (options.dateTo) params.dateTo = options.dateTo;
+  } else if (options?.month) params.month = options.month;
   else if (options?.sinceDays != null && options.sinceDays > 0) {
     params.sinceDays = String(options.sinceDays);
   }
