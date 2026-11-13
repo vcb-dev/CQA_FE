@@ -1572,7 +1572,13 @@ export async function backfillInboxAdReferrals(): Promise<{ updated: number }> {
 
 export async function fetchInboxMessages(
   conversationId: string,
-  opts?: { since?: string; before?: string; refresh?: boolean; limit?: number },
+  opts?: {
+    since?: string;
+    before?: string;
+    refresh?: boolean;
+    limit?: number;
+    prefetch?: boolean;
+  },
   signal?: AbortSignal,
 ): Promise<{
   conversation: CskhInboxConversation;
@@ -1582,6 +1588,7 @@ export async function fetchInboxMessages(
   if (opts?.since) params.since = opts.since;
   if (opts?.before) params.before = opts.before;
   if (opts?.refresh) params.refresh = "1";
+  if (opts?.prefetch) params.prefetch = "1";
   if (opts?.limit != null && opts.limit > 0) params.limit = String(opts.limit);
   const { data } = await apiClient.get<{
     conversation: CskhInboxConversation;
@@ -1662,7 +1669,7 @@ export function prefetchInboxMessages(
     queryFn: ({ signal }) =>
       fetchInboxMessages(
         conversation.id,
-        { limit: INBOX_MESSAGES_OPEN_LIMIT },
+        { limit: INBOX_MESSAGES_OPEN_LIMIT, prefetch: true },
         signal,
       ),
     staleTime: 120_000,
