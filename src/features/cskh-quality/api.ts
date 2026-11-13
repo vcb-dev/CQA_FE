@@ -381,8 +381,12 @@ export async function fetchOmsCategories(): Promise<OmsOption[]> {
   return data;
 }
 
-export async function fetchOmsLocations(): Promise<OmsOption[]> {
-  const { data } = await apiClient.get<OmsOption[]>("/cskh/oms/locations");
+export interface OmsLocationOption extends OmsOption {
+  isDefault?: boolean;
+}
+
+export async function fetchOmsLocations(): Promise<OmsLocationOption[]> {
+  const { data } = await apiClient.get<OmsLocationOption[]>("/cskh/oms/locations");
   return data;
 }
 
@@ -397,8 +401,131 @@ export interface OmsCatalogItem {
   imageUrl: string | null;
   inStock: boolean;
   inventoryQuantity: number;
-  locationId: string;
+  stockByLocation: Record<string, number>;
   matchReason?: string;
+}
+
+export interface OmsAddress {
+  address1: string | null;
+  ward: string | null;
+  district: string | null;
+  province: string | null;
+}
+
+export interface OmsShippingInfo extends OmsAddress {
+  name: string;
+  phone: string | null;
+}
+
+export interface OmsCustomerSummary {
+  id: string;
+  name: string;
+  phone: string | null;
+  ordersCount: number;
+}
+
+export interface OmsCustomerProfile extends OmsCustomerSummary {
+  email: string | null;
+  totalSpent: number;
+  shipping: OmsShippingInfo;
+}
+
+export interface OmsCustomerDuplicate extends OmsCustomerSummary {
+  address: string | null;
+  matched: string[];
+}
+
+export interface OmsCustomerInput {
+  name: string;
+  phone: string;
+  address?: Partial<OmsAddress> | null;
+}
+
+export interface OmsOrderSource {
+  value: string;
+  label: string;
+}
+
+export interface OmsAttributionStaff {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface OmsOrderAttribution {
+  channel: { id: string; name: string };
+  closer: (OmsAttributionStaff & { isSale: boolean }) | null;
+  sale: OmsAttributionStaff | null;
+  editors: OmsAttributionStaff[];
+}
+
+export type VnRegionScheme = "old" | "new";
+
+export interface VnRegion {
+  code: number;
+  name: string;
+}
+
+export async function fetchOmsOrderSources(): Promise<OmsOrderSource[]> {
+  const { data } = await apiClient.get<OmsOrderSource[]>("/cskh/oms/order-sources");
+  return data;
+}
+
+export async function fetchOmsOrderAttribution(
+  conversationId: string,
+): Promise<OmsOrderAttribution> {
+  const { data } = await apiClient.get<OmsOrderAttribution>("/cskh/oms/attribution", {
+    params: { conversationId },
+  });
+  return data;
+}
+
+export async function fetchVnRegions(
+  scheme: VnRegionScheme,
+  parent?: { provinceCode?: number; districtCode?: number },
+): Promise<VnRegion[]> {
+  const { data } = await apiClient.get<VnRegion[]>("/cskh/oms/regions", {
+    params: { scheme, ...parent },
+  });
+  return data;
+}
+
+export async function searchOmsCustomers(q: string): Promise<OmsCustomerSummary[]> {
+  const { data } = await apiClient.get<OmsCustomerSummary[]>("/cskh/oms/customers", {
+    params: { q },
+  });
+  return data;
+}
+
+export async function fetchOmsCustomer(id: string): Promise<OmsCustomerProfile> {
+  const { data } = await apiClient.get<OmsCustomerProfile>(
+    `/cskh/oms/customers/${encodeURIComponent(id)}`,
+  );
+  return data;
+}
+
+export async function findOmsCustomerDuplicates(
+  input: OmsCustomerInput,
+): Promise<OmsCustomerDuplicate[]> {
+  const { data } = await apiClient.get<OmsCustomerDuplicate[]>(
+    "/cskh/oms/customers/duplicates",
+    {
+      params: {
+        name: input.name || undefined,
+        phone: input.phone || undefined,
+        address1: input.address?.address1 || undefined,
+        ward: input.address?.ward || undefined,
+        district: input.address?.district || undefined,
+        province: input.address?.province || undefined,
+      },
+    },
+  );
+  return data;
+}
+
+export async function createOmsCustomer(input: OmsCustomerInput): Promise<OmsCustomerProfile> {
+  const { data } = await apiClient.post<OmsCustomerProfile>("/cskh/oms/customers", input);
+  return data;
 }
 
 export async function fetchOmsCatalog(q?: string): Promise<{
@@ -438,21 +565,23 @@ export async function fetchOmsOrderSuggest(
 }
 
 export interface CreateOmsOrderPayload {
-  customerName: string;
-  phone?: string;
-  address?: string;
+  locationId: string;
+  sourceName?: string;
+  customer: { name: string; phone: string };
+  editorUserId?: string;
   note?: string;
-  conversationId?: string;
+  shippingAddress?: OmsShippingInfo | null;
+  totalShippingPrice?: number;
+  totalReceived?: number;
+  conversationId: string;
   platform?: string;
-  locationId?: string;
-  /** Quảng cáo gắn đơn — chỉ gửi khi hội thoại fromAd */
   adId?: string;
-  adTitle?: string;
   reportMetaPurchase?: boolean;
   lineItems: Array<{
-    variantId: string;
+    sku: string;
     quantity: number;
-    locationId?: string;
+    price: number;
+    note?: string;
   }>;
 }
 
