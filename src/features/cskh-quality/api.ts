@@ -386,7 +386,9 @@ export interface OmsLocationOption extends OmsOption {
 }
 
 export async function fetchOmsLocations(): Promise<OmsLocationOption[]> {
-  const { data } = await apiClient.get<OmsLocationOption[]>("/cskh/oms/locations");
+  const { data } = await apiClient.get<OmsLocationOption[]>(
+    "/cskh/oms/locations",
+  );
   return data;
 }
 
@@ -467,16 +469,21 @@ export interface VnRegion {
 }
 
 export async function fetchOmsOrderSources(): Promise<OmsOrderSource[]> {
-  const { data } = await apiClient.get<OmsOrderSource[]>("/cskh/oms/order-sources");
+  const { data } = await apiClient.get<OmsOrderSource[]>(
+    "/cskh/oms/order-sources",
+  );
   return data;
 }
 
 export async function fetchOmsOrderAttribution(
   conversationId: string,
 ): Promise<OmsOrderAttribution> {
-  const { data } = await apiClient.get<OmsOrderAttribution>("/cskh/oms/attribution", {
-    params: { conversationId },
-  });
+  const { data } = await apiClient.get<OmsOrderAttribution>(
+    "/cskh/oms/attribution",
+    {
+      params: { conversationId },
+    },
+  );
   return data;
 }
 
@@ -490,14 +497,21 @@ export async function fetchVnRegions(
   return data;
 }
 
-export async function searchOmsCustomers(q: string): Promise<OmsCustomerSummary[]> {
-  const { data } = await apiClient.get<OmsCustomerSummary[]>("/cskh/oms/customers", {
-    params: { q },
-  });
+export async function searchOmsCustomers(
+  q: string,
+): Promise<OmsCustomerSummary[]> {
+  const { data } = await apiClient.get<OmsCustomerSummary[]>(
+    "/cskh/oms/customers",
+    {
+      params: { q },
+    },
+  );
   return data;
 }
 
-export async function fetchOmsCustomer(id: string): Promise<OmsCustomerProfile> {
+export async function fetchOmsCustomer(
+  id: string,
+): Promise<OmsCustomerProfile> {
   const { data } = await apiClient.get<OmsCustomerProfile>(
     `/cskh/oms/customers/${encodeURIComponent(id)}`,
   );
@@ -523,8 +537,13 @@ export async function findOmsCustomerDuplicates(
   return data;
 }
 
-export async function createOmsCustomer(input: OmsCustomerInput): Promise<OmsCustomerProfile> {
-  const { data } = await apiClient.post<OmsCustomerProfile>("/cskh/oms/customers", input);
+export async function createOmsCustomer(
+  input: OmsCustomerInput,
+): Promise<OmsCustomerProfile> {
+  const { data } = await apiClient.post<OmsCustomerProfile>(
+    "/cskh/oms/customers",
+    input,
+  );
   return data;
 }
 
@@ -764,10 +783,12 @@ export interface CustomersAnalyticsItem {
   lastOrderAt: string;
   firstOrderAt: string;
   lastMessageAt: string | null;
+  potentialLeadAt?: string | null;
 }
 
 export interface CustomersAnalyticsDashboard {
   source: "database";
+  segment?: "potential" | "purchased";
   kpis: CustomersAnalyticsKpi[];
   channels: Array<{ pageId: string; pageName: string; customerCount: number }>;
   statuses: Array<{ name: string; color: string; count: number }>;
@@ -784,13 +805,17 @@ export async function fetchCustomersAnalytics(params?: {
   q?: string;
   pageId?: string;
   status?: string;
+  segment?: "potential" | "purchased";
   page?: number;
   pageSize?: number;
 }): Promise<CustomersAnalyticsDashboard> {
   const { data } = await apiClient.get<CustomersAnalyticsDashboard>(
     "/cskh/customers",
     {
-      params,
+      params: {
+        ...params,
+        ...(params?.segment ? { segment: params.segment } : {}),
+      },
     },
   );
   return data;
@@ -1418,6 +1443,9 @@ export interface CskhInboxConversation {
   sourcePostId?: string | null;
   sourcePermalink?: string | null;
   sourceThumb?: string | null;
+
+  isPotentialLead?: boolean;
+  potentialLeadAt?: string | null;
 }
 
 export function isInboxComment(kind?: string | null): boolean {
@@ -2249,4 +2277,28 @@ export function getCskhTikTokOAuthStartUrl(returnUrl?: string): string {
     returnUrl ||
     (typeof window !== "undefined" ? window.location.href.split("#")[0] : "");
   return `${base}/oauth/tiktok/start?returnUrl=${encodeURIComponent(ret)}`;
+}
+
+/**
+ * setInboxPotentialLead là hàm để đánh dấu là lead tiềm năng.
+ */
+export async function setInboxPotentialLead(
+  conversationId: string,
+  marked: boolean,
+): Promise<{
+  id: string;
+  isPotentialLead: boolean;
+  potentialLeadAt: string | null;
+}> {
+  const { data } = await apiClient.post<{
+    id: string;
+    isPotentialLead: boolean;
+    potentialLeadAt: string | null;
+  }>(
+    `/cskh/inbox/conversations/${encodeURIComponent(conversationId)}/potential-lead`,
+    {
+      marked,
+    },
+  );
+  return data;
 }

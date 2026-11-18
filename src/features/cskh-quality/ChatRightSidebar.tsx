@@ -1,5 +1,6 @@
-import { cn } from "@/lib/utils";
 import { usePermission } from "@/features/user-access/api";
+import { cn } from "@/lib/utils";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2,
   Megaphone,
@@ -7,15 +8,19 @@ import {
   RefreshCw,
   ShoppingCart,
   Sparkles,
+  Target,
   User,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import type {
   CskhAdInsights,
   CskhCustomerIntent,
   CskhInboxConversation,
 } from "./api";
+import { setInboxPotentialLead } from "./api";
 import { CskhPageAvatar } from "./cskhUi";
+import { patchInboxConversationInCache } from "./inboxRealtimeCache";
 import { OmsCatalogSearchBlock } from "./OmsCatalogSearchBlock";
 import { OmsCreateOrderDialog } from "./OmsCreateOrderDialog";
 
@@ -90,6 +95,56 @@ export function ChatRightSidebar({
     return intent?.products?.[0]?.name?.trim() || "";
   }, [intent?.productMentions, intent?.products]);
 
+  const qc = useQueryClient();
+  const isLead = Boolean(conversation.isPotentialLead);
+
+  const leadMut = useMutation({
+    mutationFn: (marked: boolean) =>
+      setInboxPotentialLead(conversation.id, marked),
+    onMutate: (marked) => {
+      patchInboxConversationInCache(qc, {
+        id: conversation.id,
+        isPotentialLead: marked,
+        potentialLeadAt: marked ? new Date().toISOString() : null,
+      });
+    },
+    onSuccess: (res) => {
+      patchInboxConversationInCache(qc, {
+        id: conversation.id,
+        isPotentialLead: res.isPotentialLead,
+        potentialLeadAt: res.potentialLeadAt,
+      });
+      qc.setQueryData<{
+        conversation: CskhInboxConversation;
+        messages: unknown[];
+      }>(["cskh", "inbox", "messages", conversation.id], (prev) =>
+        prev
+          ? {
+              ...prev,
+              conversation: {
+                ...prev.conversation,
+                isPotentialLead: res.isPotentialLead,
+                potentialLeadAt: res.potentialLeadAt,
+              },
+            }
+          : prev,
+      );
+      void qc.invalidateQueries({ queryKey: ["cskh", "customers"] });
+      toast.success(
+        res.isPotentialLead
+          ? "Đã đánh dấu khách hàng tiềm năng"
+          : "Đã bỏ đánh dấu khách hàng tiềm năng",
+      );
+    },
+    onError: (err) => {
+      patchInboxConversationInCache(qc, {
+        id: conversation.id,
+        isPotentialLead: isLead,
+      });
+      toast.error(err instanceof Error ? err.message : "Không cập nhật được");
+    },
+  });
+
   const getUrgencyText = (urgency: string) => {
     switch (urgency) {
       case "high":
@@ -147,11 +202,11 @@ export function ChatRightSidebar({
                   ? conversation.customerName
                   : "Khách hàng Facebook"
                 : conversation.customerName ||
-                (conversation.platform === "instagram"
-                  ? "Khách Instagram"
-                  : conversation.platform === "tiktok"
-                    ? "Khách TikTok"
-                    : "Khách hàng Messenger")}
+                  (conversation.platform === "instagram"
+                    ? "Khách Instagram"
+                    : conversation.platform === "tiktok"
+                      ? "Khách TikTok"
+                      : "Khách hàng Messenger")}
           </h3>
           <span
             className={cn(
@@ -385,6 +440,36 @@ export function ChatRightSidebar({
         {/* Divider */}
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
+        <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+        <div className="px-5 py-4 space-y-2">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+            <Target className="w-3 h-3" />
+            Giai đoạn khách hàng tiềm năng
+          </h4>
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            Đánh dấu khách quan tâm để theo dõi trên màn Khách hàng (tương tự
+            Meta Business Suite).
+          </p>
+          <button
+            type="button"
+            disabled={leadMut.isPending}
+            onClick={() => leadMut.mutate(!isLead)}
+            className={cn(
+              "w-full rounded-xl border px-3 py-2.5 text-[11px] font-bold transition-colors",
+              isLead
+                ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+            )}
+          >
+            {leadMut.isPending
+              ? "Đang lưu…"
+              : isLead
+                ? "✓ Đã là khách hàng tiềm năng — Bỏ đánh dấu"
+                : "Đánh dấu là khách hàng tiềm năng"}
+          </button>
+        </div>
+
         {/* AI Intent Analysis */}
         <div className="px-5 py-4 space-y-3">
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5 w-full">
@@ -567,16 +652,16 @@ export function ChatRightSidebar({
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
         {canCreateOrder && (
-        <div className="px-5 py-4 pb-6">
-          <button
-            type="button"
-            onClick={() => setSapoOrderOpen(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99] cursor-pointer"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Tạo đơn hàng
-          </button>
-        </div>
+          <div className="px-5 py-4 pb-6">
+            <button
+              type="button"
+              onClick={() => setSapoOrderOpen(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99] cursor-pointer"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Tạo đơn hàng
+            </button>
+          </div>
         )}
       </div>
 
