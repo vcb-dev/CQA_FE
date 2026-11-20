@@ -1,51 +1,61 @@
-import { memo, useEffect, useMemo, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import AnalyticsShell from "@/components/analytics/AnalyticsShell";
+import KpiGrid from "@/components/analytics/KpiGrid";
+import { fetchCustomersAnalytics } from "@/features/cskh-quality/api";
+import { CskhPageAvatar } from "@/features/cskh-quality/cskhUi";
 import {
-  MagnifyingGlass,
-  Users,
-  UserPlus,
-  ShoppingCart,
-  CurrencyDollar,
   ArrowsCounterClockwise,
-  Phone,
-  MapPin,
   Calendar,
   CaretLeft,
   CaretRight,
   ChatCircleText,
-} from '@phosphor-icons/react';
-import AnalyticsShell from '@/components/analytics/AnalyticsShell';
-import KpiGrid from '@/components/analytics/KpiGrid';
-import { CskhPageAvatar } from '@/features/cskh-quality/cskhUi';
-import { fetchCustomersAnalytics } from '@/features/cskh-quality/api';
+  CurrencyDollar,
+  MagnifyingGlass,
+  MapPin,
+  Phone,
+  ShoppingCart,
+  UserPlus,
+  Users,
+} from "@phosphor-icons/react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { memo, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 const kpiMeta = [
-  { key: 'totalCustomers', icon: Users, color: 'var(--primary-500)' },
-  { key: 'newThisMonth', icon: UserPlus, color: '#22c55e' },
-  { key: 'totalOrders', icon: ShoppingCart, color: '#f59e0b' },
-  { key: 'totalSpend', icon: CurrencyDollar, color: '#16a34a' },
-  { key: 'repeatCustomers', icon: ArrowsCounterClockwise, color: '#ec4899' },
-  { key: 'withPhone', icon: Phone, color: '#3b82f6' },
+  { key: "totalCustomers", icon: Users, color: "var(--primary-500)" },
+  { key: "newThisMonth", icon: UserPlus, color: "#22c55e" },
+  { key: "totalOrders", icon: ShoppingCart, color: "#f59e0b" },
+  { key: "totalSpend", icon: CurrencyDollar, color: "#16a34a" },
+  { key: "repeatCustomers", icon: ArrowsCounterClockwise, color: "#ec4899" },
+  { key: "withPhone", icon: Phone, color: "#3b82f6" },
 ];
 
 function formatDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString('vi-VN');
+    return new Date(iso).toLocaleDateString("vi-VN");
   } catch {
-    return '—';
+    return "—";
   }
 }
 
-const CustomerRow = memo(function CustomerRow({ customer, selected, onSelect }) {
+const CustomerRow = memo(function CustomerRow({
+  customer,
+  selected,
+  onSelect,
+  isPotential,
+}) {
+  const lastDate = isPotential
+    ? customer.potentialLeadAt || customer.lastMessageAt || customer.lastOrderAt
+    : customer.lastOrderAt;
+
   return (
     <tr
       onClick={() => onSelect(customer.id)}
-      className={selected ? 'bg-indigo-50/60' : 'hover:bg-slate-50/80'}
-      style={{ cursor: 'pointer' }}
+      className={selected ? "bg-indigo-50/60" : "hover:bg-slate-50/80"}
+      style={{ cursor: "pointer" }}
     >
       <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <CskhPageAvatar
             name={customer.name}
             pictureUrl={customer.pictureUrl}
@@ -55,7 +65,7 @@ const CustomerRow = memo(function CustomerRow({ customer, selected, onSelect }) 
           />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>{customer.name}</div>
-            <div style={{ fontSize: 10, color: '#9ca3af' }}>
+            <div style={{ fontSize: 10, color: "#9ca3af" }}>
               {customer.participantPsid
                 ? `PSID ···${customer.participantPsid.slice(-6)}`
                 : customer.id.slice(0, 18)}
@@ -65,13 +75,13 @@ const CustomerRow = memo(function CustomerRow({ customer, selected, onSelect }) 
       </td>
       <td>
         <div style={{ fontSize: 12, fontWeight: 600 }}>{customer.channel}</div>
-        <div style={{ fontSize: 10, color: '#9ca3af' }}>{customer.source}</div>
+        <div style={{ fontSize: 10, color: "#9ca3af" }}>{customer.source}</div>
       </td>
       <td>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {(customer.statusLabels?.length
             ? customer.statusLabels
-            : [{ name: customer.status, color: '#6366f1' }]
+            : [{ name: customer.status, color: "#6366f1" }]
           ).map((lab) => (
             <span
               key={lab.name}
@@ -89,22 +99,32 @@ const CustomerRow = memo(function CustomerRow({ customer, selected, onSelect }) 
           ))}
         </div>
       </td>
-      <td style={{ fontSize: 12 }}>{customer.phoneMasked || '—'}</td>
-      <td style={{ fontWeight: 600 }}>{customer.orderCountLabel}</td>
-      <td style={{ fontWeight: 600 }}>{customer.totalSpendLabel}</td>
-      <td style={{ fontSize: 12 }}>{formatDate(customer.lastOrderAt)}</td>
+      <td style={{ fontSize: 12 }}>
+        {isPotential && !customer.phoneMasked
+          ? "—"
+          : customer.phoneMasked || "—"}
+      </td>
+      <td style={{ fontWeight: 600 }}>
+        {isPotential ? "—" : customer.orderCountLabel}
+      </td>
+      <td style={{ fontWeight: 600 }}>
+        {isPotential ? "—" : customer.totalSpendLabel}
+      </td>
+      <td style={{ fontSize: 12 }}>{formatDate(lastDate)}</td>
     </tr>
   );
 });
 
 export default function CustomersPage() {
-  const [search, setSearch] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [pageId, setPageId] = useState('');
-  const [status, setStatus] = useState('');
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [pageId, setPageId] = useState("");
+  const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
   const pageSize = 20;
+  const [segment] = useState("potential");
+  const isPotential = segment === "potential";
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -116,26 +136,42 @@ export default function CustomersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [pageId, status]);
+  }, [pageId, status, segment]);
 
-  const { data, isLoading, isError, error, isFetching, isPlaceholderData } = useQuery({
-    queryKey: ['cskh', 'customers', appliedSearch, pageId, status, page, pageSize],
-    queryFn: () =>
-      fetchCustomersAnalytics({
-        q: appliedSearch || undefined,
-        pageId: pageId || undefined,
-        status: status || undefined,
+  const { data, isLoading, isError, error, isFetching, isPlaceholderData } =
+    useQuery({
+      queryKey: [
+        "cskh",
+        "customers",
+        segment,
+        appliedSearch,
+        pageId,
+        status,
         page,
         pageSize,
-      }),
-    staleTime: 60_000,
-    placeholderData: keepPreviousData,
-  });
+      ],
+      queryFn: () =>
+        fetchCustomersAnalytics({
+          segment,
+          q: appliedSearch || undefined,
+          pageId: pageId || undefined,
+          status: status || undefined,
+          page,
+          pageSize,
+        }),
+      staleTime: 60_000,
+      placeholderData: keepPreviousData,
+    });
 
   const items = data?.items ?? [];
   const channels = data?.channels ?? [];
   const statuses = data?.statuses ?? [];
-  const pagination = data?.pagination ?? { page: 1, pageSize, total: 0, totalPages: 1 };
+  const pagination = data?.pagination ?? {
+    page: 1,
+    pageSize,
+    total: 0,
+    totalPages: 1,
+  };
 
   const selected = useMemo(
     () => items.find((c) => c.id === selectedId) ?? items[0] ?? null,
@@ -155,9 +191,9 @@ export default function CustomersPage() {
       const kpi = list.find((k) => k.key === meta.key);
       return {
         key: meta.key,
-        label: kpi?.label ?? '…',
-        value: kpi?.value ?? (isLoading && !data ? '…' : '0'),
-        change: '',
+        label: kpi?.label ?? "…",
+        value: kpi?.value ?? (isLoading && !data ? "…" : "0"),
+        change: "",
         sub: kpi?.sub,
         icon: meta.icon,
         color: meta.color,
@@ -167,11 +203,21 @@ export default function CustomersPage() {
 
   return (
     <AnalyticsShell demo={false}>
-      <div style={{ display: 'flex', gap: 14, height: '100%' }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto', minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 14, height: "100%" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+            overflow: "auto",
+            minWidth: 0,
+          }}
+        >
           {isError ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              Không tải được danh sách khách hàng: {error?.message || 'Lỗi không xác định'}
+              Không tải được danh sách khách hàng:{" "}
+              {error?.message || "Lỗi không xác định"}
             </div>
           ) : null}
 
@@ -179,41 +225,61 @@ export default function CustomersPage() {
 
           <div
             className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col"
-            style={{ opacity: isFetching && isPlaceholderData ? 0.72 : 1, transition: 'opacity .15s' }}
+            style={{
+              opacity: isFetching && isPlaceholderData ? 0.72 : 1,
+              transition: "opacity .15s",
+            }}
           >
             <div className="card-title">
               <span>
-                Danh sách khách hàng
+                {isPotential ? "Khách hàng tiềm năng" : "Danh sách khách hàng"}
                 {isFetching ? (
-                  <span className="ml-2 text-[10px] font-normal text-slate-400">Đang tải…</span>
+                  <span className="ml-2 text-[10px] font-normal text-slate-400">
+                    Đang tải…
+                  </span>
                 ) : null}
               </span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
+                    display: "flex",
+                    alignItems: "center",
                     gap: 4,
-                    padding: '4px 8px',
-                    background: '#f9fafb',
-                    border: '1px solid #e5e7eb',
+                    padding: "4px 8px",
+                    background: "#f9fafb",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 6,
                   }}
                 >
-                  <MagnifyingGlass size={12} style={{ color: '#9ca3af' }} />
+                  <MagnifyingGlass size={12} style={{ color: "#9ca3af" }} />
                   <input
-                    placeholder="Tìm tên, SĐT, kênh..."
+                    placeholder={
+                      isPotential
+                        ? "Tìm tên, PSID, kênh..."
+                        : "Tìm tên, SĐT, kênh..."
+                    }
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    style={{ background: 'transparent', fontSize: 11, width: 160 }}
+                    style={{
+                      background: "transparent",
+                      fontSize: 11,
+                      width: 160,
+                    }}
                   />
                 </div>
                 <select
                   value={pageId}
                   onChange={(e) => setPageId(e.target.value)}
                   style={{
-                    padding: '4px 8px',
-                    border: '1px solid #e5e7eb',
+                    padding: "4px 8px",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 6,
                     fontSize: 11,
                     maxWidth: 200,
@@ -230,8 +296,8 @@ export default function CustomersPage() {
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   style={{
-                    padding: '4px 8px',
-                    border: '1px solid #e5e7eb',
+                    padding: "4px 8px",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 6,
                     fontSize: 11,
                   }}
@@ -246,33 +312,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 6, padding: '0 12px 10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setPageId('')}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
-                  !pageId ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Tất cả kênh
-              </button>
-              {channels.slice(0, 8).map((c) => (
-                <button
-                  key={c.pageId}
-                  type="button"
-                  onClick={() => setPageId(c.pageId)}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold truncate max-w-[160px] ${
-                    pageId === c.pageId
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                  title={c.pageName}
-                >
-                  {c.pageName}
-                </button>
-              ))}
-            </div>
-
             <table className="data-table">
               <thead>
                 <tr>
@@ -280,22 +319,56 @@ export default function CustomersPage() {
                   <th>Kênh</th>
                   <th>Trạng thái</th>
                   <th>SĐT</th>
-                  <th>Số đơn</th>
-                  <th>Tổng mua</th>
-                  <th>Mua cuối</th>
+                  <th>{isPotential ? "Đơn" : "Số đơn"}</th>
+                  <th>{isPotential ? "Doanh thu" : "Tổng mua"}</th>
+                  <th>{isPotential ? "Đánh dấu / chat cuối" : "Mua cuối"}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && !data ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                    <td
+                      colSpan={7}
+                      style={{
+                        textAlign: "center",
+                        padding: 24,
+                        color: "#9ca3af",
+                      }}
+                    >
                       Đang tải…
                     </td>
                   </tr>
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
-                      Chưa có khách nào từ đơn đã chốt. Tạo đơn từ hội thoại để xuất hiện tại đây.
+                    <td
+                      colSpan={7}
+                      style={{
+                        textAlign: "center",
+                        padding: 24,
+                        color: "#9ca3af",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {isPotential ? (
+                        <>
+                          Chưa có khách tiềm năng.
+                          <br />
+                          Vào{" "}
+                          <Link
+                            to="/conversations"
+                            className="text-indigo-600 font-semibold hover:underline"
+                          >
+                            Hội thoại
+                          </Link>
+                          , mở khách → sidebar phải →{" "}
+                          <strong>Đánh dấu là khách hàng tiềm năng</strong>.
+                        </>
+                      ) : (
+                        <>
+                          Chưa có khách nào từ đơn đã chốt. Tạo đơn từ hội thoại
+                          để xuất hiện tại đây.
+                        </>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -305,6 +378,7 @@ export default function CustomersPage() {
                       customer={c}
                       selected={selected?.id === c.id}
                       onSelect={setSelectedId}
+                      isPotential={isPotential}
                     />
                   ))
                 )}
@@ -313,26 +387,27 @@ export default function CustomersPage() {
 
             <div
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 marginTop: 8,
                 fontSize: 11,
-                color: '#6b7280',
-                padding: '0 4px 4px',
+                color: "#6b7280",
+                padding: "0 4px 4px",
               }}
             >
               <span>
-                Hiển thị{' '}
+                Hiển thị{" "}
                 {pagination.total === 0
-                  ? '0'
+                  ? "0"
                   : `${(pagination.page - 1) * pagination.pageSize + 1} - ${Math.min(
                       pagination.page * pagination.pageSize,
                       pagination.total,
-                    )}`}{' '}
-                trong {pagination.total.toLocaleString('vi-VN')} khách
+                    )}`}{" "}
+                trong {pagination.total.toLocaleString("vi-VN")}{" "}
+                {isPotential ? "khách tiềm năng" : "khách"}
               </span>
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <button
                   type="button"
                   disabled={page <= 1 || isFetching}
@@ -341,10 +416,10 @@ export default function CustomersPage() {
                     width: 28,
                     height: 24,
                     borderRadius: 4,
-                    background: '#f3f4f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    background: "#f3f4f6",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     opacity: page <= 1 ? 0.4 : 1,
                   }}
                 >
@@ -361,10 +436,10 @@ export default function CustomersPage() {
                     width: 28,
                     height: 24,
                     borderRadius: 4,
-                    background: '#f3f4f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    background: "#f3f4f6",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     opacity: page >= pagination.totalPages ? 0.4 : 1,
                   }}
                 >
@@ -379,15 +454,15 @@ export default function CustomersPage() {
           style={{
             width: 280,
             minWidth: 280,
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            flexDirection: "column",
             gap: 12,
-            overflow: 'auto',
+            overflow: "auto",
           }}
         >
           {selected ? (
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col p-4 gap-3">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <CskhPageAvatar
                   name={selected.name}
                   pictureUrl={selected.pictureUrl}
@@ -396,15 +471,19 @@ export default function CustomersPage() {
                   className="!h-12 !w-12 !rounded-full"
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.name}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>{selected.channel}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {selected.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>
+                    {selected.channel}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {(selected.statusLabels?.length
                   ? selected.statusLabels
-                  : [{ name: selected.status, color: '#6366f1' }]
+                  : [{ name: selected.status, color: "#6366f1" }]
                 ).map((lab) => (
                   <span
                     key={lab.name}
@@ -422,47 +501,184 @@ export default function CustomersPage() {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#374151' }}>
+              {isPotential && selected.conversationId ? (
+                <Link
+                  to="/conversations"
+                  className="block text-center rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-[12px] font-bold text-indigo-700 hover:bg-indigo-100"
+                >
+                  Đi tới Hội thoại
+                </Link>
+              ) : null}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  fontSize: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "#374151",
+                  }}
+                >
                   <Phone size={14} className="text-slate-400" />
-                  <span>{selected.phoneMasked || 'Chưa có SĐT'}</span>
+                  <span>{selected.phoneMasked || "Chưa có SĐT"}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#374151' }}>
-                  <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                  <span>{selected.address || 'Chưa có địa chỉ'}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    color: "#374151",
+                  }}
+                >
+                  <MapPin
+                    size={14}
+                    className="text-slate-400 shrink-0 mt-0.5"
+                  />
+                  <span>{selected.address || "Chưa có địa chỉ"}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#374151' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "#374151",
+                  }}
+                >
                   <Calendar size={14} className="text-slate-400" />
-                  <span>Mua cuối: {formatDate(selected.lastOrderAt)}</span>
+                  <span>
+                    {isPotential
+                      ? `Đánh dấu tiềm năng: ${formatDate(
+                          selected.potentialLeadAt || selected.lastOrderAt,
+                        )}`
+                      : `Mua cuối: ${formatDate(selected.lastOrderAt)}`}
+                  </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#374151' }}>
-                  <ChatCircleText size={14} className="text-slate-400" />
-                  <span>Nguồn: {selected.source}</span>
-                </div>
+                {isPotential ? (
+                  selected.lastMessageAt ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        color: "#374151",
+                      }}
+                    >
+                      <ChatCircleText size={14} className="text-slate-400" />
+                      <span>
+                        Tin nhắn cuối: {formatDate(selected.lastMessageAt)}
+                      </span>
+                    </div>
+                  ) : null
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      color: "#374151",
+                    }}
+                  >
+                    <ChatCircleText size={14} className="text-slate-400" />
+                    <span>Nguồn: {selected.source}</span>
+                  </div>
+                )}
+                {isPotential ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      color: "#374151",
+                    }}
+                  >
+                    <ChatCircleText size={14} className="text-slate-400" />
+                    <span>Nguồn: {selected.source}</span>
+                  </div>
+                ) : null}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                  <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>Tổng chi tiêu</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>{selected.totalSpendLabel}</div>
+              {isPotential ? (
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[12px] text-amber-900 leading-snug">
+                  Lead từ inbox — chưa chốt đơn. Mở hội thoại để chăm sóc và tạo
+                  đơn khi khách sẵn sàng.
                 </div>
-                <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                  <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>Tổng đơn</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>{selected.orderCountLabel}</div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                  }}
+                >
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#9ca3af",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Tổng chi tiêu
+                    </div>
+                    <div
+                      style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}
+                    >
+                      {selected.totalSpendLabel}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#9ca3af",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Tổng đơn
+                    </div>
+                    <div
+                      style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}
+                    >
+                      {selected.orderCountLabel}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 text-center text-sm text-slate-400">
-              Chọn khách hàng để xem chi tiết
+              {!isLoading && pagination.total === 0 && isPotential
+                ? "Chưa có lead nào được đánh dấu."
+                : "Chọn khách hàng để xem chi tiết"}
             </div>
           )}
 
           <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 shadow-sm p-3">
-            <div className="card-title" style={{ marginBottom: 8 }}>Ghi chú</div>
-            <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.45 }}>
-              Danh sách lấy từ đơn đã tạo khi chốt hàng trong hội thoại. Trạng thái lấy từ nhãn hội thoại
-              (Đã chốt, Follow…). Lọc theo kênh = Page Facebook đã gắn với đơn.
+            <div className="card-title" style={{ marginBottom: 8 }}>
+              Ghi chú
+            </div>
+            <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.45 }}>
+              {isPotential ? (
+                <>
+                  Danh sách khách được đánh dấu <strong>tiềm năng</strong> từ
+                  sidebar hội thoại (giống Meta Business Suite). Trạng thái hiển
+                  thị thêm nhãn hội thoại nếu có. Lọc kênh = Page
+                  Facebook/Instagram của hội thoại.
+                </>
+              ) : (
+                <>
+                  Danh sách lấy từ đơn đã tạo khi chốt hàng trong hội thoại.
+                  Trạng thái lấy từ nhãn hội thoại (Đã chốt, Follow…). Lọc theo
+                  kênh = Page Facebook đã gắn với đơn.
+                </>
+              )}
             </div>
           </div>
         </div>
