@@ -39,6 +39,7 @@ export type PermissionKey =
   | 'account.delete'
   | 'account.assign_channels'
   | 'role.manage'
+  | 'apikey.manage'
 
 export type CurrentUserProfile = {
   id: number
