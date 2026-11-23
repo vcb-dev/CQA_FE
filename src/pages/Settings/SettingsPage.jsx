@@ -13,6 +13,7 @@ import { InstagramTestPrepPanel } from "@/features/cskh-quality/InstagramTestPre
 import { cskhPageAvatarSrc } from "@/features/cskh-quality/messageMedia";
 import UserAccessPanel from "@/features/user-access/UserAccessPanel";
 import RolePermissionsPanel from "@/features/user-access/RolePermissionsPanel";
+import ApiKeysPanel from "@/features/api-keys/ApiKeysPanel";
 import { hasPermission, useCurrentUserProfile } from "@/features/user-access/api";
 import PancakeChannelsPanel from "@/features/pancake-test/PancakeChannelsPanel";
 import { buildOAuthChannelReturnUrl } from "@/lib/authSession";
@@ -35,6 +36,7 @@ const SETTINGS_TABS = [
   { key: "channel", label: "Cài đặt kênh", permission: "channel.manage" },
   { key: "accounts", label: "Tài khoản & phân kênh" },
   { key: "roles", label: "Phân quyền vai trò", permission: "role.manage" },
+  { key: "api-keys", label: "API key", permission: "apikey.manage" },
 ];
 
 const FB_FALLBACK_IMG =
@@ -1309,6 +1311,7 @@ export default function SettingsPage() {
 
         {activeTab?.key === "accounts" && <UserAccessPanel />}
         {activeTab?.key === "roles" && <RolePermissionsPanel />}
+        {activeTab?.key === "api-keys" && <ApiKeysPanel />}
       </div>
     </div>
   );
