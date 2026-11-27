@@ -19,9 +19,11 @@ import type {
   CskhInboxConversation,
 } from "./api";
 import { setInboxPotentialLead } from "./api";
+import { ConversationOrdersSection } from "./ConversationOrdersSection";
 import { CskhPageAvatar } from "./cskhUi";
 import { patchInboxConversationInCache } from "./inboxRealtimeCache";
 import { OmsCatalogSearchBlock } from "./OmsCatalogSearchBlock";
+import { CUSTOMER_INTENT_ENABLED } from "./customerIntentFeature";
 import { OmsCreateOrderDialog } from "./OmsCreateOrderDialog";
 
 type ChatRightSidebarProps = {
@@ -471,169 +473,178 @@ export function ChatRightSidebar({
         </div>
 
         {/* AI Intent Analysis */}
-        <div className="px-5 py-4 space-y-3">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5 w-full">
-            <Sparkles className="w-3 h-3" />
-            AI phân tích ý định
-            {intent?.isStale && (
-              <span className="ml-auto flex items-center gap-1 text-[9px] text-violet-400 normal-case font-medium animate-pulse">
-                <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                Đang cập nhật...
-              </span>
-            )}
-          </h4>
-
-          {isLoadingIntent ? (
-            <div className="flex items-center gap-2 py-3 text-[11px] text-violet-600">
-              <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              Đang phân tích cuộc hội thoại...
-            </div>
-          ) : !intent ? (
-            <div className="text-[11px] text-slate-400 italic py-2">
-              Chưa có đủ tin nhắn để AI phân tích ý định.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Intent Label & Urgency */}
-              <div className="flex flex-wrap gap-1.5">
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-sm">
-                  {intent.intentLabel}
+        {CUSTOMER_INTENT_ENABLED && (
+          <div className="px-5 py-4 space-y-3">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-500 flex items-center gap-1.5 w-full">
+              <Sparkles className="w-3 h-3" />
+              AI phân tích ý định
+              {intent?.isStale && (
+                <span className="ml-auto flex items-center gap-1 text-[9px] text-violet-400 normal-case font-medium animate-pulse">
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  Đang cập nhật...
                 </span>
-                <span
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase",
-                    intent.urgency === "high"
-                      ? "bg-rose-50 text-rose-600 border border-rose-200/60"
-                      : intent.urgency === "low"
-                        ? "bg-slate-50 text-slate-500 border border-slate-200/60"
-                        : "bg-sky-50 text-sky-600 border border-sky-200/60",
-                  )}
-                >
-                  {getUrgencyText(intent.urgency)}
-                </span>
-              </div>
-
-              {/* Summary */}
-              <div className="bg-white/80 rounded-xl border border-slate-200/60 p-3 shadow-sm">
-                <div className="text-[10px] text-slate-400 font-semibold mb-1.5 uppercase tracking-wide">
-                  Tóm tắt nhu cầu:
-                </div>
-                <p className="text-[11px] text-slate-700 leading-relaxed">
-                  {intent.summary}
-                </p>
-              </div>
-
-              {/* Topics */}
-              {intent.topics?.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Chủ đề quan tâm
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {intent.topics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-600 border border-violet-100/60"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                </div>
               )}
+            </h4>
 
-              {/* Sapo Products match */}
-              {intent.products && intent.products.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Sản phẩm quan tâm
+            {isLoadingIntent ? (
+              <div className="flex items-center gap-2 py-3 text-[11px] text-violet-600">
+                <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                Đang phân tích cuộc hội thoại...
+              </div>
+            ) : !intent ? (
+              <div className="text-[11px] text-slate-400 italic py-2">
+                Chưa có đủ tin nhắn để AI phân tích ý định.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Intent Label & Urgency */}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-sm">
+                    {intent.intentLabel}
                   </span>
+                  <span
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase",
+                      intent.urgency === "high"
+                        ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                        : intent.urgency === "low"
+                          ? "bg-slate-50 text-slate-500 border border-slate-200/60"
+                          : "bg-sky-50 text-sky-600 border border-sky-200/60",
+                    )}
+                  >
+                    {getUrgencyText(intent.urgency)}
+                  </span>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-white/80 rounded-xl border border-slate-200/60 p-3 shadow-sm">
+                  <div className="text-[10px] text-slate-400 font-semibold mb-1.5 uppercase tracking-wide">
+                    Tóm tắt nhu cầu:
+                  </div>
+                  <p className="text-[11px] text-slate-700 leading-relaxed">
+                    {intent.summary}
+                  </p>
+                </div>
+
+                {/* Topics */}
+                {intent.topics?.length > 0 && (
                   <div className="space-y-1.5">
-                    {intent.products.map((p) => (
-                      <div
-                        key={`${p.productId}-${p.variantId}`}
-                        className="flex gap-2 rounded-xl bg-white border border-slate-200/60 p-2 shadow-sm hover:shadow-md transition-shadow duration-200"
-                      >
-                        {p.imageUrl ? (
-                          <img
-                            src={p.imageUrl}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-100"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center text-[9px] text-slate-400 font-bold">
-                            SP
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1 text-[11px]">
-                          <p className="font-semibold text-slate-700 leading-snug break-words whitespace-normal">
-                            {p.name}
-                          </p>
-                          <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words">
-                            {[
-                              (() => {
-                                const missingSize = "chưa có size";
-                                const missingColor = "chưa có màu";
-                                const vt = (p.variantTitle || "").trim();
-                                if (!vt || /^default/i.test(vt)) {
-                                  return `${missingSize} · ${missingColor}`;
-                                }
-                                if (vt.includes("/")) {
-                                  let size: string | null = null;
-                                  let color: string | null = null;
-                                  for (const part of vt
-                                    .split("/")
-                                    .map((x) => x.trim())
-                                    .filter(Boolean)) {
-                                    if (
-                                      /size|kích\s*thước|^\d+(\.\d+)?$/i.test(
-                                        part,
-                                      )
-                                    ) {
-                                      size = /^\d+(\.\d+)?$/.test(part)
-                                        ? `Size ${part}`
-                                        : part;
-                                    } else {
-                                      color = /^màu\b/i.test(part)
-                                        ? part
-                                        : `Màu ${part}`;
-                                    }
-                                  }
-                                  return `${size ?? missingSize} · ${color ?? missingColor}`;
-                                }
-                                if (
-                                  /^\d+(\.\d+)?$/.test(vt) ||
-                                  /^(size|kích\s*thước)\b/i.test(vt)
-                                ) {
-                                  const size = /^\d+(\.\d+)?$/.test(vt)
-                                    ? `Size ${vt}`
-                                    : vt;
-                                  return `${size} · ${missingColor}`;
-                                }
-                                const color = /^màu\b/i.test(vt)
-                                  ? vt
-                                  : `Màu ${vt}`;
-                                return `${missingSize} · ${color}`;
-                              })(),
-                              p.sku ? `SKU ${p.sku}` : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                          <p className="text-violet-600 font-bold mt-0.5">
-                            {p.priceLabel}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Chủ đề quan tâm
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {intent.topics.map((topic) => (
+                        <span
+                          key={topic}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-600 border border-violet-100/60"
+                        >
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                )}
+
+                {/* Sapo Products match */}
+                {intent.products && intent.products.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Sản phẩm quan tâm
+                    </span>
+                    <div className="space-y-1.5">
+                      {intent.products.map((p) => (
+                        <div
+                          key={`${p.productId}-${p.variantId}`}
+                          className="flex gap-2 rounded-xl bg-white border border-slate-200/60 p-2 shadow-sm hover:shadow-md transition-shadow duration-200"
+                        >
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-100"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center text-[9px] text-slate-400 font-bold">
+                              SP
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1 text-[11px]">
+                            <p className="font-semibold text-slate-700 leading-snug break-words whitespace-normal">
+                              {p.name}
+                            </p>
+                            <p className="text-[9px] text-emerald-700/90 font-medium mt-0.5 break-words">
+                              {[
+                                (() => {
+                                  const missingSize = "chưa có size";
+                                  const missingColor = "chưa có màu";
+                                  const vt = (p.variantTitle || "").trim();
+                                  if (!vt || /^default/i.test(vt)) {
+                                    return `${missingSize} · ${missingColor}`;
+                                  }
+                                  if (vt.includes("/")) {
+                                    let size: string | null = null;
+                                    let color: string | null = null;
+                                    for (const part of vt
+                                      .split("/")
+                                      .map((x) => x.trim())
+                                      .filter(Boolean)) {
+                                      if (
+                                        /size|kích\s*thước|^\d+(\.\d+)?$/i.test(
+                                          part,
+                                        )
+                                      ) {
+                                        size = /^\d+(\.\d+)?$/.test(part)
+                                          ? `Size ${part}`
+                                          : part;
+                                      } else {
+                                        color = /^màu\b/i.test(part)
+                                          ? part
+                                          : `Màu ${part}`;
+                                      }
+                                    }
+                                    return `${size ?? missingSize} · ${color ?? missingColor}`;
+                                  }
+                                  if (
+                                    /^\d+(\.\d+)?$/.test(vt) ||
+                                    /^(size|kích\s*thước)\b/i.test(vt)
+                                  ) {
+                                    const size = /^\d+(\.\d+)?$/.test(vt)
+                                      ? `Size ${vt}`
+                                      : vt;
+                                    return `${size} · ${missingColor}`;
+                                  }
+                                  const color = /^màu\b/i.test(vt)
+                                    ? vt
+                                    : `Màu ${vt}`;
+                                  return `${missingSize} · ${color}`;
+                                })(),
+                                p.sku ? `SKU ${p.sku}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                            <p className="text-violet-600 font-bold mt-0.5">
+                              {p.priceLabel}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Divider */}
+        <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+        <ConversationOrdersSection
+          key={conversation.id}
+          conversationId={conversation.id}
+        />
+
         <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
         {/* Tra cứu kho — thay AI gợi ý trả lời */}
@@ -648,22 +659,20 @@ export function ChatRightSidebar({
             listMaxHeightClass="max-h-72"
           />
         </div>
-
-        <div className="h-px mx-4 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-
-        {canCreateOrder && (
-          <div className="px-5 py-4 pb-6">
-            <button
-              type="button"
-              onClick={() => setSapoOrderOpen(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99] cursor-pointer"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Tạo đơn hàng
-            </button>
-          </div>
-        )}
       </div>
+
+      {canCreateOrder && (
+        <div className="shrink-0 border-t border-slate-200/70 bg-white/95 px-5 py-3 shadow-[0_-4px_12px_-6px_rgba(15,23,42,0.08)]">
+          <button
+            type="button"
+            onClick={() => setSapoOrderOpen(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-[12px] font-bold text-white shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all active:scale-[0.99] cursor-pointer"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            Tạo đơn hàng
+          </button>
+        </div>
+      )}
 
       <OmsCreateOrderDialog
         open={sapoOrderOpen}

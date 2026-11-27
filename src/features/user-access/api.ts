@@ -32,7 +32,6 @@ export type PermissionKey =
   | 'channel.view'
   | 'channel.manage'
   | 'channel.all'
-  | 'ads.view'
   | 'employee.view'
   | 'account.view'
   | 'account.manage'

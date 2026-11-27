@@ -42,6 +42,7 @@ import {
   OmsSchemeToggle,
   type OmsAddressDraft,
 } from './OmsAddressFields'
+import { addCreatedOrderToCache } from './ConversationOrdersSection'
 import { OmsCustomerCreateDialog } from './OmsCustomerCreateDialog'
 import {
   formatMoney,
@@ -341,7 +342,7 @@ export function OmsCreateOrderDialog({ open, onClose, conversation, intent }: Om
   const customerSearchQ = useQuery({
     queryKey: ['cskh', 'oms', 'customers', debouncedCustomer],
     queryFn: () => searchOmsCustomers(debouncedCustomer),
-    enabled: open && debouncedCustomer.length >= 2,
+    enabled: open,
     staleTime: 30_000,
   })
 
@@ -403,6 +404,7 @@ export function OmsCreateOrderDialog({ open, onClose, conversation, intent }: Om
       } else {
         toast.success(base)
       }
+      addCreatedOrderToCache(queryClient, conversation.id, result)
       onClose()
     },
     onError: (err) => {
@@ -862,9 +864,7 @@ export function OmsCreateOrderDialog({ open, onClose, conversation, intent }: Om
                     }
                     placeholder="Tên hoặc SĐT..."
                     searchPlaceholder="Nhập tên hoặc số điện thoại..."
-                    emptyText={
-                      customerQuery.trim().length < 2 ? 'Nhập ít nhất 2 ký tự để tìm' : 'Không tìm thấy khách hàng'
-                    }
+                    emptyText="Không tìm thấy khách hàng"
                   />
                 </OmsField>
                 <OmsField label="Tên khách" htmlFor="oms-customer-name" required error={errors.customerName}>

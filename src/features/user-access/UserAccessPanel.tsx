@@ -674,6 +674,7 @@ function AccountsManager({ me }: { me: CurrentUserProfile }) {
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: EMPLOYEE_TYPES_QUERY_KEY })
+    void queryClient.invalidateQueries({ queryKey: ['cskh', 'inbox', 'labels', 'closers'] })
     return queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
   }
 

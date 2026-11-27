@@ -3,7 +3,7 @@ import { useCurrentUserProfile } from '@/features/user-access/api';
 import { canAccessPath } from '@/router/navigation';
 import {
   Gauge, ChatCircleText, Brain, ShieldCheck, Users,
-  UserCircle, Globe, Megaphone, Package, GearSix,
+  UserCircle, Globe, Package, GearSix,
 } from '@phosphor-icons/react';
 
 // Viên Chi Bảo flower logo — 8 petals at 45° intervals
@@ -41,7 +41,6 @@ const navItems = [
   { to: '/employees', icon: Users, label: 'Nhân viên' },
   { to: '/customers', icon: UserCircle, label: 'Khách hàng' },
   { to: '/pages', icon: Globe, label: 'Page / Kênh' },
-  { to: '/ads', icon: Megaphone, label: 'Quảng cáo' },
   { to: '/products', icon: Package, label: 'Sản phẩm' },
   { to: '/settings', icon: GearSix, label: 'Cài đặt' },
 ];

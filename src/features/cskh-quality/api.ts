@@ -627,6 +627,114 @@ export async function createOmsOrder(
   return data;
 }
 
+export type CskhOrderStage =
+  | "pending"
+  | "confirmed"
+  | "shipping"
+  | "delivered"
+  | "completed"
+  | "cancelled";
+
+export type CskhOrderPayment = "unpaid" | "partially_paid" | "paid" | "refunded";
+
+export interface CskhOrderBrief {
+  name: string | null;
+  stage: CskhOrderStage;
+  payment: CskhOrderPayment;
+  totalPrice: number;
+  itemsQuantity: number;
+  firstItemName: string | null;
+}
+
+export interface CskhConversationOrder {
+  id: string;
+  source: string;
+  externalOrderId: string;
+  orderName: string | null;
+  totalPrice: number;
+  createdAt: string;
+  createdByName: string | null;
+  oms: CskhOrderBrief | null;
+}
+
+export interface CskhOrderDetailItem {
+  id: string;
+  name: string;
+  variantTitle: string | null;
+  sku: string | null;
+  imageUrl: string | null;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+export interface CskhOrderDetail {
+  id: string;
+  name: string | null;
+  stage: CskhOrderStage;
+  payment: CskhOrderPayment;
+  createdOn: string | null;
+  sourceName: string | null;
+  locationName: string | null;
+  saleName: string | null;
+  editorName: string | null;
+  note: string | null;
+  currency: string;
+  subtotalPrice: number;
+  totalDiscounts: number;
+  totalShippingPrice: number;
+  totalPrice: number;
+  totalReceived: number;
+  items: CskhOrderDetailItem[];
+  shipping: { name: string | null; phone: string | null; address: string | null } | null;
+  customer: {
+    name: string | null;
+    phone: string | null;
+    totalOrders: number | null;
+    totalSpent: number | null;
+  } | null;
+  stockShortage: Array<{ sku: string; required: number; onHand: number }>;
+}
+
+export interface CskhConversationOrderDetail {
+  order: CskhConversationOrder;
+  detail: CskhOrderDetail | null;
+  detailError: string | null;
+}
+
+export interface CskhConversationOrderList {
+  items: CskhConversationOrder[];
+  totalCount: number;
+  totalValue: number;
+}
+
+export function conversationOrdersQueryKey(conversationId: string) {
+  return ["cskh", "inbox", "conversation-orders", conversationId] as const;
+}
+
+export async function fetchConversationOrderDetail(
+  conversationId: string,
+  orderId: string,
+  signal?: AbortSignal,
+): Promise<CskhConversationOrderDetail> {
+  const { data } = await apiClient.get<CskhConversationOrderDetail>(
+    `/cskh/inbox/conversations/${conversationId}/orders/${orderId}`,
+    { signal },
+  );
+  return data;
+}
+
+export async function fetchConversationOrders(
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<CskhConversationOrderList> {
+  const { data } = await apiClient.get<CskhConversationOrderList>(
+    `/cskh/inbox/conversations/${conversationId}/orders`,
+    { signal },
+  );
+  return data;
+}
+
 export type ProductOperationsPeriodType = "month" | "week" | "day";
 
 export interface ProductOperationsDashboard {
@@ -1395,6 +1503,16 @@ export async function fetchConversationAdInsights(
   return data;
 }
 
+export interface CskhInboxLabelLog {
+  id: string;
+  action: "add" | "remove";
+  labelId: string | null;
+  labelName: string;
+  labelType: "staff" | "status";
+  actorName: string | null;
+  createdAt: string;
+}
+
 export interface CskhInboxViewer {
   userId: number;
   fullName: string;
@@ -1720,6 +1838,20 @@ export async function fetchInboxMessagesOlder(
 
 export async function fetchInboxLabels(): Promise<CskhInboxLabel[]> {
   const { data } = await apiClient.get<CskhInboxLabel[]>("/cskh/inbox/labels");
+  return data;
+}
+
+export async function fetchInboxLabelHistory(conversationId: string): Promise<CskhInboxLabelLog[]> {
+  const { data } = await apiClient.get<CskhInboxLabelLog[]>(
+    `/cskh/inbox/conversations/${conversationId}/label-history`,
+  );
+  return data;
+}
+
+export async function fetchInboxCloserLabels(pageId: string): Promise<CskhInboxLabel[]> {
+  const { data } = await apiClient.get<CskhInboxLabel[]>("/cskh/inbox/labels/closers", {
+    params: { pageId },
+  });
   return data;
 }
 

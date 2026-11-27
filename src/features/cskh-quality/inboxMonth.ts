@@ -115,19 +115,6 @@ export function formatInboxMonthLabel(key: string, compact = false): string {
   return compact ? `Thg ${monthNum}/${y}` : `Tháng ${monthNum}, ${y}`
 }
 
-export function inboxMonthOptions(count = 18): { value: string; label: string }[] {
-  const current = parseInboxMonthKey(currentInboxMonthKey())
-  if (!current) return []
-  const [y0, m0] = current.key.split('-').map(Number)
-  const out: { value: string; label: string }[] = []
-  for (let i = 0; i < count; i++) {
-    const d = new Date(Date.UTC(y0, m0 - 1 - i, 1))
-    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    out.push({ value, label: formatInboxMonthLabel(value) })
-  }
-  return out
-}
-
 export function conversationInInboxMonth(
   lastMessageAt: string | Date | null | undefined,
   monthKey: string | undefined,

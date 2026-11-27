@@ -91,6 +91,7 @@ import { useCskhInboxStream } from './useCskhInboxStream'
 import { ChatMessengerPane } from './ChatMessengerPane'
 import { appendInboxMessagesToCache, patchInboxConversationInCache } from './inboxRealtimeCache'
 import { useAuditJob } from './AuditJobProvider'
+import { CUSTOMER_INTENT_ENABLED } from './customerIntentFeature'
 import { loadAuditWorkspace, saveAuditWorkspace, firstNonEmpty } from './auditWorkspaceState'
 
 const AUDIT_INTENT_CACHE_KEY = 'cskh:audit-intent-cache:v1'
@@ -1189,7 +1190,7 @@ export function AuditMessengerView({
   const intentQuery = useQuery({
     queryKey: ['cskh', 'inbox', 'intent', inboxConv?.id, selected?.id],
     queryFn: () => fetchCustomerIntent(inboxConv!.id, selected?.id),
-    enabled: Boolean(inboxConv?.id && selected?.id && !selectedIntentCache),
+    enabled: CUSTOMER_INTENT_ENABLED && Boolean(inboxConv?.id && selected?.id && !selectedIntentCache),
     staleTime: 30_000,
     retry: false,
     refetchOnWindowFocus: false,

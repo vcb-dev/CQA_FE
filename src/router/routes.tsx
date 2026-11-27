@@ -8,7 +8,6 @@ const QualityPage = lazy(() => import("@/pages/Quality/QualityPage"));
 const EmployeesPage = lazy(() => import("@/pages/Employees/EmployeesPage"));
 const CustomersPage = lazy(() => import("@/pages/Customers/CustomersPage"));
 const PagesPage = lazy(() => import("@/pages/Pages/PagesPage"));
-const AdsPage = lazy(() => import("@/pages/Ads/AdsPage"));
 const ProductsPage = lazy(() => import("@/pages/Products/ProductsPage"));
 const SettingsPage = lazy(() => import("@/pages/Settings/SettingsPage"));
 
@@ -24,7 +23,6 @@ export const routes = [
   { path: "/employees", element: lazyPage(<EmployeesPage />) },
   { path: "/customers", element: lazyPage(<CustomersPage />) },
   { path: "/pages", element: lazyPage(<PagesPage />) },
-  { path: "/ads", element: lazyPage(<AdsPage />) },
   { path: "/products", element: lazyPage(<ProductsPage />) },
   { path: "/settings", element: lazyPage(<SettingsPage />) },
 ];

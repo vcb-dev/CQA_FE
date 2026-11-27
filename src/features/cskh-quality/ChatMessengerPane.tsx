@@ -17,7 +17,6 @@ import { getApiErrorMessage } from "@/lib/axios";
 import type { InfiniteData } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { vi } from "date-fns/locale";
-import type { DateRange } from "react-day-picker";
 import {
   useInfiniteQuery,
   useMutation,
@@ -26,7 +25,6 @@ import {
 } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  CalendarDays,
   CalendarRange,
   Check,
   ChevronDown,
@@ -93,7 +91,6 @@ import {
   currentInboxMonthKey,
   formatInboxPeriodLabel,
   inboxDateRangeKey,
-  inboxMonthOptions,
   type InboxDateRange,
 } from "./inboxMonth";
 import {
@@ -107,23 +104,22 @@ import {
   inboxMessagesForAssistant,
 } from "./InternalAssistantPanel";
 import { useCskhInboxStream } from "./useCskhInboxStream";
+import { CUSTOMER_INTENT_ENABLED } from "./customerIntentFeature";
 
 type ChatMessengerPaneProps = {
   pageId?: string;
 };
 
-type FilterTab = "all" | "unread" | "unreplied" | "ads" | "normal";
+type FilterTab = "all" | "unread" | "unreplied" | "normal";
 type InboxKindFilter = "all" | "dm" | "comment";
 
-const FILTER_TABS: FilterTab[] = ["all", "unread", "unreplied", "ads", "normal"];
+const FILTER_TABS: FilterTab[] = ["all", "unread", "unreplied", "normal"];
 
 function initialFilterFromUrl(): FilterTab {
   if (typeof window === "undefined") return "all";
   const value = new URLSearchParams(window.location.search).get("filter");
   return FILTER_TABS.includes(value as FilterTab) ? (value as FilterTab) : "all";
 }
-
-const INBOX_MONTH_OPTIONS = inboxMonthOptions(18);
 
 const EMPTY_CONV_PAGE: CskhInboxConversationPage = {
   items: [],
@@ -185,38 +181,18 @@ function InboxPlatformSelect({
   );
 }
 
-function InboxMonthSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8 w-[148px] text-[11px] font-semibold rounded-lg border-slate-200 bg-white px-2.5 shadow-none">
-        <span className="flex items-center gap-1.5 min-w-0">
-          <CalendarDays className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-          <SelectValue placeholder="Chọn tháng" />
-        </span>
-      </SelectTrigger>
-      <SelectContent className="max-h-72 bg-white rounded-xl min-w-[180px]">
-        {INBOX_MONTH_OPTIONS.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 const DATE_RANGE_PRESETS = [
   { label: "Hôm nay", fromOffset: 0, toOffset: 0 },
   { label: "Hôm qua", fromOffset: -1, toOffset: -1 },
   { label: "7 ngày qua", fromOffset: -6, toOffset: 0 },
   { label: "30 ngày qua", fromOffset: -29, toOffset: 0 },
 ] as const;
+
+const PRESET_BUTTON_CLASS =
+  "rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold";
+const PRESET_ACTIVE_CLASS = "bg-indigo-50 text-indigo-700";
+const PRESET_IDLE_CLASS =
+  "text-slate-600 hover:bg-slate-50 hover:text-slate-800";
 
 function InboxDateRangeFilter({
   value,
@@ -226,28 +202,56 @@ function InboxDateRangeFilter({
   onChange: (next: InboxDateRange | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<DateRange | undefined>();
+  const [anchor, setAnchor] = useState<string | null>(null);
   const today = vietnamTodayIso();
   const todayDate = parseISO(today);
 
   const handleOpenChange = (next: boolean) => {
-    if (next) {
-      setDraft(
-        value
-          ? { from: parseISO(value.from), to: parseISO(value.to) }
-          : undefined,
-      );
-    }
+    if (next) setAnchor(null);
     setOpen(next);
   };
 
-  const apply = (range: InboxDateRange) => {
+  const applyAndClose = (range: InboxDateRange | null) => {
+    setAnchor(null);
     onChange(range);
     setOpen(false);
   };
 
-  const draftFrom = draft?.from ? format(draft.from, "yyyy-MM-dd") : "";
-  const draftTo = draft?.to ? format(draft.to, "yyyy-MM-dd") : draftFrom;
+  const handleDayPick = (day: Date) => {
+    const picked = format(day, "yyyy-MM-dd");
+    if (!anchor) {
+      setAnchor(picked);
+      onChange({ from: picked, to: picked });
+      return;
+    }
+    if (picked === anchor) {
+      setAnchor(null);
+      setOpen(false);
+      return;
+    }
+    applyAndClose(
+      picked < anchor
+        ? { from: picked, to: anchor }
+        : { from: anchor, to: picked },
+    );
+  };
+
+  const disabledDays = anchor
+    ? [
+        { after: todayDate },
+        {
+          before: parseISO(
+            addDaysToInboxDate(anchor, -(INBOX_DATE_RANGE_MAX_DAYS - 1)),
+          ),
+        },
+        {
+          after: parseISO(
+            addDaysToInboxDate(anchor, INBOX_DATE_RANGE_MAX_DAYS - 1),
+          ),
+        },
+      ]
+    : [{ after: todayDate }];
+
   const activePreset = value
     ? DATE_RANGE_PRESETS.find(
         (p) =>
@@ -262,20 +266,20 @@ function InboxDateRangeFilter({
         <PopoverTrigger asChild>
           <button
             type="button"
-            title="Lọc theo khoảng ngày"
+            title="Lọc theo ngày hoặc khoảng ngày"
             className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border bg-white px-2.5 text-[11px] font-semibold ${
               value
                 ? "border-indigo-300/70 pr-7 text-indigo-900"
-                : "border-slate-200 text-slate-500"
+                : "border-slate-200 text-slate-600"
             }`}
           >
             <CalendarRange
-              className={`h-3.5 w-3.5 shrink-0 ${value ? "text-indigo-600" : "text-slate-400"}`}
+              className={`h-3.5 w-3.5 shrink-0 ${value ? "text-indigo-600" : "text-indigo-500"}`}
             />
             {value
               ? activePreset?.label ??
                 formatInboxPeriodLabel(inboxDateRangeKey(value), true)
-              : "Khoảng ngày"}
+              : "Tháng này"}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -290,31 +294,42 @@ function InboxDateRangeFilter({
                   key={preset.label}
                   type="button"
                   onClick={() =>
-                    apply({
+                    applyAndClose({
                       from: addDaysToInboxDate(today, preset.fromOffset),
                       to: addDaysToInboxDate(today, preset.toOffset),
                     })
                   }
-                  className={`rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold ${
+                  className={`${PRESET_BUTTON_CLASS} ${
                     activePreset?.label === preset.label
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                      ? PRESET_ACTIVE_CLASS
+                      : PRESET_IDLE_CLASS
                   }`}
                 >
                   {preset.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => applyAndClose(null)}
+                className={`${PRESET_BUTTON_CLASS} ${
+                  value ? PRESET_IDLE_CLASS : PRESET_ACTIVE_CLASS
+                }`}
+              >
+                Tháng này
+              </button>
             </div>
             <div className="flex flex-col">
               <Calendar
                 mode="range"
-                resetOnSelect
                 locale={vi}
-                selected={draft}
-                onSelect={setDraft}
-                max={INBOX_DATE_RANGE_MAX_DAYS - 1}
-                disabled={{ after: todayDate }}
-                defaultMonth={draft?.from ?? todayDate}
+                selected={
+                  value
+                    ? { from: parseISO(value.from), to: parseISO(value.to) }
+                    : undefined
+                }
+                onSelect={(_, day) => handleDayPick(day)}
+                disabled={disabledDays}
+                defaultMonth={value ? parseISO(value.from) : todayDate}
                 endMonth={todayDate}
                 className="rounded-none border-0 p-3 shadow-none"
                 classNames={{
@@ -324,25 +339,11 @@ function InboxDateRangeFilter({
                   range_middle: "bg-indigo-50! text-indigo-900! rounded-none!",
                 }}
               />
-              <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
-                <span className="text-[10.5px] font-medium text-slate-500">
-                  {draftFrom
-                    ? formatInboxPeriodLabel(
-                        inboxDateRangeKey({ from: draftFrom, to: draftTo }),
-                        true,
-                      )
-                    : `Chọn ngày bắt đầu · tối đa ${INBOX_DATE_RANGE_MAX_DAYS} ngày`}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!draftFrom}
-                  onClick={() => apply({ from: draftFrom, to: draftTo })}
-                  className="h-7 rounded-lg px-3 text-[11px] font-semibold"
-                >
-                  Áp dụng
-                </Button>
-              </div>
+              <p className="max-w-[300px] border-t border-slate-100 px-3 py-2 text-[10.5px] font-medium text-slate-500">
+                {anchor
+                  ? `Đang lọc ngày ${formatInboxPeriodLabel(anchor, true)} · bấm thêm ngày kết thúc để lọc khoảng`
+                  : `Bấm 1 ngày để lọc ngày đó, bấm thêm ngày thứ 2 để lọc khoảng (tối đa ${INBOX_DATE_RANGE_MAX_DAYS} ngày)`}
+              </p>
             </div>
           </div>
         </PopoverContent>
@@ -351,8 +352,8 @@ function InboxDateRangeFilter({
         <button
           type="button"
           onClick={() => onChange(null)}
-          title="Bỏ lọc khoảng ngày"
-          aria-label="Bỏ lọc khoảng ngày"
+          title="Bỏ lọc ngày, về tháng này"
+          aria-label="Bỏ lọc ngày, về tháng này"
           className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="h-3 w-3" />
@@ -496,7 +497,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     pageId ? [pageId] : [],
   );
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
-  const [selectedMonth, setSelectedMonth] = useState(currentInboxMonthKey);
+  const [selectedMonth] = useState(currentInboxMonthKey);
   const [dateRange, setDateRange] = useState<InboxDateRange | null>(null);
   const periodKey = dateRange ? inboxDateRangeKey(dateRange) : selectedMonth;
   const [, startFilterTransition] = useTransition();
@@ -650,7 +651,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
   const conversationFetchOpts = useMemo(() => {
     const base: {
       pageIds?: string[];
-      fromAdOnly?: boolean;
       unreadOnly?: boolean;
       organicOnly?: boolean;
       needsReplyOnly?: boolean;
@@ -670,9 +670,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       dateTo: dateRange?.to,
     };
     switch (activeFilter) {
-      case "ads":
-        base.fromAdOnly = true;
-        break;
       case "unread":
         base.unreadOnly = true;
         break;
@@ -1004,7 +1001,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       all: convStats?.total ?? 0,
       unread: convStats?.unread ?? 0,
       unreplied: convStats?.needsReply ?? 0,
-      ads: convStats?.fromAd ?? 0,
       normal: convStats?.normal ?? 0,
     };
   }, [convStats]);
@@ -1119,6 +1115,7 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
     queryFn: ({ signal }) =>
       selectedId ? fetchCustomerIntent(selectedId, undefined, signal) : null,
     enabled:
+      CUSTOMER_INTENT_ENABLED &&
       !!selectedId &&
       messagesReady &&
       !isInboxComment(sidebarConversation?.kind),
@@ -1265,12 +1262,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
       activeColor: "text-rose-600 border-rose-500",
     },
     {
-      key: "ads",
-      label: "Quảng cáo",
-      color: "text-slate-500",
-      activeColor: "text-purple-600 border-purple-500",
-    },
-    {
       key: "normal",
       label: "Tin thường",
       color: "text-slate-500",
@@ -1308,15 +1299,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <InboxMonthSelect
-            value={dateRange ? "" : selectedMonth}
-            onChange={(next) =>
-              startFilterTransition(() => {
-                setSelectedMonth(next);
-                setDateRange(null);
-              })
-            }
-          />
           <InboxDateRangeFilter
             value={dateRange}
             onChange={(next) =>
@@ -1492,24 +1474,6 @@ export function ChatMessengerPane({ pageId }: ChatMessengerPaneProps) {
                 Không tải được thống kê:{" "}
                 {getApiErrorMessage(statsErr) || "lỗi API"}
               </p>
-            )}
-
-            {activeFilter === "ads" && filterCounts.ads > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-50 border border-purple-100 text-[10px] font-semibold text-purple-700">
-                  <svg
-                    className="w-3 h-3"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                  >
-                    <path d="M4.5 2A2.5 2.5 0 002 4.5v7A2.5 2.5 0 004.5 14h7a2.5 2.5 0 002.5-2.5v-7A2.5 2.5 0 0011.5 2h-7zM5 5.5a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5zm0 2.5a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5A.5.5 0 015 8zm0 2.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5z" />
-                  </svg>
-                  Ads
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {filterCounts.ads}/{filterCounts.all} hội thoại
-                </span>
-              </div>
             )}
           </div>
 

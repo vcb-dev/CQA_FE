@@ -54,6 +54,7 @@ import {
 } from './auditDashboardHelpers'
 import { parseAuditActionItems, type DisplayTranscriptLine } from './auditHelpers'
 import { CskhAdSourceBadge, CskhPageAvatar } from './cskhUi'
+import { CUSTOMER_INTENT_ENABLED } from './customerIntentFeature'
 
 const SIDEBAR_INITIAL = 30
 const SIDEBAR_LOAD_MORE = 25
@@ -964,9 +965,11 @@ export function AuditAnalysisPanel({
             </div>
           </AuditAccordionSection>
 
-          <AuditAccordionSection value="intent" title="Khách đang hỏi">
-            <CustomerIntentTabContent intent={customerIntent} loading={intentLoading} />
-          </AuditAccordionSection>
+          {CUSTOMER_INTENT_ENABLED && (
+            <AuditAccordionSection value="intent" title="Khách đang hỏi">
+              <CustomerIntentTabContent intent={customerIntent} loading={intentLoading} />
+            </AuditAccordionSection>
+          )}
 
           <AuditAccordionSection value="detail" title="Phân tích chi tiết">
             <div className="space-y-5">

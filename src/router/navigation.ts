@@ -12,7 +12,6 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey[] | null> = {
   '/employees': ['employee.view'],
   '/customers': ['customer.view'],
   '/pages': ['channel.view'],
-  '/ads': ['ads.view'],
   '/products': ['product.view'],
   '/settings': null,
 }

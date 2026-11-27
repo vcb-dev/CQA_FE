@@ -1,6 +1,6 @@
 import { Info, MagnifyingGlass, Megaphone, Stack } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { CardHead, CardLink, DashCard, Skeleton } from "@/features/dashboard/DashboardParts";
+import { CardHead, DashCard, Skeleton } from "@/features/dashboard/DashboardParts";
 import type { AiInsightReport } from "./api";
 import { f1, fmt, hoursText, minutesText } from "./InsightParts";
 
@@ -24,7 +24,6 @@ export function SourcesCard({ report, loading }: { report: AiInsightReport | nul
         id="aii-src-title"
         title="So sánh theo nguồn khách"
         subtitle="Khách từ từng page chạy quảng cáo so với khách tự tìm đến"
-        right={<CardLink to="/ads">Quảng cáo</CardLink>}
       />
       <div className="overflow-x-auto px-1.5 pb-1 pt-2">
         <table className="w-full border-collapse text-[13px]">
